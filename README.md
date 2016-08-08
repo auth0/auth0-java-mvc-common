@@ -1,4 +1,4 @@
-# Auth0 Auth Commons
+# Auth0 Java MVC Common
 
 A Java Jar file that contains common helper classes and api client logic that are used across our Java MVC libraries.
 
