@@ -1,6 +1,15 @@
 # Auth0 Auth Commons
 
-A Java Jar file that contains commons related classes that are used across various Auth0 libraries. 
+A Java Jar file that contains common helper classes and api client logic that are used across our Java MVC libraries.
+
+The libraries dependent upon this Jar include:
+
+[Auth0 Servlet](https://github.com/auth0/auth0-servlet) 
+
+[Auth0 Spring MVC](https://github.com/auth0/auth0-spring-mvc)
+
+[Auth0 Spring Security MVC](https://github.com/auth0/auth0-spring-security-mvc) 
+
 
 ## Download
 
