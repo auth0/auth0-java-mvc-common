@@ -21,9 +21,9 @@
 	</properties>
 
 	<scm>
-		<url>https://github.com/auth0/auth0-auth-commons</url>
-		<developerConnection>scm:git:git@github.com:auth0/auth0-auth-commons.git</developerConnection>
-		<connection>scm:git:git@github.com:auth0/auth0-auth-commons.git</connection>
+		<url>https://github.com/auth0/auth0-java-mvc-common</url>
+		<developerConnection>scm:git:git@github.com:auth0/auth0-java-mvc-common.git</developerConnection>
+		<connection>scm:git:git@github.com:auth0/auth0-java-mvc-common.git</connection>
 	</scm>
 
 	<dependencies>
