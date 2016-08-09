@@ -18,15 +18,15 @@ Via Maven:
 ```xml
 <dependency>
   <groupId>com.auth0</groupId>
-  <artifactId>auth0-auth-commons</artifactId>
-  <version>0.0.1</version>
+  <artifactId>mvc-auth-commons</artifactId>
+  <version>0.1.0</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-compile 'com.auth0:auth0-auth-commons:0.0.1'
+compile 'com.auth0:mvc-auth-commons:0.1.0'
 ```
 
 ## Issue Reporting

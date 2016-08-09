@@ -9,11 +9,11 @@
 	</parent>
 
 	<groupId>com.auth0</groupId>
-	<artifactId>auth0-java-mvc-commons</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<artifactId>mvc-auth-commons</artifactId>
+	<version>0.1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>auth0-java-mvc-commons</name>
+	<name>mvc-auth-commons</name>
 	<url>http://www.auth0.com</url>
 
 	<properties>
