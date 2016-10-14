@@ -15,12 +15,6 @@ import static com.auth0.QueryParamUtils.*;
  * <p>
  * By using a nonce attribute in the state request param, we can also add additional attributes
  * as needed such as externalRedirectURL for SSO scenarios etc
- * <p>
- * Examples of query param:
- * <p>
- * queryString = "nonce=B4AD596E418F7CE02A703B42F60BAD8F";
- * queryString = "externalRedirectUrl=http://localhost:3099/callback";
- * queryString = "nonce=B4AD596E418F7CE02A703B42F60BAD8F&externalRedirectUrl=http://localhost:3099/callback";
  */
 public class NonceUtils {
 

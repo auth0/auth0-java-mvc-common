@@ -12,13 +12,6 @@ import java.util.List;
 
 /**
  * Convenience functions for querying / manipulating queryParams.
- * <p>
- * Examples of query param:
- * <p>
- * queryString = "nonce=B4AD596E418F7CE02A703B42F60BAD8F";
- * queryString = "externalRedirectUrl=http://localhost:3099/callback";
- * queryString = "nonce=B4AD596E418F7CE02A703B42F60BAD8F&externalRedirectUrl=http://localhost:3099/callback";
- * <p>
  * Useful where you wish to get a given value for a key/pair out, or replace / remove a key/value pair etc
  */
 public class QueryParamUtils {
