@@ -12,10 +12,19 @@ import java.util.List;
 
 /**
  * Convenience functions for querying / manipulating queryParams.
- * Useful where you wish to get a given value for a key/pair out, or replace / remove a key/value pair etc
+ * Useful where you wish to get a given value for a key/pair out,
+ * or replace / remove a key/value pair
  */
 public class QueryParamUtils {
 
+    /**
+     * Add or replace the given key value pair in the supplied query param
+     *
+     * @param queryParams the query param
+     * @param key the key whose corresponding value is to be added or replaced
+     * @param value the value to add or replace corresponding to given key
+     * @return updated query param with added or updated key value pair
+     */
     public static String addOrReplaceInQueryParams(final String queryParams, final String key, final String value) {
         Validate.notNull(queryParams);
         Validate.notNull(key);
@@ -30,6 +39,13 @@ public class QueryParamUtils {
         return builder.toString();
     }
 
+    /**
+     * Get the value corresponding to the supplied key from the supplied query param
+     *
+     * @param queryParams the query param
+     * @param key the key whose value should be returned if present
+     * @return the value corresponding to supplied key or null if not present
+     */
     public static String parseFromQueryParams(final String queryParams, final String key) {
         Validate.notNull(queryParams);
         Validate.notNull(key);
@@ -42,6 +58,13 @@ public class QueryParamUtils {
         return null;
     }
 
+    /**
+     * Indicates whether the supplied key already exists as a key value pair in the supplied query param
+     *
+     * @param queryParams the query param
+     * @param key the key to search for
+     * @return boolean whether the key does already exist in supplied query param
+     */
     public static boolean keyInQueryParams(final String queryParams, final String key) {
         Validate.notNull(queryParams);
         Validate.notNull(key);
@@ -54,6 +77,13 @@ public class QueryParamUtils {
         return false;
     }
 
+    /**
+     * Remove the given key value pair from the supplied query param
+     *
+     * @param queryParams the query param
+     * @param key the key whose corresponding value is to be added or replaced
+     * @return updated query param with removed (if previously present) key value pair
+     */
     public static String removeFromQueryParams(final String queryParams, final String key) {
         Validate.notNull(queryParams);
         Validate.notNull(key);

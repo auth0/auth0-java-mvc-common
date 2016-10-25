@@ -21,6 +21,12 @@ public class NonceUtils {
     public static final String NONCE_KEY = "nonce";
 
 
+    /**
+     * Add a nonce value to session storage if not already exists
+     * Will be appended as a key / value pair to the state attribute
+     * whose value is of the form of a query param (key1=value1&amp;key2=value2)
+     * @param req the http servlet request
+     */
     public static void addNonceToStorage(final HttpServletRequest req) {
         final String stateFromStorage = SessionUtils.getState(req) != null ? SessionUtils.getState(req) : "";
         // only add if no existing entry..
@@ -30,12 +36,23 @@ public class NonceUtils {
         }
     }
 
+    /**
+     * Remove a nonce value from session storage if present
+     * The key / value pair will be removed from the state attribute
+     * @param req the http servlet request
+     */
     public static void removeNonceFromStorage(final HttpServletRequest req) {
         final String stateFromStorage = SessionUtils.getState(req) != null ? SessionUtils.getState(req) : "";
         final String stateFromStorageWithoutNonce = removeFromQueryParams(stateFromStorage, NONCE_KEY);
         SessionUtils.setState(req, stateFromStorageWithoutNonce);
     }
 
+    /**
+     * Indicates whether the nonce value in the http request matches the nonce value in session storage
+     * @param req the http servlet request
+     * @param stateFromRequest the state value received with the http request
+     * @return boolean indicating whether the nonce received in the request matches session storage value
+     */
     public static boolean matchesNonceInStorage(final HttpServletRequest req, final String stateFromRequest) {
         final String nonceFromRequest = parseFromQueryParams(stateFromRequest, NONCE_KEY);
         final String stateFromStorage = SessionUtils.getState(req);

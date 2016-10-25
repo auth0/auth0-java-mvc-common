@@ -3,14 +3,17 @@ package com.auth0;
 import java.util.Random;
 
 /**
- * Create a token (nonce) that can be stored in State param
- * to correlate requests with callbacks and ensure validity.
- * Assists with CSRF prevention
+ * Create a randomly generated Nonce value (for example: D27906B34E8B08554F43E0CDC4904BB2)
+ * that can be stored in State param to correlate requests with callbacks and ensure validity.
  */
 public class NonceFactory {
 
     private static final Random randomSource = new Random();
 
+    /**
+     * Create a randomly generated Nonce value (for example: D27906B34E8B08554F43E0CDC4904BB2)
+     * @return the nonce value
+     */
     public static String create() {
         byte random[] = new byte[16];
         StringBuilder buffer = new StringBuilder();

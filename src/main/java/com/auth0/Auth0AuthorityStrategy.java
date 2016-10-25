@@ -1,14 +1,14 @@
 package com.auth0;
 
 /**
- * The authority strategy being used
+ * The authority strategy being used - can be either ROLES, GROUPS, or SCOPE
  *
- * Would expect three possible types of strategy pertaining to "Role" info:
- * Groups, Roles, and Scope
+ * For API Resource Server using JWT Access Tokens - `scope` is the default.
+ * This is a claim added to the JWT Access token whose values are the scope
+ * values representing the permissions granted.
  *
- * For API Resource Server using JWT Tokens - `scope` is the default
- * Configurable via auth0.properties file
- *
+ * For MVC applications, custom RULES may apply ROLES or GROUPS claim on the ID Token
+ * whose values are the scope values representing the permissions granted.
  */
 public enum Auth0AuthorityStrategy {
 
@@ -18,6 +18,9 @@ public enum Auth0AuthorityStrategy {
 
     private final String name;
 
+    /**
+     * @param name the name of the authority strategy
+     */
     Auth0AuthorityStrategy(final String name) {
         this.name = name;
     }
@@ -27,7 +30,12 @@ public enum Auth0AuthorityStrategy {
         return this.name;
     }
 
-    public static boolean contains(String value) {
+    /**
+     * Indicates whether this Authority Strategy contains the value supplied
+     * @param value the value to check
+     * @return boolean indicating whether found
+     */
+    public static boolean contains(final String value) {
         for (final Auth0AuthorityStrategy authorityStrategy : Auth0AuthorityStrategy.values()) {
             if (authorityStrategy.name().equals(value)) {
                 return true;

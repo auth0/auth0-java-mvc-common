@@ -14,6 +14,13 @@ public class Auth0ClientImpl implements Auth0Client {
     protected final String clientSecret;
     protected final AuthenticationAPIClient authenticationAPIClient;
 
+    /**
+     * Constructor
+     *
+     * @param clientId the clientId
+     * @param clientSecret the clientSecret
+     * @param domain the domain
+     */
     public Auth0ClientImpl(final String clientId, final String clientSecret, final String domain) {
         Validate.notNull(clientId);
         Validate.notNull(clientSecret);
