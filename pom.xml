@@ -10,7 +10,7 @@
 
 	<groupId>com.auth0</groupId>
 	<artifactId>mvc-auth-commons</artifactId>
-	<version>0.1.2-SNAPSHOT</version>
+	<version>0.1.2</version>
 	<packaging>jar</packaging>
 
 	<name>mvc-auth-commons</name>
