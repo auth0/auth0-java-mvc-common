@@ -59,7 +59,7 @@ public class AuthenticationController {
         /**
          * Change the response type to request in the Authorization step. Default value is 'code'.
          *
-         * @param responseType the response type to request. Any combination of 'code', 'token' and 'id_token' is allowed, using a space as separator.
+         * @param responseType the response type to request. Any combination of 'code', 'token' and 'id_token' but 'token id_token' is allowed, using a space as separator.
          * @return this same builder instance.
          */
         public Builder withResponseType(String responseType) {
@@ -97,6 +97,9 @@ public class AuthenticationController {
             List<String> types = Arrays.asList(responseType.split(" "));
             if (types.contains(RESPONSE_TYPE_CODE)) {
                 return new AuthenticationController(factory.forCodeGrant(domain, clientId, clientSecret, responseType));
+            }
+            if (types.contains(RESPONSE_TYPE_TOKEN) && types.contains(RESPONSE_TYPE_ID_TOKEN)) {
+                throw new IllegalArgumentException("Response Type 'token id_token' is not supported yet.");
             }
             if (types.contains(RESPONSE_TYPE_TOKEN) || types.contains(RESPONSE_TYPE_ID_TOKEN)) {
                 RequestProcessor processor;
