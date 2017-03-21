@@ -1,14 +1,72 @@
 group 'com.auth0'
-version '1.0.0-SNAPSHOT'
 
-apply plugin: 'java'
+apply plugin: 'com.auth0.gradle.oss-library.java'
+apply plugin: 'jacoco'
 
-sourceCompatibility = 1.5
+oss {
+    name 'mvc-auth-commons'
+    repository 'auth0-java-mvc-common'
+    organization 'auth0'
+    description 'Java library that simplifies the use of Auth0 for server-side MVC web apps'
+
+    developers {
+        auth0 {
+            displayName = 'Auth0'
+            email = 'oss@auth0.com'
+        }
+        lbalmaceda {
+            displayName = 'Luciano Balmaceda'
+            email = 'luciano.balmaceda@auth0.com'
+        }
+    }
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled = true
+        html.enabled = true
+    }
+}
+
+compileJava {
+    sourceCompatibility '1.7'
+    targetCompatibility '1.7'
+}
+
+test {
+    testLogging {
+        events "skipped", "failed"
+        exceptionFormat "short"
+    }
+}
+
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7'
+        classpath 'gradle.plugin.com.auth0.gradle:oss-library:0.6.0'
+    }
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.11'
+    compile 'javax.servlet:javax.servlet-api:3.1.0'
+    compile 'org.bouncycastle:bcprov-jdk15on:1.56'
+    compile 'org.apache.commons:commons-lang3:3.3.2'
+    compile 'com.auth0:auth0:1.0.0'
+    compile 'com.auth0:java-jwt:3.1.0'
+    compile 'com.auth0:jwks-rsa:0.2.0'
+
+    testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
+    testCompile 'org.hamcrest:hamcrest-core:1.3'
+    testCompile 'org.mockito:mockito-core:2.7.4'
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.springframework:spring-test:4.3.6.RELEASE'
 }
