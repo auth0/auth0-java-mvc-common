@@ -41,6 +41,15 @@ class RequestProcessor {
     }
 
     /**
+     * Getter for the AuthAPI client instance.
+     *
+     * @return the AuthAPI client.
+     */
+    AuthAPI getClient() {
+        return client;
+    }
+
+    /**
      * Builds an Auth0 Authorize Url ready to call with the given parameters.
      *
      * @param redirectUri the url to call with the authentication result.

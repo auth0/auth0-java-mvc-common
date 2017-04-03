@@ -419,6 +419,12 @@ public class RequestProcessorTest {
         assertThat(authorizeUrl, containsString("response_mode=form_post"));
     }
 
+    @Test
+    public void shouldGetAuthAPIClient() throws Exception {
+        RequestProcessor handler = new RequestProcessor(client, "responseType", null);
+        assertThat(handler.getClient(), is(client));
+    }
+
     // Utils
 
     private HttpServletRequest getRequest(Map<String, Object> parameters) {

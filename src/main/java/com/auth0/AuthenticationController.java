@@ -114,6 +114,15 @@ public class AuthenticationController {
         }
     }
 
+    /**
+     * Whether to enable or not the HTTP Logger for every Request and Response.
+     * Enabling this can expose sensitive information.
+     *
+     * @param enabled whether to enable the HTTP logger or not.
+     */
+    public void setLoggingEnabled(boolean enabled) {
+        requestProcessor.getClient().setLoggingEnabled(enabled);
+    }
 
     /**
      * Entrypoint for HTTP request

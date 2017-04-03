@@ -1,5 +1,6 @@
 package com.auth0;
 
+import com.auth0.client.auth.AuthAPI;
 import com.auth0.jwk.JwkProvider;
 import org.junit.Before;
 import org.junit.Rule;
@@ -32,6 +33,8 @@ public class AuthenticationControllerTest {
     private RequestProcessor requestProcessor;
     @Mock
     private RequestProcessorFactory requestProcessorFactory;
+    @Mock
+    private AuthAPI client;
 
     @Before
     public void setUp() throws Exception {
@@ -39,6 +42,7 @@ public class AuthenticationControllerTest {
         when(requestProcessorFactory.forCodeGrant(eq("domain"), eq("clientId"), eq("clientSecret"), anyString())).thenReturn(requestProcessor);
         when(requestProcessorFactory.forImplicitGrant(eq("domain"), eq("clientId"), eq("clientSecret"), anyString())).thenReturn(requestProcessor);
         when(requestProcessorFactory.forImplicitGrant(eq("domain"), eq("clientId"), eq("clientSecret"), anyString(), any(JwkProvider.class))).thenReturn(requestProcessor);
+        when(requestProcessor.getClient()).thenReturn(client);
     }
 
     @Test
@@ -263,6 +267,28 @@ public class AuthenticationControllerTest {
         String savedNonce = (String) req.getSession(true).getAttribute("com.auth0.nonce");
         assertThat(savedState, is(stateCaptor.getValue()));
         assertThat(savedNonce, is(nonceCaptor.getValue()));
+    }
+
+    @Test
+    public void shouldEnableLogging() throws Exception {
+        RequestProcessorFactory requestProcessorFactory = mock(RequestProcessorFactory.class);
+        when(requestProcessorFactory.forCodeGrant("domain", "clientId", "clientSecret", "code")).thenReturn(requestProcessor);
+        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .build(requestProcessorFactory);
+
+        controller.setLoggingEnabled(true);
+        verify(client).setLoggingEnabled(true);
+    }
+
+    @Test
+    public void shouldDisableLogging() throws Exception {
+        RequestProcessorFactory requestProcessorFactory = mock(RequestProcessorFactory.class);
+        when(requestProcessorFactory.forCodeGrant("domain", "clientId", "clientSecret", "code")).thenReturn(requestProcessor);
+        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .build(requestProcessorFactory);
+
+        controller.setLoggingEnabled(false);
+        verify(client).setLoggingEnabled(false);
     }
 
 }

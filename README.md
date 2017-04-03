@@ -119,6 +119,13 @@ try {
 The `JwkProvider` returned from the `JwkProviderBuilder` it's cached and rate limited, check it's [repository](https://github.com/auth0/jwks-rsa-java) for custom configuration.
 
 
+### Troubleshooting
+
+Once you have created the instance of the `AuthenticationController` you can enable HTTP logging for all Requests and Responses if you need to debug a specific endpoint. Keep in mind that this will log everything including sensitive information. Don't use it in production environment.
+
+```java
+authController.setLoggingEnabled(true);
+```
 
 ## Issue Reporting
 
