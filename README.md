@@ -1,14 +1,12 @@
 # Auth0 Java MVC Commons
 
-A Java Jar library that contains common helper classes and api client logic that are used across our Java MVC libraries.
+A Java Jar library that makes easier to integrate Auth0 Authentication on MVC applications.
 
-The libraries dependent upon this Jar include:
+A few samples are available demonstrating the usage with _Java Servlets_ and _Spring_:
 
-[Auth0 Servlet](https://github.com/auth0/auth0-servlet)
+[Java Servlets](https://github.com/auth0/auth0-servlet/tree/example)
 
-[Auth0 Spring MVC](https://github.com/auth0/auth0-spring-mvc)
-
-[Auth0 Spring Security MVC](https://github.com/auth0/auth0-spring-security-mvc)
+[Spring](https://github.com/auth0/auth0-spring-mvc/tree/example)
 
 
 ## Download
@@ -33,34 +31,30 @@ compile 'com.auth0:mvc-auth-commons:1.0.0'
 ## Configuration
 
 ### Auth0 Dashboard
-1. Go to the [Clients Dashboard](https://manage.auth0.com/#/clients) and create a new Client of type **Regular Web Application**. Verify that the "Token Endpoint Authentication Method" is `POST`.
+1. Go to the Auth0 [Clients Dashboard](https://manage.auth0.com/#/clients) and create a new Client of type **Regular Web Application**. Verify that the "Token Endpoint Authentication Method" is set to `POST`.
 2. Add a valid callback URL to the "Allowed Callback URLs" field. This URL will be called with the authentication result.
-3. Add a valid logout URL to the "Allowed Logout URLs" field.
-4. Take the `Client Id`, `Domain`, and `Client Secret` values and use them to configure the controller.
+3. Take the `Client Id`, `Domain`, and `Client Secret` values and use them to configure the controller.
 
 ### Java Application
-5. Use the `AuthenticationController.Builder` class to configure the authentication behavior and build the `AuthenticationController` instance, read [below](#builder-options) for more options. i.e. using the `HS256` Algorithm and Code Grant (default):
-
+4. Create a new `AuthenticationController` by using the provided Builder. Read [below](#builder-options) to learn how to change the default behavior. i.e. using the `HS256` Algorithm and Code Grant (default):
 ```java
-try {
-    AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-       .build();
-} catch (UnsupportedEncodingException e) {
-    // Only thrown when using Implicit Grant with HS256 Algorithm.
-    // This example is not that case so we can ignore it.
-}
+AuthenticationController controller = AuthenticationController.newBuilder("domain", "client_id", "client_secret")
+            .build();
 ```
-
-6. Create a valid "Authorize URL" with `AuthenticationController#buildAuthorizeUrl`. This would normally be done on the component that shows the login page. Redirect the user to this URL and wait for the callback on the `redirectURL`.
+5. Create a valid "Authorize URL" with `AuthenticationController#buildAuthorizeUrl`. This would normally be done on the component that shows the login page. Redirect the user to this URL and wait for the callback on the given `redirectURL`.
 
 ```java
+//let the library generate the state/nonce parameters
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here");
 // or use custom state/nonce parameters
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here", "state", "nonce");
 // Now redirect the user to the authorizeUrl
 ```
 
-7. Pass the requests received in your application to the `AuthenticationController#handle` method and expect a `Tokens` instance back if everything goes well. Keep in mind that this library will not store any value for you, but you can use the `SessionUtils` class as a helper to store key-value data in the Session Storage.
+6. The user will be presented with the Auth0 Hosted Login page in which he'll prompt his credentials and authenticate. Your application must expect a call to the `redirectURL`. 
+7. Pass the received request to the `AuthenticationController#handle` method and expect a `Tokens` instance back if everything goes well. 
+
+**Keep in mind that this library will not store any value for you, but you can use the `SessionUtils` class as a helper to store key-value data in the request's Session Storage.**
 
 ```java
 try {
@@ -80,19 +74,19 @@ That's it! You have authenticated the user using Auth0.
 
 
 ### Builder Options
-By default, the **Code Grant** flow will be used and preferred over other flows. This is the most secure and recommended way, read more about it [here](https://auth0.com/docs/api-auth/grant/authorization-code). This means that if the response type contains `code` along with other types, the Code Grant will still be preferred.
+By default, the **Code Grant** flow will be preferred over other flows. This is the most secure and recommended way, read more about it [here](https://auth0.com/docs/api-auth/grant/authorization-code). This means that if the response type contains `code` along with other types, Code Grant will still be preferred.
 
 You can change the authentication behavior to use **Implicit Grant** instead. To do this you'll need to check in your Client's Settings on the [Dashboard](https://manage.auth0.com/#/clients) which Algorithm is used by the Server to sign the tokens. The default algorithm is `HS256`, but it can be changed to `RS256` in the "Advanced Settings" section on the "OAuth" tab. Below you'll find some configuration examples:
 
 
 #### Using Implicit Grant with HS256 algorithm
 
-The token's are signed using the `Client Secret`.
+The token's are signed by the Auth0 Server using the `Client Secret`.
 
 ```java
 try {
     AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-        .withResponseType("token id_token")
+        .withResponseType("id_token")
         .build();
 } catch (UnsupportedEncodingException e) {
     // The environment doesn't support UTF-8 encoding 
@@ -108,7 +102,7 @@ The tokens are signed using the Private Key. To verify them, the **Public Key** 
 try {
     JwkProvider jwkProvider = new JwkProviderBuilder("domain").build();
     AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-        .withResponseType("token id_token")
+        .withResponseType("id_token")
         .withJwkProvider(jwkProvider)
         .build();
 } catch (UnsupportedEncodingException e) {
@@ -116,7 +110,7 @@ try {
 }
 ```
 
-The `JwkProvider` returned from the `JwkProviderBuilder` it's cached and rate limited, check it's [repository](https://github.com/auth0/jwks-rsa-java) for custom configuration.
+The `JwkProvider` returned from the `JwkProviderBuilder` it's cached and rate limited, check it's [repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize it.
 
 
 ### Troubleshooting
@@ -157,4 +151,4 @@ If you have found a bug or if you have a feature request, please report them at 
 
 ## License
 
-This project is licensed under the MIT license. See the [LICENSE](LICENSE.txt) file for more info.
+This project is licensed under the MIT license. See the [LICENSE](LICENSE) file for more info.

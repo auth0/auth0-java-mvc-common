@@ -10,9 +10,10 @@ import java.util.List;
 
 
 /**
- * Base Auth0 Authenticator class
+ * Base Auth0 Authenticator class.
+ * Allows to easily authenticate using the Auth0 Hosted Login Page.
  */
-@SuppressWarnings("WeakerAccess")
+@SuppressWarnings({"WeakerAccess", "UnusedReturnValue", "SameParameterValue"})
 public class AuthenticationController {
     private static final String RESPONSE_TYPE_CODE = "code";
     private static final String RESPONSE_TYPE_TOKEN = "token";
@@ -25,9 +26,9 @@ public class AuthenticationController {
     }
 
     /**
-     * Create a new Builder instance to configure the AuthenticationController response type and algorithm used on the verification.
-     * By default it will request Code Grant, but if the response type is changed to 'token' it will handle the Implicit Grant with the
-     * algorithm HS256 using as secret the provided Client Secret.
+     * Create a new {@link Builder} instance to configure the {@link AuthenticationController} response type and algorithm used on the verification.
+     * By default it will request response type 'code' and later perform the Code Exchange, but if the response type is changed to 'token' it will handle
+     * the Implicit Grant using the HS256 algorithm with the Client Secret as secret.
      *
      * @param domain       the Auth0 domain
      * @param clientId     the Auth0 client id
@@ -82,9 +83,9 @@ public class AuthenticationController {
         }
 
         /**
-         * Create a new AuthenticationController instance that will handle both Code Grant and Implicit Grant flows using either Code Exchange or verifying the token's signature.
+         * Create a new {@link AuthenticationController} instance that will handle both Code Grant and Implicit Grant flows using either Code Exchange or Token Signature verification.
          *
-         * @return a new instance of AuthenticationController.
+         * @return a new instance of {@link AuthenticationController}.
          * @throws UnsupportedEncodingException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
          */
         public AuthenticationController build() throws UnsupportedEncodingException {
@@ -125,19 +126,13 @@ public class AuthenticationController {
     }
 
     /**
-     * Entrypoint for HTTP request
-     * <p>
-     * 1). Responsible for validating the request and ensuring the state value in session storage matches the state value passed to this endpoint.
-     * 2). Exchanging the authorization code received with this HTTP request for auth0 tokens or extracting and verifying them from the request parameters.
-     * 3). Getting the user information associated to the id_token/access_token.
-     * 4). Storing the user id into the session storage.
-     * 5). Clearing the stored state value.
-     * 6). Handling success and any failure outcomes.
-     * <p>
+     * Processes a request validating the received parameters and performs a Code Exchange or a Token's Signature Verification,
+     * depending on the chosen Response Type, to finally obtain a set of {@link Tokens}.
      *
      * @param request the received request to process.
      * @return the Tokens obtained after the user authentication.
-     * @throws IdentityVerificationException if an error occurred while processing the request
+     * @throws InvalidRequestException       if the error is result of making an invalid authentication request.
+     * @throws IdentityVerificationException if an error occurred while verifying the request tokens.
      */
     public Tokens handle(HttpServletRequest request) throws IdentityVerificationException {
         Validate.notNull(request);
@@ -148,8 +143,8 @@ public class AuthenticationController {
     /**
      * Builds an Auth0 Authorize Url ready to call with the given parameters.
      *
-     * @param request     the caller request. Used to keep the session.
-     * @param redirectUri the url to call with the authentication result.
+     * @param request     the caller request. Used to keep the session context.
+     * @param redirectUri the url to call back with the authentication result.
      * @return the authorize url ready to call.
      */
     public String buildAuthorizeUrl(HttpServletRequest request, String redirectUri) {
@@ -161,8 +156,8 @@ public class AuthenticationController {
     /**
      * Builds an Auth0 Authorize Url ready to call with the given parameters.
      *
-     * @param request     the caller request. Used to keep the session.
-     * @param redirectUri the url to call with the authentication result.
+     * @param request     the caller request. Used to keep the session context.
+     * @param redirectUri the url to call back with the authentication result.
      * @param state       a valid state value.
      * @param nonce       the nonce value that will be used if the response type contains 'id_token'. If this is not the case, it can be null.
      * @return the authorize url ready to call.

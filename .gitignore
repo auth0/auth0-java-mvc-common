@@ -53,6 +53,7 @@ modules.xml
 .idea/misc.xml
 *.ipr
 
+.idea/kotlinc.xml
 
 ### Java ###
 *.class

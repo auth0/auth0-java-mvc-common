@@ -1,6 +1,7 @@
 package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
+import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.json.auth.UserInfo;
@@ -22,6 +23,21 @@ import static com.auth0.InvalidRequestException.MISSING_AUTHORIZATION_CODE_ERROR
  * When the tokens are obtained, it will request the user id associated to them and save it in the {@link javax.servlet.http.HttpSession}.
  */
 class RequestProcessor {
+
+    private static final String KEY_SUB = "sub";
+    private static final String KEY_STATE = "state";
+    private static final String KEY_ERROR = "error";
+    private static final String KEY_ERROR_DESCRIPTION = "error_description";
+    private static final String KEY_EXPIRES_IN = "expires_in";
+    private static final String KEY_ACCESS_TOKEN = "access_token";
+    private static final String KEY_ID_TOKEN = "id_token";
+    private static final String KEY_REFRESH_TOKEN = "refresh_token";
+    private static final String KEY_TOKEN_TYPE = "token_type";
+    private static final String KEY_CODE = "code";
+    private static final String KEY_TOKEN = "token";
+    private static final String KEY_RESPONSE_MODE = "response_mode";
+    private static final String KEY_FORM_POST = "form_post";
+    private static final String KEY_NONCE = "nonce";
 
     //Visible for testing
     final AuthAPI client;
@@ -58,21 +74,19 @@ class RequestProcessor {
      * @return the authorize url ready to call.
      */
     String buildAuthorizeUrl(String redirectUri, String state, String nonce) {
-        String authorizeUrl = client
+        AuthorizeUrlBuilder urlBuilder = client
                 .authorizeUrl(redirectUri)
                 .withState(state)
-                .build();
+                .withResponseType(responseType);
 
-        //TODO: Use next auth0-java release
-        authorizeUrl = authorizeUrl.replace("response_type=code", "response_type=" + responseType);
         List<String> responseTypeList = getResponseType();
-        if (responseTypeList.contains("id_token")) {
-            authorizeUrl = authorizeUrl.concat("&nonce=" + nonce);
+        if (responseTypeList.contains(KEY_ID_TOKEN)) {
+            urlBuilder.withParameter(KEY_NONCE, nonce);
         }
-        if (responseTypeList.contains("token") || responseTypeList.contains("id_token")) {
-            authorizeUrl = authorizeUrl.concat("&response_mode=form_post");
+        if (responseTypeList.contains(KEY_TOKEN) || responseTypeList.contains(KEY_ID_TOKEN)) {
+            urlBuilder.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);
         }
-        return authorizeUrl;
+        return urlBuilder.build();
     }
 
     /**
@@ -92,13 +106,13 @@ class RequestProcessor {
         assertValidState(req);
 
         Tokens tokens = tokensFromRequest(req);
-        String authorizationCode = req.getParameter("code");
+        String authorizationCode = req.getParameter(KEY_CODE);
 
         String userId;
         if (authorizationCode == null && verifier == null) {
             throw new InvalidRequestException(MISSING_AUTHORIZATION_CODE_ERROR, "Authorization Code is missing from the request and Implicit Grant is not allowed.");
         } else if (verifier != null) {
-            if (getResponseType().contains("id_token")) {
+            if (getResponseType().contains(KEY_ID_TOKEN)) {
                 String expectedNonce = RandomStorage.removeSessionNonce(req);
                 try {
                     userId = verifier.verifyNonce(tokens.getIdToken(), expectedNonce);
@@ -139,8 +153,8 @@ class RequestProcessor {
      * @return a new instance of Tokens wrapping the values present in the request parameters.
      */
     private Tokens tokensFromRequest(HttpServletRequest req) {
-        Long expiresIn = req.getParameter("expires_in") == null ? null : Long.parseLong(req.getParameter("expires_in"));
-        return new Tokens(req.getParameter("access_token"), req.getParameter("id_token"), req.getParameter("refresh_token"), req.getParameter("token_type"), expiresIn);
+        Long expiresIn = req.getParameter(KEY_EXPIRES_IN) == null ? null : Long.parseLong(req.getParameter(KEY_EXPIRES_IN));
+        return new Tokens(req.getParameter(KEY_ACCESS_TOKEN), req.getParameter(KEY_ID_TOKEN), req.getParameter(KEY_REFRESH_TOKEN), req.getParameter(KEY_TOKEN_TYPE), expiresIn);
     }
 
     /**
@@ -150,9 +164,9 @@ class RequestProcessor {
      * @throws InvalidRequestException if the request contains an error
      */
     private void assertNoError(HttpServletRequest req) throws InvalidRequestException {
-        String error = req.getParameter("error");
+        String error = req.getParameter(KEY_ERROR);
         if (error != null) {
-            String errorDescription = req.getParameter("error_description");
+            String errorDescription = req.getParameter(KEY_ERROR_DESCRIPTION);
             throw new InvalidRequestException(error, errorDescription);
         }
     }
@@ -164,7 +178,7 @@ class RequestProcessor {
      * @throws InvalidRequestException if the request contains a different state from the expected one
      */
     private void assertValidState(HttpServletRequest req) throws InvalidRequestException {
-        String stateFromRequest = req.getParameter("state");
+        String stateFromRequest = req.getParameter(KEY_STATE);
         boolean valid = RandomStorage.checkSessionState(req, stateFromRequest);
         if (!valid) {
             throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one.");
@@ -199,7 +213,7 @@ class RequestProcessor {
         UserInfo info = client
                 .userInfo(accessToken)
                 .execute();
-        return info.getValues().containsKey("sub") ? (String) info.getValues().get("sub") : null;
+        return info.getValues().containsKey(KEY_SUB) ? (String) info.getValues().get(KEY_SUB) : null;
     }
 
 

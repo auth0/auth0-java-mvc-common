@@ -23,7 +23,6 @@ public class IdentityVerificationException extends Exception {
      *
      * @return the error code.
      */
-    @SuppressWarnings("unused")
     public String getCode() {
         return code;
     }
