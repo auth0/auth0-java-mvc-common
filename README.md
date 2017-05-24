@@ -1,5 +1,9 @@
 # Auth0 Java MVC Commons
 
+[![CircleCI](https://img.shields.io/circleci/project/github/auth0/auth0-java-mvc-common.svg?style=flat-square)](https://circleci.com/gh/auth0/auth0-java-mvc-common/tree/master)
+[![Coverage Status](https://img.shields.io/codecov/c/github/auth0/auth0-java-mvc-common.svg?style=flat-square)](https://codecov.io/github/auth0/auth0-java-mvc-common)
+[![License](http://img.shields.io/:license-mit-blue.svg?style=flat)](http://doge.mit-license.org)
+
 A Java Jar library that makes easier to integrate Auth0 Authentication on MVC applications.
 
 A few samples are available demonstrating the usage with _Java Servlets_ and _Spring_:
