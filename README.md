@@ -84,13 +84,9 @@ You can change the authentication behavior to use **Implicit Grant** instead. To
 The token's are signed by the Auth0 Server using the `Client Secret`.
 
 ```java
-try {
-    AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-        .withResponseType("id_token")
-        .build();
-} catch (UnsupportedEncodingException e) {
-    // The environment doesn't support UTF-8 encoding 
-}
+AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    .withResponseType("id_token")
+    .build();
 ```
 
 #### Using Implicit Grant with RS256 algorithm.
@@ -99,15 +95,11 @@ The tokens are signed using the Private Key. To verify them, the **Public Key** 
 
 
 ```java
-try {
-    JwkProvider jwkProvider = new JwkProviderBuilder("domain").build();
-    AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-        .withResponseType("id_token")
-        .withJwkProvider(jwkProvider)
-        .build();
-} catch (UnsupportedEncodingException e) {
-    // Not thrown with RS256 
-}
+JwkProvider jwkProvider = new JwkProviderBuilder("domain").build();
+AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    .withResponseType("id_token")
+    .withJwkProvider(jwkProvider)
+    .build();
 ```
 
 The `JwkProvider` returned from the `JwkProviderBuilder` it's cached and rate limited, check it's [repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize it.

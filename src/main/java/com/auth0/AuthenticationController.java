@@ -86,14 +86,14 @@ public class AuthenticationController {
          * Create a new {@link AuthenticationController} instance that will handle both Code Grant and Implicit Grant flows using either Code Exchange or Token Signature verification.
          *
          * @return a new instance of {@link AuthenticationController}.
-         * @throws UnsupportedEncodingException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
+         * @throws UnsupportedOperationException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
          */
-        public AuthenticationController build() throws UnsupportedEncodingException {
+        public AuthenticationController build() throws UnsupportedOperationException {
             return build(new RequestProcessorFactory());
         }
 
         //Visible for testing
-        AuthenticationController build(RequestProcessorFactory factory) throws UnsupportedEncodingException {
+        AuthenticationController build(RequestProcessorFactory factory) throws UnsupportedOperationException {
             responseType = responseType.trim().toLowerCase();
             List<String> types = Arrays.asList(responseType.split(" "));
             if (types.contains(RESPONSE_TYPE_CODE)) {
@@ -105,7 +105,11 @@ public class AuthenticationController {
             if (types.contains(RESPONSE_TYPE_TOKEN) || types.contains(RESPONSE_TYPE_ID_TOKEN)) {
                 RequestProcessor processor;
                 if (jwkProvider == null) {
-                    processor = factory.forImplicitGrant(domain, clientId, clientSecret, responseType);
+                    try {
+                        processor = factory.forImplicitGrant(domain, clientId, clientSecret, responseType);
+                    } catch (UnsupportedEncodingException e) {
+                        throw new UnsupportedOperationException(e);
+                    }
                 } else {
                     processor = factory.forImplicitGrant(domain, clientId, clientSecret, responseType, jwkProvider);
                 }

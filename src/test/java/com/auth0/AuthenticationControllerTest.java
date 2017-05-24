@@ -202,7 +202,7 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldThrowIfSecretCanNotBeParsedWithImplicitGrantHS() throws Exception {
-        exception.expect(UnsupportedEncodingException.class);
+        exception.expect(UnsupportedOperationException.class);
 
         RequestProcessorFactory requestProcessorFactory = mock(RequestProcessorFactory.class);
         when(requestProcessorFactory.forImplicitGrant("domain", "clientId", "clientSecret", "token")).thenThrow(UnsupportedEncodingException.class);
