@@ -73,12 +73,12 @@ class RequestProcessor {
      * @return the authorize url builder to continue any further parameter customization.
      */
     AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri, String state, String nonce) {
-        AuthorizeUrl creator = new AuthorizeUrl(client, redirectUri, responseType)
-                .withState(request, state);
+        AuthorizeUrl creator = new AuthorizeUrl(client, request, redirectUri, responseType)
+                .withState(state);
 
         List<String> responseTypeList = getResponseType();
         if (responseTypeList.contains(KEY_ID_TOKEN) && nonce != null) {
-            creator.withNonce(request, nonce);
+            creator.withNonce(nonce);
         }
         if (responseTypeList.contains(KEY_TOKEN) || responseTypeList.contains(KEY_ID_TOKEN)) {
             creator.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);

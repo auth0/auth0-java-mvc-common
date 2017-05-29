@@ -41,7 +41,7 @@ compile 'com.auth0:mvc-auth-commons:1.0.0'
 AuthenticationController controller = AuthenticationController.newBuilder("domain", "client_id", "client_secret")
             .build();
 ```
-5. Create a valid "Authorize URL" with `AuthenticationController#buildAuthorizeUrl`. This would normally be done on the component that shows the login page. Redirect the user to this URL and wait for the callback on the given `redirectURL`.
+5. Create a valid "Authorize URL" using the `AuthenticationController#buildAuthorizeUrl` method. This would normally be done on the component that shows the login page. The builder allows you to customize the parameters requested (i.e. the scope, which by default is `openid`) and then obtain the String authorize URL by calling `AuthorizeURL#build()`. **The builder is not supposed to be reused and a `IllegalStateException` will be thrown if the `build()` method is called more than once.** Redirect the user to this URL and wait for the callback on the given `redirectURL`.  
 
 ```java
 //let the library generate the state/nonce parameters
@@ -50,21 +50,18 @@ String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirec
 
 // or use custom state/nonce parameters
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
-    .withState(request, "state")
-    .withNonce(request, "nonce")
+    .withState("state")
+    .withNonce("nonce")
     .build();
 
 // you can also specify custom parameters
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
     .withAudience("https://myapi.me.auth0.com")
     .withScope("openid create:photos read:photos")
-    .withState(request, "state")
+    .withState("state")
     .withParameter("name", "value")
     .build();
 ```
-Now redirect the user to the Authorize URL.
-
-> A default scope of `openid` will be requested.
 
 6. The user will be presented with the Auth0 Hosted Login page in which he'll prompt his credentials and authenticate. Your application must expect a call to the `redirectURL`. 
 7. Pass the received request to the `AuthenticationController#handle` method and expect a `Tokens` instance back if everything goes well. 

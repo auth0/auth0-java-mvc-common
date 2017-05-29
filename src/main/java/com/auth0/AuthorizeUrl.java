@@ -7,15 +7,25 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * Class to create and customize an Auth0 Authorize URL.
+ * It's not reusable.
  */
 @SuppressWarnings({"UnusedReturnValue", "WeakerAccess", "unused", "SameParameterValue"})
 public class AuthorizeUrl {
 
     private static final String SCOPE_OPENID = "openid";
+    private final HttpServletRequest request;
     private final AuthorizeUrlBuilder builder;
+    private boolean used;
 
-    AuthorizeUrl(AuthAPI client, String redirectUrl, String responseType) {
-        builder = client.authorizeUrl(redirectUrl)
+    /**
+     * @param client       the Auth0 Authentication API client
+     * @param request      request where the state will be saved
+     * @param redirectUrl  the url to redirect to after authentication
+     * @param responseType the response type to use
+     */
+    AuthorizeUrl(AuthAPI client, HttpServletRequest request, String redirectUrl, String responseType) {
+        this.request = request;
+        this.builder = client.authorizeUrl(redirectUrl)
                 .withResponseType(responseType)
                 .withScope(SCOPE_OPENID);
     }
@@ -45,11 +55,10 @@ public class AuthorizeUrl {
     /**
      * Sets the state value.
      *
-     * @param request request where the state will be saved
-     * @param state   state to set
+     * @param state state to set
      * @return the builder instance
      */
-    public AuthorizeUrl withState(HttpServletRequest request, String state) {
+    public AuthorizeUrl withState(String state) {
         RandomStorage.setSessionState(request, state);
         builder.withState(state);
         return this;
@@ -58,16 +67,14 @@ public class AuthorizeUrl {
     /**
      * Sets the nonce value.
      *
-     * @param request request where the nonce will be saved
-     * @param nonce   nonce to set
+     * @param nonce nonce to set
      * @return the builder instance
      */
-    public AuthorizeUrl withNonce(HttpServletRequest request, String nonce) {
+    public AuthorizeUrl withNonce(String nonce) {
         RandomStorage.setSessionNonce(request, nonce);
         builder.withParameter("nonce", nonce);
         return this;
     }
-
 
     /**
      * Sets the scope value.
@@ -103,10 +110,16 @@ public class AuthorizeUrl {
 
     /**
      * Creates a string representation of the URL with the configured parameters.
+     * It cannot be called more than once.
      *
      * @return the string URL
+     * @throws IllegalStateException if it's called more than once
      */
-    public String build() {
+    public String build() throws IllegalStateException {
+        if (used) {
+            throw new IllegalStateException("The AuthorizeUrl instance must not be reused.");
+        }
+        used = true;
         return builder.build();
     }
 
