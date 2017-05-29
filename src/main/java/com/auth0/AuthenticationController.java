@@ -99,9 +99,6 @@ public class AuthenticationController {
             if (types.contains(RESPONSE_TYPE_CODE)) {
                 return new AuthenticationController(factory.forCodeGrant(domain, clientId, clientSecret, responseType));
             }
-            if (types.contains(RESPONSE_TYPE_TOKEN) && types.contains(RESPONSE_TYPE_ID_TOKEN)) {
-                throw new IllegalArgumentException("Response Type 'token id_token' is not supported yet.");
-            }
             if (types.contains(RESPONSE_TYPE_TOKEN) || types.contains(RESPONSE_TYPE_ID_TOKEN)) {
                 RequestProcessor processor;
                 if (jwkProvider == null) {

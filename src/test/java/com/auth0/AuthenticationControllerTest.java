@@ -106,17 +106,10 @@ public class AuthenticationControllerTest {
                 .withResponseType("token code")
                 .build();
         AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withResponseType("token id_token code")
-                .build();
-    }
-
-    @Test
-    public void shouldThrowOnNotSupportedResponseType() throws Exception {
-        exception.expect(IllegalArgumentException.class);
-        exception.expectMessage("Response Type 'token id_token' is not supported yet.");
-
-        AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .withResponseType("token id_token")
+                .build();
+        AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .withResponseType("token id_token code")
                 .build();
     }
 
