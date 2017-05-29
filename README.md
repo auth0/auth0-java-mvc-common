@@ -45,11 +45,26 @@ AuthenticationController controller = AuthenticationController.newBuilder("domai
 
 ```java
 //let the library generate the state/nonce parameters
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here");
+String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+    .build();
+
 // or use custom state/nonce parameters
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here", "state", "nonce");
-// Now redirect the user to the authorizeUrl
+String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+    .withState(request, "state")
+    .withNonce(request, "nonce")
+    .build();
+
+// you can also specify custom parameters
+String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+    .withAudience("https://myapi.me.auth0.com")
+    .withScope("openid create:photos read:photos")
+    .withState(request, "state")
+    .withParameter("name", "value")
+    .build();
 ```
+Now redirect the user to the Authorize URL.
+
+> A default scope of `openid` will be requested.
 
 6. The user will be presented with the Auth0 Hosted Login page in which he'll prompt his credentials and authenticate. Your application must expect a call to the `redirectURL`. 
 7. Pass the received request to the `AuthenticationController#handle` method and expect a `Tokens` instance back if everything goes well. 

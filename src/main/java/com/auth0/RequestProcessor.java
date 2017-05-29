@@ -1,7 +1,6 @@
 package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
-import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.json.auth.UserInfo;
@@ -37,7 +36,6 @@ class RequestProcessor {
     private static final String KEY_TOKEN = "token";
     private static final String KEY_RESPONSE_MODE = "response_mode";
     private static final String KEY_FORM_POST = "form_post";
-    private static final String KEY_NONCE = "nonce";
 
     //Visible for testing
     final AuthAPI client;
@@ -66,27 +64,26 @@ class RequestProcessor {
     }
 
     /**
-     * Builds an Auth0 Authorize Url ready to call with the given parameters.
+     * Pre builds an Auth0 Authorize Url with the given redirect URI, state and nonce parameters.
      *
+     * @param request     the caller request. Used to keep the session context.
      * @param redirectUri the url to call with the authentication result.
      * @param state       a valid state value.
      * @param nonce       the nonce value that will be used if the response type contains 'id_token'. Can be null.
-     * @return the authorize url ready to call.
+     * @return the authorize url builder to continue any further parameter customization.
      */
-    String buildAuthorizeUrl(String redirectUri, String state, String nonce) {
-        AuthorizeUrlBuilder urlBuilder = client
-                .authorizeUrl(redirectUri)
-                .withState(state)
-                .withResponseType(responseType);
+    AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri, String state, String nonce) {
+        AuthorizeUrl creator = new AuthorizeUrl(client, redirectUri, responseType)
+                .withState(request, state);
 
         List<String> responseTypeList = getResponseType();
-        if (responseTypeList.contains(KEY_ID_TOKEN)) {
-            urlBuilder.withParameter(KEY_NONCE, nonce);
+        if (responseTypeList.contains(KEY_ID_TOKEN) && nonce != null) {
+            creator.withNonce(request, nonce);
         }
         if (responseTypeList.contains(KEY_TOKEN) || responseTypeList.contains(KEY_ID_TOKEN)) {
-            urlBuilder.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);
+            creator.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);
         }
-        return urlBuilder.build();
+        return creator;
     }
 
     /**

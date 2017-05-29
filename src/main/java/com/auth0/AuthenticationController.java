@@ -145,37 +145,20 @@ public class AuthenticationController {
     }
 
     /**
-     * Builds an Auth0 Authorize Url ready to call with the given parameters.
+     * Pre builds an Auth0 Authorize Url with the given redirect URI using a random state and a random nonce if applicable.
      *
      * @param request     the caller request. Used to keep the session context.
      * @param redirectUri the url to call back with the authentication result.
-     * @return the authorize url ready to call.
+     * @return the authorize url builder to continue any further parameter customization.
      */
-    public String buildAuthorizeUrl(HttpServletRequest request, String redirectUri) {
-        String state = RandomStorage.secureRandomString();
-        String nonce = RandomStorage.secureRandomString();
-        return buildAuthorizeUrl(request, redirectUri, state, nonce);
-    }
-
-    /**
-     * Builds an Auth0 Authorize Url ready to call with the given parameters.
-     *
-     * @param request     the caller request. Used to keep the session context.
-     * @param redirectUri the url to call back with the authentication result.
-     * @param state       a valid state value.
-     * @param nonce       the nonce value that will be used if the response type contains 'id_token'. If this is not the case, it can be null.
-     * @return the authorize url ready to call.
-     */
-    public String buildAuthorizeUrl(HttpServletRequest request, String redirectUri, String state, String nonce) {
+    public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri) {
         Validate.notNull(request);
         Validate.notNull(redirectUri);
-        Validate.notNull(state);
 
-        RandomStorage.setSessionState(request, state);
-        if (requestProcessor.getResponseType().contains(RESPONSE_TYPE_ID_TOKEN) && nonce != null) {
-            RandomStorage.setSessionNonce(request, nonce);
-        }
-        return requestProcessor.buildAuthorizeUrl(redirectUri, state, nonce);
+        String state = RandomStorage.secureRandomString();
+        String nonce = RandomStorage.secureRandomString();
+
+        return requestProcessor.buildAuthorizeUrl(request, redirectUri, state, nonce);
     }
 
 }

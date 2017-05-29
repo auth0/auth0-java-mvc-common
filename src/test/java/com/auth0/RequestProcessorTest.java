@@ -24,6 +24,7 @@ import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.*;
 
 public class RequestProcessorTest {
@@ -376,29 +377,59 @@ public class RequestProcessorTest {
     public void shouldBuildAuthorizeUrl() throws Exception {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         RequestProcessor handler = new RequestProcessor(client, "code", null);
-        String authorizeUrl = handler.buildAuthorizeUrl("https://redirect.uri/here", "state", "nonce");
+        HttpServletRequest req = new MockHttpServletRequest();
+        AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
+        String authorizeUrl = builder.build();
 
         assertThat(authorizeUrl, is(notNullValue()));
         assertThat(authorizeUrl, CoreMatchers.startsWith("https://me.auth0.com/authorize?"));
         assertThat(authorizeUrl, containsString("client_id=clientId"));
         assertThat(authorizeUrl, containsString("redirect_uri=https://redirect.uri/here"));
         assertThat(authorizeUrl, containsString("response_type=code"));
+        assertThat(authorizeUrl, containsString("scope=openid"));
         assertThat(authorizeUrl, containsString("state=state"));
         assertThat(authorizeUrl, not(containsString("nonce=nonce")));
         assertThat(authorizeUrl, not(containsString("response_mode=form_post")));
     }
 
     @Test
+    public void shouldNotSetNonceIfRequestTypeIsNotIdToken() throws Exception {
+        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        RequestProcessor handler = new RequestProcessor(client, "code", null);
+        HttpServletRequest req = new MockHttpServletRequest();
+        AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
+        String authorizeUrl = builder.build();
+
+        assertThat(authorizeUrl, is(notNullValue()));
+        assertThat(authorizeUrl, not(containsString("nonce=nonce")));
+    }
+
+    @Test
+    public void shouldSetNonceIfRequestTypeIsIdToken() throws Exception {
+        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        RequestProcessor handler = new RequestProcessor(client, "id_token", null);
+        HttpServletRequest req = new MockHttpServletRequest();
+        AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
+        String authorizeUrl = builder.build();
+
+        assertThat(authorizeUrl, is(notNullValue()));
+        assertThat(authorizeUrl, containsString("nonce=nonce"));
+    }
+
+    @Test
     public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeIsIdToken() throws Exception {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         RequestProcessor handler = new RequestProcessor(client, "id_token", null);
-        String authorizeUrl = handler.buildAuthorizeUrl("https://redirect.uri/here", "state", "nonce");
+        HttpServletRequest req = new MockHttpServletRequest();
+        AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
+        String authorizeUrl = builder.build();
 
         assertThat(authorizeUrl, is(notNullValue()));
         assertThat(authorizeUrl, CoreMatchers.startsWith("https://me.auth0.com/authorize?"));
         assertThat(authorizeUrl, containsString("client_id=clientId"));
         assertThat(authorizeUrl, containsString("redirect_uri=https://redirect.uri/here"));
         assertThat(authorizeUrl, containsString("response_type=id_token"));
+        assertThat(authorizeUrl, containsString("scope=openid"));
         assertThat(authorizeUrl, containsString("state=state"));
         assertThat(authorizeUrl, containsString("nonce=nonce"));
         assertThat(authorizeUrl, containsString("response_mode=form_post"));
@@ -408,13 +439,16 @@ public class RequestProcessorTest {
     public void shouldBuildAuthorizeUrlWithFormPostIfResponseTypeIsToken() throws Exception {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         RequestProcessor handler = new RequestProcessor(client, "token", null);
-        String authorizeUrl = handler.buildAuthorizeUrl("https://redirect.uri/here", "state", "nonce");
+        HttpServletRequest req = new MockHttpServletRequest();
+        AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
+        String authorizeUrl = builder.build();
 
         assertThat(authorizeUrl, is(notNullValue()));
         assertThat(authorizeUrl, CoreMatchers.startsWith("https://me.auth0.com/authorize?"));
         assertThat(authorizeUrl, containsString("client_id=clientId"));
         assertThat(authorizeUrl, containsString("redirect_uri=https://redirect.uri/here"));
         assertThat(authorizeUrl, containsString("response_type=token"));
+        assertThat(authorizeUrl, containsString("scope=openid"));
         assertThat(authorizeUrl, containsString("state=state"));
         assertThat(authorizeUrl, containsString("response_mode=form_post"));
     }
