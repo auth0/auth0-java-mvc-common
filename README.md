@@ -8,9 +8,9 @@ A Java Jar library that makes easier to integrate Auth0 Authentication on MVC ap
 
 A few samples are available demonstrating the usage with _Java Servlets_ and _Spring_:
 
-[Java Servlets](https://github.com/auth0/auth0-servlet/tree/example)
+[Java Servlets](https://auth0.com/docs/quickstart/webapp/java)
 
-[Spring](https://github.com/auth0/auth0-spring-mvc/tree/example)
+[Spring](https://auth0.com/docs/quickstart/webapp/java-spring-mvc)
 
 
 ## Download
