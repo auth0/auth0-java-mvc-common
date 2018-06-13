@@ -47,22 +47,22 @@ buildscript {
         }
     }
     dependencies {
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.1'
         classpath 'gradle.plugin.com.auth0.gradle:oss-library:0.6.0'
     }
 }
 
 repositories {
-    mavenCentral()
+    jcenter()
 }
 
 dependencies {
     compile 'javax.servlet:javax.servlet-api:3.1.0'
-    compile 'org.bouncycastle:bcprov-jdk15on:1.57'
-    compile 'org.apache.commons:commons-lang3:3.5'
-    compile 'com.auth0:auth0:1.1.0'
-    compile 'com.auth0:java-jwt:3.2.0'
-    compile 'com.auth0:jwks-rsa:0.2.0'
+    compile 'org.bouncycastle:bcprov-jdk15on:1.59'
+    compile 'org.apache.commons:commons-lang3:3.7'
+    compile 'com.auth0:auth0:1.7.0'
+    compile 'com.auth0:java-jwt:3.4.0'
+    compile 'com.auth0:jwks-rsa:0.5.0'
 
     testCompile 'org.hamcrest:java-hamcrest:2.0.0.0'
     testCompile 'org.hamcrest:hamcrest-core:1.3'
