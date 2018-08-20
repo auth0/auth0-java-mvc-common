@@ -1,0 +1,29 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'shopRunner_auth0_java_mvc_common' 
+      containerTemplate {
+        name 'gradle' // name for the container, can be any sequence of characters
+        image 'openjdk:8-jdk'
+        ttyEnabled true
+        command 'cat'
+      }
+    }
+  }
+ 
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '50'))
+    timeout(time: 20, unit: 'MINUTES')
+    timestamps()
+  }
+ 
+  stages {
+    stage('Publish Artifacts') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'artifactory_jenkins', passwordVariable: 'artifactory_password', usernameVariable: 'artifactory_user')]) {
+          sh "./gradlew --console plain artifactoryPublish -Partifactory_user=$artifactory_user -Partifactory_password='$artifactory_password'"
+        }
+      }
+    }
+  }
+}
