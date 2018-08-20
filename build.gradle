@@ -2,6 +2,7 @@ group 'com.auth0'
 
 apply plugin: 'com.auth0.gradle.oss-library.java'
 apply plugin: 'jacoco'
+apply plugin: "com.jfrog.artifactory"
 
 oss {
     name 'mvc-auth-commons'
@@ -49,6 +50,7 @@ buildscript {
     dependencies {
         classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.1'
         classpath 'gradle.plugin.com.auth0.gradle:oss-library:0.6.0'
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4+"
     }
 }
 

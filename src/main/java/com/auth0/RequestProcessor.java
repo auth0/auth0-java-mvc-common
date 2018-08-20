@@ -6,11 +6,18 @@ import com.auth0.json.auth.TokenHolder;
 import com.auth0.json.auth.UserInfo;
 import com.auth0.jwk.JwkException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableMap;
+
 import org.apache.commons.lang3.Validate;
 
 import javax.servlet.http.HttpServletRequest;
+
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static com.auth0.IdentityVerificationException.*;
 import static com.auth0.InvalidRequestException.INVALID_STATE_ERROR;
@@ -126,7 +133,7 @@ class RequestProcessor {
                 }
             }
         } else {
-            String redirectUri = req.getRequestURL().toString();
+            String redirectUri = getRedirectUri(req);
             try {
                 Tokens latestTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
                 tokens = mergeTokens(tokens, latestTokens);
@@ -230,4 +237,38 @@ class RequestProcessor {
         return new Tokens(accessToken, idToken, refreshToken, type, expiresIn);
     }
 
+    private String getRedirectUri(HttpServletRequest req) {
+        try {
+            URI requestUri = new URI(req.getRequestURL().toString());
+            String scheme = MoreObjects.firstNonNull(
+                req.getHeader("X-Forwarded-Proto"), requestUri.getScheme());
+            String port = null;
+            String host = MoreObjects.firstNonNull(
+                req.getHeader("X-Forwarded-Host"), requestUri.getHost());
+            if (host.contains(":")) {
+                // X-forwarded-host
+                String[] hostAndPort = host.split(":");
+                host = hostAndPort[0];
+                port = hostAndPort[1];
+            }
+            if (port == null) {
+                port = MoreObjects.firstNonNull(
+                    req.getHeader("X-Forwarded-Port"), "" + requestUri.getPort());
+            }
+            // Make sure to omit the default port
+            final Map<String, String> ports = ImmutableMap.of(
+                "http", "80",
+                "https", "443"
+            );
+            if (port.equals(ports.get(scheme.toLowerCase()))) {
+                port = "-1";
+            }
+            return new URI(scheme,
+                requestUri.getUserInfo(), host, Integer.parseInt(port, 10),
+                requestUri.getPath(), requestUri.getQuery(),
+                requestUri.getFragment()).toString();
+        } catch (URISyntaxException e) {
+            return req.getRequestURL().toString();
+        }
+    }
 }
