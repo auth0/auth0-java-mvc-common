@@ -27,10 +27,10 @@ class TokenVerifier {
     private JWTVerifier verifier;
 
     /**
-     * Creates a new instance using the HS256 algorithm and the clientSecret as secret.
+     * Creates a new instance using the HS256 algorithm and the application's Client Secret as secret.
      *
-     * @param clientSecret the Auth0 client secret to validate the signature with.
-     * @param clientId     the Auth0 client id that this token is issued for.
+     * @param clientSecret the Auth0 application's client secret to validate the signature with.
+     * @param clientId     the Auth0 application's client id that this token is issued for.
      * @param domain       the Auth0 domain that issued this token.
      * @throws UnsupportedEncodingException if the current environment doesn't support UTF-8 encoding.
      */
@@ -49,7 +49,7 @@ class TokenVerifier {
      * Creates a new instance using the RS256 algorithm and the RSA key as secret.
      *
      * @param jwkProvider the JwkProvider of the key to validate the signature with.
-     * @param clientId    the Auth0 client id that this token is issued for.
+     * @param clientId    the Auth0 application's client id that this token is issued for.
      * @param domain      the Auth0 domain that issued this token.
      */
     public TokenVerifier(JwkProvider jwkProvider, String clientId, String domain) {

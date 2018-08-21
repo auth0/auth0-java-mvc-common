@@ -8,9 +8,9 @@ A Java Jar library that makes easier to integrate Auth0 Authentication on MVC ap
 
 A few samples are available demonstrating the usage with _Java Servlets_ and _Spring_:
 
-[Java Servlets](https://github.com/auth0/auth0-servlet/tree/example)
+[Java Servlets](https://auth0.com/docs/quickstart/webapp/java)
 
-[Spring](https://github.com/auth0/auth0-spring-mvc/tree/example)
+[Spring](https://auth0.com/docs/quickstart/webapp/java-spring-mvc)
 
 
 ## Download
@@ -21,21 +21,21 @@ Via Maven:
 <dependency>
     <groupId>com.auth0</groupId>
     <artifactId>mvc-auth-commons</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-compile 'com.auth0:mvc-auth-commons:1.0.0'
+compile 'com.auth0:mvc-auth-commons:1.0.1'
 ```
 
 
 ## Configuration
 
 ### Auth0 Dashboard
-1. Go to the Auth0 [Clients Dashboard](https://manage.auth0.com/#/clients) and create a new Client of type **Regular Web Application**. Verify that the "Token Endpoint Authentication Method" is set to `POST`.
+1. Go to the Auth0 [Applications Dashboard](https://manage.auth0.com/#/applications) and create a new Application of type **Regular Web Application**. Verify that the "Token Endpoint Authentication Method" is set to `POST`.
 2. Add a valid callback URL to the "Allowed Callback URLs" field. This URL will be called with the authentication result.
 3. Take the `Client Id`, `Domain`, and `Client Secret` values and use them to configure the controller.
 
@@ -92,7 +92,7 @@ That's it! You have authenticated the user using Auth0.
 ### Builder Options
 By default, the **Code Grant** flow will be preferred over other flows. This is the most secure and recommended way, read more about it [here](https://auth0.com/docs/api-auth/grant/authorization-code). This means that if the response type contains `code` along with other types, Code Grant will still be preferred.
 
-You can change the authentication behavior to use **Implicit Grant** instead. To do this you'll need to check in your Client's Settings on the [Dashboard](https://manage.auth0.com/#/clients) which Algorithm is used by the Server to sign the tokens. The default algorithm is `HS256`, but it can be changed to `RS256` in the "Advanced Settings" section on the "OAuth" tab. Below you'll find some configuration examples:
+You can change the authentication behavior to use **Implicit Grant** instead. To do this you'll need to check in your Applications's Settings on the [Dashboard](https://manage.auth0.com/#/applications) which Algorithm is used by the Server to sign the tokens. The default algorithm is `HS256`, but it can be changed to `RS256` in the "Advanced Settings" section on the "OAuth" tab. Below you'll find some configuration examples:
 
 
 #### Using Implicit Grant with HS256 algorithm
@@ -107,7 +107,7 @@ AuthenticationController authController = AuthenticationController.newBuilder("d
 
 #### Using Implicit Grant with RS256 algorithm.
 
-The tokens are signed using the Private Key. To verify them, the **Public Key** certificate must be obtained from a trusted source like the `well-known.json` file, which can be located locally or hosted by a server. For this example, we will use the one Auth0 hosts for your client. We can obtain it using the client's domain:
+The tokens are signed using the Private Key. To verify them, the **Public Key** certificate must be obtained from a trusted source like the `well-known.json` file, which can be located locally or hosted by a server. For this example, we will use the one Auth0 hosts for your application. We can obtain it using the application's domain:
 
 
 ```java
@@ -137,7 +137,7 @@ If you have found a bug or if you have a feature request, please report them at 
 
 Auth0 helps you to:
 
-* Add authentication with [multiple authentication sources](https://docs.auth0.com/identityproviders), either social like **Google, Facebook, Microsoft Account, LinkedIn, GitHub, Twitter, Box, Salesforce, amont others**, or enterprise identity systems like **Windows Azure AD, Google Apps, Active Directory, ADFS or any SAML Identity Provider**.
+* Add authentication with [multiple authentication sources](https://docs.auth0.com/identityproviders), either social like **Google, Facebook, Microsoft Account, LinkedIn, GitHub, Twitter, Box, Salesforce, among others**, or enterprise identity systems like **Windows Azure AD, Google Apps, Active Directory, ADFS or any SAML Identity Provider**.
 * Add authentication through more traditional **[username/password databases](https://docs.auth0.com/mysql-connection-tutorial)**.
 * Add support for **[linking different user accounts](https://docs.auth0.com/link-accounts)** with the same user.
 * Support for generating signed [Json Web Tokens](https://docs.auth0.com/jwt) to call your APIs and **flow the user identity** securely.

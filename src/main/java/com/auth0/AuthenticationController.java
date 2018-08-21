@@ -31,8 +31,8 @@ public class AuthenticationController {
      * the Implicit Grant using the HS256 algorithm with the Client Secret as secret.
      *
      * @param domain       the Auth0 domain
-     * @param clientId     the Auth0 client id
-     * @param clientSecret the Auth0 client secret
+     * @param clientId     the Auth0 application's client id
+     * @param clientSecret the Auth0 application's client secret
      * @return a new Builder instance ready to configure
      */
     public static Builder newBuilder(String domain, String clientId, String clientSecret) {
@@ -71,7 +71,7 @@ public class AuthenticationController {
 
         /**
          * Sets the Jwk Provider that will return the Public Key required to verify the token in case of Implicit Grant flows.
-         * This is required if the Auth0 Client is signing the tokens with the RS256 algorithm.
+         * This is required if the Auth0 Application is signing the tokens with the RS256 algorithm.
          *
          * @param jwkProvider a valid Jwk provider.
          * @return this same builder instance.
