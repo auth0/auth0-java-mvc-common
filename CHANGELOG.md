@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.4](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.4) (2019-03-11)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.3...1.0.4)
+
+**Fixed**
+- Revert auth0 dependencies scope to api (compile) [\#24](https://github.com/auth0/auth0-java-mvc-common/pull/24) ([lbalmaceda](https://github.com/lbalmaceda))
+
 ## [1.0.3](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.3) (2019-01-03)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.2...1.0.3)
 
