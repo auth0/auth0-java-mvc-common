@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.5](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.5) (2019-04-17)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.4...1.0.5)
+
+**Changed**
+- Bump dependencies [\#26](https://github.com/auth0/auth0-java-mvc-common/pull/26) ([lbalmaceda](https://github.com/lbalmaceda))
+
 ## [1.0.4](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.4) (2019-03-11)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.3...1.0.4)
 
