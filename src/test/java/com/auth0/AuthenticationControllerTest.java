@@ -233,4 +233,15 @@ public class AuthenticationControllerTest {
         verify(client).setLoggingEnabled(false);
     }
 
+    @Test
+    public void shouldDisableTelemetry() throws Exception {
+        RequestProcessorFactory requestProcessorFactory = mock(RequestProcessorFactory.class);
+        when(requestProcessorFactory.forCodeGrant("domain", "clientId", "clientSecret", "code")).thenReturn(requestProcessor);
+        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .build(requestProcessorFactory);
+
+        controller.doNotSendTelemetry();
+        verify(client).doNotSendTelemetry();
+    }
+
 }
