@@ -21,14 +21,14 @@ Via Maven:
 <dependency>
     <groupId>com.auth0</groupId>
     <artifactId>mvc-auth-commons</artifactId>
-    <version>1.0.5</version>
+    <version>1.0.6</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:mvc-auth-commons:1.0.5'
+implementation 'com.auth0:mvc-auth-commons:1.0.6'
 ```
 
 

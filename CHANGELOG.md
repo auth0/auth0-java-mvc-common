@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.6](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.6) (2019-05-02)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.5...1.0.6)
+
+**Fixed**
+- Allow telemetry to dynamically obtain the package version [\#28](https://github.com/auth0/auth0-java-mvc-common/pull/28) ([lbalmaceda](https://github.com/lbalmaceda))
+
 ## [1.0.5](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.5) (2019-04-17)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.4...1.0.5)
 
