@@ -127,6 +127,13 @@ public class AuthenticationController {
     }
 
     /**
+     * Disable sending the Telemetry header on every request to the Auth0 API
+     */
+    public void doNotSendTelemetry() {
+        requestProcessor.getClient().doNotSendTelemetry();
+    }
+
+    /**
      * Processes a request validating the received parameters and performs a Code Exchange or a Token's Signature Verification,
      * depending on the chosen Response Type, to finally obtain a set of {@link Tokens}.
      *

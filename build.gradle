@@ -48,7 +48,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
-        classpath 'gradle.plugin.com.auth0.gradle:oss-library:0.8.0'
+        classpath 'gradle.plugin.com.auth0.gradle:oss-library:0.9.0'
     }
 }
 
@@ -60,7 +60,7 @@ dependencies {
     implementation 'javax.servlet:javax.servlet-api:3.1.0'
     implementation 'org.bouncycastle:bcprov-jdk15on:1.60'
     implementation 'org.apache.commons:commons-lang3:3.8.1'
-    api 'com.auth0:auth0:1.12.0'
+    api 'com.auth0:auth0:1.13.2'
     api 'com.auth0:java-jwt:3.8.0'
     api 'com.auth0:jwks-rsa:0.8.0'
 
