@@ -58,11 +58,11 @@ repositories {
 
 dependencies {
     implementation 'javax.servlet:javax.servlet-api:3.1.0'
-    implementation 'org.bouncycastle:bcprov-jdk15on:1.60'
-    implementation 'org.apache.commons:commons-lang3:3.8.1'
-    api 'com.auth0:auth0:1.13.2'
-    api 'com.auth0:java-jwt:3.8.0'
-    api 'com.auth0:jwks-rsa:0.8.0'
+    implementation 'org.bouncycastle:bcprov-jdk15on:1.61'
+    implementation 'org.apache.commons:commons-lang3:3.9'
+    api 'com.auth0:auth0:1.13.+'
+    api 'com.auth0:java-jwt:3.8.+'
+    api 'com.auth0:jwks-rsa:0.8.+'
 
     testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
     testImplementation 'org.hamcrest:hamcrest-core:1.3'
