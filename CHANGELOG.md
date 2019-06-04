@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.8](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.8) (2019-06-04)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.7...1.0.8)
+
+**Fixed**
+- Rollback to fixed dependencies versions [\#33](https://github.com/auth0/auth0-java-mvc-common/pull/33) ([lbalmaceda](https://github.com/lbalmaceda))
+
 ## [1.0.7](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.7) (2019-05-23)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.6...1.0.7)
 
