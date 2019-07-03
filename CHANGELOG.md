@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.9](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.9) (2019-07-03)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.8...1.0.9)
+
+**Security**
+- Update to latest auth0-java [\#35](https://github.com/auth0/auth0-java-mvc-common/pull/35) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.0.8](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.8) (2019-06-04)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.7...1.0.8)
 
