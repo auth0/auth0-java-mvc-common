@@ -58,7 +58,7 @@ class TokenVerifier {
      * @param domain       the Auth0 domain that issued this token.
      * @throws UnsupportedEncodingException if the current environment doesn't support UTF-8 encoding.
      */
-    public TokenVerifier(String clientSecret, String clientId, String domain) throws UnsupportedEncodingException {
+    public TokenVerifier(String clientSecret, String clientId, String domain) {
         Validate.notNull(clientSecret);
         Validate.notNull(clientId);
         Validate.notNull(domain);

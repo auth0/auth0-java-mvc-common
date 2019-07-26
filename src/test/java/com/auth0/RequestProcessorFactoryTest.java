@@ -23,14 +23,14 @@ public class RequestProcessorFactoryTest {
     private ArgumentCaptor<AuthAPI> clientCaptor;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         RequestProcessorFactory factory = new RequestProcessorFactory();
         factorySpy = Mockito.spy(factory);
         clientCaptor = ArgumentCaptor.forClass(AuthAPI.class);
     }
 
     @Test
-    public void shouldCreateForCodeGrant() throws Exception {
+    public void shouldCreateForCodeGrant() {
         RequestProcessor processor = factorySpy.forCodeGrant("domain", "clientId", "clientSecret", "responseType");
         verify(factorySpy).setupTelemetry(clientCaptor.capture());
         AuthAPI capturedClient = clientCaptor.getValue();
@@ -56,7 +56,7 @@ public class RequestProcessorFactoryTest {
     }
 
     @Test
-    public void shouldCreateForImplicitGrantRS() throws Exception {
+    public void shouldCreateForImplicitGrantRS() {
         JwkProvider jwkProvider = mock(JwkProvider.class);
         RequestProcessor processor = factorySpy.forImplicitGrant("domain", "clientId", "clientSecret", "responseType", jwkProvider);
         verify(factorySpy).setupTelemetry(clientCaptor.capture());
@@ -70,7 +70,7 @@ public class RequestProcessorFactoryTest {
     }
 
     @Test
-    public void shouldSetupAClientWithTelemetry() throws Exception {
+    public void shouldSetupAClientWithTelemetry() {
         ArgumentCaptor<Telemetry> telemetryCaptor = ArgumentCaptor.forClass(Telemetry.class);
         AuthAPI client = mock(AuthAPI.class);
         when(factorySpy.obtainPackageVersion()).thenReturn("1.2.3");

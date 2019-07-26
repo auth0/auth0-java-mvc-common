@@ -39,28 +39,28 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldThrowOnMissingDomain() throws Exception {
+    public void shouldThrowOnMissingDomain() {
         exception.expect(NullPointerException.class);
 
         AuthenticationController.newBuilder(null, "clientId", "clientSecret");
     }
 
     @Test
-    public void shouldThrowOnMissingClientId() throws Exception {
+    public void shouldThrowOnMissingClientId() {
         exception.expect(NullPointerException.class);
 
         AuthenticationController.newBuilder("domain", null, "clientSecret");
     }
 
     @Test
-    public void shouldThrowOnMissingClientSecret() throws Exception {
+    public void shouldThrowOnMissingClientSecret() {
         exception.expect(NullPointerException.class);
 
         AuthenticationController.newBuilder("domain", "clientId", null);
     }
 
     @Test
-    public void shouldThrowOnMissingJwkProvider() throws Exception {
+    public void shouldThrowOnMissingJwkProvider() {
         exception.expect(NullPointerException.class);
 
         AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
@@ -68,7 +68,7 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldThrowOnMissingResponseType() throws Exception {
+    public void shouldThrowOnMissingResponseType() {
         exception.expect(NullPointerException.class);
 
         AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
@@ -76,7 +76,7 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldThrowOnInvalidResponseType() throws Exception {
+    public void shouldThrowOnInvalidResponseType() {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Response Type must contain any combination of 'code', 'token' or 'id_token'.");
 
@@ -86,13 +86,13 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldCreateWithDefaultValues() throws Exception {
+    public void shouldCreateWithDefaultValues() {
         AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .build();
     }
 
     @Test
-    public void shouldAcceptAnyValidResponseType() throws Exception {
+    public void shouldAcceptAnyValidResponseType() {
         AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .withResponseType("code")
                 .build();
@@ -114,7 +114,7 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldCreateWithJwkProvider() throws Exception {
+    public void shouldCreateWithJwkProvider() {
         JwkProvider provider = mock(JwkProvider.class);
         AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .withJwkProvider(provider)
@@ -199,7 +199,7 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldBuildAuthorizeUriWithRandomStateAndNonce() throws Exception {
+    public void shouldBuildAuthorizeUriWithRandomStateAndNonce() {
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .withResponseType("id_token")
                 .build(requestProcessorFactory);
@@ -212,7 +212,7 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldEnableLogging() throws Exception {
+    public void shouldEnableLogging() {
         RequestProcessorFactory requestProcessorFactory = mock(RequestProcessorFactory.class);
         when(requestProcessorFactory.forCodeGrant("domain", "clientId", "clientSecret", "code")).thenReturn(requestProcessor);
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
@@ -223,7 +223,7 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldDisableLogging() throws Exception {
+    public void shouldDisableLogging() {
         RequestProcessorFactory requestProcessorFactory = mock(RequestProcessorFactory.class);
         when(requestProcessorFactory.forCodeGrant("domain", "clientId", "clientSecret", "code")).thenReturn(requestProcessor);
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
@@ -234,7 +234,7 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldDisableTelemetry() throws Exception {
+    public void shouldDisableTelemetry() {
         RequestProcessorFactory requestProcessorFactory = mock(RequestProcessorFactory.class);
         when(requestProcessorFactory.forCodeGrant("domain", "clientId", "clientSecret", "code")).thenReturn(requestProcessor);
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")

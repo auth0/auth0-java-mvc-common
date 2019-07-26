@@ -46,25 +46,25 @@ public class RequestProcessorTest {
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         when(userInfoRequest.execute()).thenReturn(userInfo);
-        when(userInfo.getValues()).thenReturn(Collections.<String, Object>singletonMap("sub", "auth0|user123"));
+        when(userInfo.getValues()).thenReturn(Collections.singletonMap("sub", "auth0|user123"));
         TokenHolder holder = mock(TokenHolder.class);
         when(codeExchangeRequest.execute()).thenReturn(holder);
     }
 
     @Test
-    public void shouldThrowOnMissingAuthAPI() throws Exception {
+    public void shouldThrowOnMissingAuthAPI() {
         exception.expect(NullPointerException.class);
         new RequestProcessor(null, "responseType", verifier);
     }
 
     @Test
-    public void shouldThrowOnMissingResponseType() throws Exception {
+    public void shouldThrowOnMissingResponseType() {
         exception.expect(NullPointerException.class);
         new RequestProcessor(client, null, verifier);
     }
 
     @Test
-    public void shouldThrowOnMissingTokenVerifier() throws Exception {
+    public void shouldThrowOnMissingTokenVerifier() {
         exception.expect(NullPointerException.class);
         new RequestProcessor(client, "responseType", null);
     }
@@ -234,7 +234,7 @@ public class RequestProcessorTest {
         HttpServletRequest req = getRequest(params);
         RandomStorage.setSessionState(req, "1234");
         Request userInfoRequest = mock(Request.class);
-        when(userInfo.getValues()).thenReturn(Collections.<String, Object>emptyMap());
+        when(userInfo.getValues()).thenReturn(Collections.emptyMap());
         when(userInfoRequest.execute()).thenReturn(userInfo);
         when(client.userInfo("theAccessToken")).thenReturn(userInfoRequest);
 
@@ -318,7 +318,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldBuildAuthorizeUrl() throws Exception {
+    public void shouldBuildAuthorizeUrl() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         RequestProcessor handler = new RequestProcessor(client, "code", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
@@ -337,7 +337,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldNotSetNonceIfRequestTypeDoesNotContainIdToken() throws Exception {
+    public void shouldNotSetNonceIfRequestTypeDoesNotContainIdToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         RequestProcessor handler = new RequestProcessor(client, "code", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
@@ -349,7 +349,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldSetNonceIfRequestTypeContainsIdToken() throws Exception {
+    public void shouldSetNonceIfRequestTypeContainsIdToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         RequestProcessor handler = new RequestProcessor(client, "id_token", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
@@ -361,7 +361,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeContainsIdToken() throws Exception {
+    public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeContainsIdToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         RequestProcessor handler = new RequestProcessor(client, "id_token", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
@@ -380,7 +380,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldBuildAuthorizeUrlWithFormPostIfResponseTypeContainsToken() throws Exception {
+    public void shouldBuildAuthorizeUrlWithFormPostIfResponseTypeContainsToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         RequestProcessor handler = new RequestProcessor(client, "token", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
@@ -398,7 +398,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldGetAuthAPIClient() throws Exception {
+    public void shouldGetAuthAPIClient() {
         RequestProcessor handler = new RequestProcessor(client, "responseType", verifier);
         assertThat(handler.getClient(), is(client));
     }

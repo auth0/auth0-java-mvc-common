@@ -5,7 +5,6 @@ package com.auth0;
  */
 @SuppressWarnings("WeakerAccess")
 public class InvalidRequestException extends IdentityVerificationException {
-    static final String MISSING_AUTHORIZATION_CODE_ERROR = "a0.missing_authorization_code";
     static final String INVALID_STATE_ERROR = "a0.invalid_state";
 
     private final String code;

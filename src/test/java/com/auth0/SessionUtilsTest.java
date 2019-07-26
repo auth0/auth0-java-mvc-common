@@ -15,25 +15,25 @@ public class SessionUtilsTest {
     public ExpectedException exception = ExpectedException.none();
 
     @Test
-    public void shouldGetAndRemoveAttribute() throws Exception {
+    public void shouldGetAndRemoveAttribute() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.getSession().setAttribute("name", "value");
 
-        assertThat((String) SessionUtils.remove(req, "name"), is("value"));
+        assertThat(SessionUtils.remove(req, "name"), is("value"));
         assertThat(req.getSession().getAttribute("name"), is(nullValue()));
     }
 
     @Test
-    public void shouldGetAttribute() throws Exception {
+    public void shouldGetAttribute() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.getSession().setAttribute("name", "value");
 
-        assertThat((String) SessionUtils.get(req, "name"), is("value"));
-        assertThat((String) req.getSession().getAttribute("name"), is("value"));
+        assertThat(SessionUtils.get(req, "name"), is("value"));
+        assertThat(req.getSession().getAttribute("name"), is("value"));
     }
 
     @Test
-    public void shouldGetNullAttributeIfMissing() throws Exception {
+    public void shouldGetNullAttributeIfMissing() {
         MockHttpServletRequest req = new MockHttpServletRequest();
 
         assertThat(SessionUtils.get(req, "name"), is(nullValue()));
@@ -41,11 +41,11 @@ public class SessionUtilsTest {
     }
 
     @Test
-    public void shouldSetAttribute() throws Exception {
+    public void shouldSetAttribute() {
         MockHttpServletRequest req = new MockHttpServletRequest();
 
         SessionUtils.set(req, "name", "value");
-        assertThat((String) req.getSession().getAttribute("name"), is("value"));
+        assertThat(req.getSession().getAttribute("name"), is("value"));
     }
 
 }
