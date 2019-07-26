@@ -14,7 +14,6 @@ import java.util.List;
 
 import static com.auth0.IdentityVerificationException.*;
 import static com.auth0.InvalidRequestException.INVALID_STATE_ERROR;
-import static com.auth0.InvalidRequestException.MISSING_AUTHORIZATION_CODE_ERROR;
 
 /**
  * Main class to handle the Authorize Redirect request.
@@ -45,6 +44,7 @@ class RequestProcessor {
     RequestProcessor(AuthAPI client, String responseType, TokenVerifier verifier) {
         Validate.notNull(client);
         Validate.notNull(responseType);
+        Validate.notNull(verifier);
         this.client = client;
         this.responseType = responseType;
         this.verifier = verifier;
@@ -102,37 +102,38 @@ class RequestProcessor {
         assertNoError(req);
         assertValidState(req);
 
+        //Implicit flow - Obtain the tokens from the hash
         Tokens tokens = tokensFromRequest(req);
         String authorizationCode = req.getParameter(KEY_CODE);
 
-        String userId;
-        if (authorizationCode == null && verifier == null) {
-            throw new InvalidRequestException(MISSING_AUTHORIZATION_CODE_ERROR, "Authorization Code is missing from the request and Implicit Grant is not allowed.");
-        } else if (verifier != null) {
-            if (getResponseType().contains(KEY_ID_TOKEN)) {
-                String expectedNonce = RandomStorage.removeSessionNonce(req);
-                try {
-                    userId = verifier.verifyNonce(tokens.getIdToken(), expectedNonce);
-                } catch (JwkException e) {
-                    throw new IdentityVerificationException(JWT_MISSING_PUBLIC_KEY_ERROR, "An error occurred while trying to verify the Id Token.", e);
-                } catch (JWTVerificationException e) {
-                    throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the Id Token.", e);
-                }
-            } else {
-                try {
-                    userId = fetchUserId(tokens.getAccessToken());
-                } catch (Auth0Exception e) {
-                    throw new IdentityVerificationException(API_ERROR, "An error occurred while trying to verify the Access Token.", e);
-                }
-            }
-        } else {
+        if (authorizationCode != null) {
+            //Code flow - Perform code exchange and obtain "new" tokens
             String redirectUri = req.getRequestURL().toString();
             try {
                 Tokens latestTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
                 tokens = mergeTokens(tokens, latestTokens);
-                userId = fetchUserId(tokens.getAccessToken());
             } catch (Auth0Exception e) {
                 throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the Authorization Code for Auth0 Tokens.", e);
+            }
+        }
+
+        //Token Verifier
+        String userId;
+        String idToken = tokens.getIdToken();
+        if (idToken != null) {
+            String expectedNonce = RandomStorage.removeSessionNonce(req);
+            try {
+                userId = verifier.verifyNonce(idToken, expectedNonce);
+            } catch (JwkException e) {
+                throw new IdentityVerificationException(JWT_MISSING_PUBLIC_KEY_ERROR, "An error occurred while trying to verify the Id Token.", e);
+            } catch (JWTVerificationException e) {
+                throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the Id Token.", e);
+            }
+        } else {
+            try {
+                userId = fetchUserId(tokens.getAccessToken());
+            } catch (Auth0Exception e) {
+                throw new IdentityVerificationException(API_ERROR, "An error occurred while trying to verify the Access Token.", e);
             }
         }
 

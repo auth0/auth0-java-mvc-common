@@ -36,6 +36,64 @@ public class TokenVerifierTest {
     @Rule
     public ExpectedException exception = ExpectedException.none();
 
+    // None
+
+    @Test
+    public void shouldPassNoneVerification() throws Exception {
+        TokenVerifier verifier = new TokenVerifier("daOgnGsRYhkwu621vf", "https://me.auth0.com/");
+        String id1 = verifier.verifyNonce(HS_JWT, "1234");
+        String id2 = verifier.verifyNonce(RS_JWT, "1234");
+
+        assertThat(id1, is("auth0|user123"));
+        assertThat(id2, is("auth0|user123"));
+    }
+
+    @Test
+    public void shouldParseNoneDomainUrl() throws Exception {
+        TokenVerifier verifier = new TokenVerifier("daOgnGsRYhkwu621vf", "me.auth0.com");
+        String id = verifier.verifyNonce(HS_JWT, "1234");
+
+        assertThat(id, is("auth0|user123"));
+    }
+
+    @Test
+    public void shouldFailNoneVerificationOnNullToken() throws Exception {
+        exception.expect(NullPointerException.class);
+        TokenVerifier verifier = new TokenVerifier("daOgnGsRYhkwu621vf", "https://me.auth0.com/");
+        verifier.verifyNonce(null, "nonce");
+    }
+
+    @Test
+    public void shouldFailNoneVerificationOnNullNonce() throws Exception {
+        exception.expect(NullPointerException.class);
+        TokenVerifier verifier = new TokenVerifier("daOgnGsRYhkwu621vf", "https://me.auth0.com/");
+        verifier.verifyNonce(HS_JWT, null);
+    }
+
+    @Test
+    public void shouldFailNoneVerificationOnInvalidNonce() throws Exception {
+        TokenVerifier verifier = new TokenVerifier("daOgnGsRYhkwu621vf", "https://me.auth0.com/");
+        String id = verifier.verifyNonce(HS_JWT, "nonce");
+
+        assertThat(id, is(nullValue()));
+    }
+
+    @Test
+    public void shouldThrowNoneVerificationOnInvalidAudience() throws Exception {
+        exception.expect(InvalidClaimException.class);
+        TokenVerifier verifier = new TokenVerifier("someone-else", "https://me.auth0.com/");
+        verifier.verifyNonce(HS_JWT, "1234");
+    }
+
+    @Test
+    public void shouldThrowNoneVerificationOnInvalidIssuer() throws Exception {
+        exception.expect(InvalidClaimException.class);
+        TokenVerifier verifier = new TokenVerifier("daOgnGsRYhkwu621vf", "https://www.google.com/");
+        verifier.verifyNonce(HS_JWT, "1234");
+    }
+
+    // HS
+
     @Test
     public void shouldPassHSVerification() throws Exception {
         TokenVerifier verifier = new TokenVerifier("secret", "daOgnGsRYhkwu621vf", "https://me.auth0.com/");

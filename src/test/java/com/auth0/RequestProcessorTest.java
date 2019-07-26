@@ -64,7 +64,8 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldNotThrowOnMissingTokenVerifier() throws Exception {
+    public void shouldThrowOnMissingTokenVerifier() throws Exception {
+        exception.expect(NullPointerException.class);
         new RequestProcessor(client, "responseType", null);
     }
 
@@ -77,7 +78,7 @@ public class RequestProcessorTest {
         params.put("error", "something happened");
         HttpServletRequest req = getRequest(params);
 
-        RequestProcessor handler = new RequestProcessor(client, "responseType", null);
+        RequestProcessor handler = new RequestProcessor(client, "responseType", verifier);
         handler.process(req);
     }
 
@@ -91,30 +92,12 @@ public class RequestProcessorTest {
         HttpServletRequest req = getRequest(params);
         RandomStorage.setSessionState(req, "9999");
 
-        RequestProcessor handler = new RequestProcessor(client, "responseType", null);
-        handler.process(req);
-    }
-
-    //Implicit Grant
-
-    @Test
-    public void shouldThrowOnMissingCodeAndImplicitGrantNotAllowed() throws Exception {
-        exception.expect(InvalidRequestException.class);
-        exception.expectMessage("The request contains an error: a0.missing_authorization_code");
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("state", "1234");
-        params.put("access_token", "theAccessToken");
-        params.put("id_token", "theIdToken");
-        HttpServletRequest req = getRequest(params);
-        RandomStorage.setSessionState(req, "1234");
-
-        RequestProcessor handler = new RequestProcessor(client, "code", null);
+        RequestProcessor handler = new RequestProcessor(client, "responseType", verifier);
         handler.process(req);
     }
 
     @Test
-    public void shouldVerifyIdTokenOnImplicitGrant() throws Exception {
+    public void shouldVerifyIdTokenWhenPresent() throws Exception {
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         params.put("access_token", "theAccessToken");
@@ -129,13 +112,14 @@ public class RequestProcessorTest {
         Tokens tokens = handler.process(req);
 
         verify(client, never()).userInfo(anyString());
+        verify(verifier).verifyNonce("theIdToken", "nnnccc");
         assertThat(tokens, is(notNullValue()));
         assertThat(tokens.getAccessToken(), is("theAccessToken"));
         assertThat(tokens.getIdToken(), is("theIdToken"));
     }
 
     @Test
-    public void shouldThrowOnFailToVerifyIdTokenOnImplicitGrant() throws Exception {
+    public void shouldThrowOnFailToVerifyIdToken() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
         exception.expectMessage("An error occurred while trying to verify the Id Token.");
@@ -153,10 +137,11 @@ public class RequestProcessorTest {
         handler.process(req);
 
         verify(client, never()).userInfo(anyString());
+        verify(verifier).verifyNonce("theIdToken", "nnnccc");
     }
 
     @Test
-    public void shouldThrowOnFailToGetPublicKeyOnImplicitGrant() throws Exception {
+    public void shouldThrowOnFailToVerifyIdTokenWhenPublicKeyIsInvalid() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.missing_jwt_public_key_error"));
         exception.expectMessage("An error occurred while trying to verify the Id Token.");
@@ -177,7 +162,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldThrowIfNullUserIdOnVerifyIdTokenOnImplicitGrant() throws Exception {
+    public void shouldThrowIfUserIdNotReturnedOnVerifyIdToken() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.unknown_error"));
         exception.expectMessage("An error occurred while trying to verify the user identity: The 'sub' claim contained in the token was null.");
@@ -194,12 +179,12 @@ public class RequestProcessorTest {
         RequestProcessor handler = new RequestProcessor(client, "token id_token", verifier);
         handler.process(req);
 
-
         verify(client, never()).userInfo(anyString());
+        verify(verifier).verifyNonce("theIdToken", "nnnccc");
     }
 
     @Test
-    public void shouldVerifyAccessTokenOnImplicitGrant() throws Exception {
+    public void shouldVerifyAccessTokenWhenIdTokenIsMissing() throws Exception {
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         params.put("access_token", "theAccessToken");
@@ -218,7 +203,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldThrowOnFailToVerifyAccessTokenOnImplicitGrant() throws Exception {
+    public void shouldThrowOnFailToVerifyAccessTokenWhenIdTokenIsMissing() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.api_error"));
         exception.expectMessage("An error occurred while trying to verify the Access Token.");
@@ -238,7 +223,7 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldThrowIfNullUserIdOnFailToVerifyAccessTokenOnImplicitGrant() throws Exception {
+    public void shouldThrowIfUserIdIsNotReturnedOnFailToVerifyAccessTokenWhenIdTokenIsMissing() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.unknown_error"));
         exception.expectMessage("An error occurred while trying to verify the user identity: The 'sub' claim contained in the token was null.");
@@ -260,38 +245,13 @@ public class RequestProcessorTest {
         verify(client, never()).userInfo(anyString());
     }
 
-    //Code Grant
-
 
     @Test
-    public void shouldFetchUserIdUsingAccessTokenOnCodeGrant() throws Exception {
+    public void shouldFetchUserIdUsingTheBestAccessTokenObtainedAfterCodeExchange() throws Exception {
         Map<String, Object> params = new HashMap<>();
         params.put("code", "abc123");
         params.put("state", "1234");
         params.put("access_token", "theAccessToken");
-        params.put("id_token", "theIdToken");
-        HttpServletRequest req = getRequest(params);
-        RandomStorage.setSessionState(req, "1234");
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
-        when(client.userInfo("theAccessToken")).thenReturn(userInfoRequest);
-
-        RequestProcessor handler = new RequestProcessor(client, "code", null);
-        Tokens tokens = handler.process(req);
-        verify(client).exchangeCode("abc123", "https://me.auth0.com:80/callback");
-        verify(client).userInfo("theAccessToken");
-
-        assertThat(tokens, is(notNullValue()));
-        assertThat(tokens.getAccessToken(), is("theAccessToken"));
-        assertThat(tokens.getIdToken(), is("theIdToken"));
-    }
-
-    @Test
-    public void shouldFetchUserIdUsingTheBestAccessTokenOnCodeGrant() throws Exception {
-        Map<String, Object> params = new HashMap<>();
-        params.put("code", "abc123");
-        params.put("state", "1234");
-        params.put("access_token", "theAccessToken");
-        params.put("id_token", "theIdToken");
         HttpServletRequest req = getRequest(params);
         RandomStorage.setSessionState(req, "1234");
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
@@ -300,18 +260,45 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(holder);
         when(client.userInfo("theBestAccessToken")).thenReturn(userInfoRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", null);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifier);
         Tokens tokens = handler.process(req);
         verify(client).exchangeCode("abc123", "https://me.auth0.com:80/callback");
         verify(client).userInfo("theBestAccessToken");
 
         assertThat(tokens, is(notNullValue()));
         assertThat(tokens.getAccessToken(), is("theBestAccessToken"));
-        assertThat(tokens.getIdToken(), is("theIdToken"));
+        assertThat(tokens.getIdToken(), is(nullValue()));
     }
 
     @Test
-    public void shouldThrowOnExchangeTheAuthorizationCodeOnCodeGrant() throws Exception {
+    public void shouldReturnUserIdAfterVerifyingTheBestIdTokenObtainedAfterCodeExchange() throws Exception {
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        params.put("access_token", "theAccessToken");
+        params.put("id_token", "theIdToken");
+        HttpServletRequest req = getRequest(params);
+        RandomStorage.setSessionState(req, "1234");
+        RandomStorage.setSessionNonce(req, "nnnccc");
+        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+        TokenHolder holder = mock(TokenHolder.class);
+        when(holder.getIdToken()).thenReturn("theBestIdToken");
+        when(codeExchangeRequest.execute()).thenReturn(holder);
+        when(verifier.verifyNonce("theBestIdToken", "nnnccc")).thenReturn("auth0|user123");
+
+        RequestProcessor handler = new RequestProcessor(client, "code", verifier);
+        Tokens tokens = handler.process(req);
+        verify(client).exchangeCode("abc123", "https://me.auth0.com:80/callback");
+        verify(client, never()).userInfo(anyString());
+        verify(verifier).verifyNonce("theBestIdToken", "nnnccc");
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getAccessToken(), is("theAccessToken"));
+        assertThat(tokens.getIdToken(), is("theBestIdToken"));
+    }
+
+    @Test
+    public void shouldThrowOnFailToExchangeTheAuthorizationCodeOnCodeGrant() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.api_error"));
         exception.expectMessage("An error occurred while exchanging the Authorization Code for Auth0 Tokens.");
@@ -325,58 +312,15 @@ public class RequestProcessorTest {
         RandomStorage.setSessionState(req, "1234");
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenThrow(Auth0Exception.class);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", null);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifier);
         handler.process(req);
         verify(client).exchangeCode("abc123", "https://me.auth0.com:80/callback");
     }
 
     @Test
-    public void shouldThrowOnFetchTheUserIdOnCodeGrant() throws Exception {
-        exception.expect(IdentityVerificationException.class);
-        exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.api_error"));
-        exception.expectMessage("An error occurred while exchanging the Authorization Code for Auth0 Tokens.");
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("code", "abc123");
-        params.put("state", "1234");
-        params.put("access_token", "theAccessToken");
-        params.put("id_token", "theIdToken");
-        HttpServletRequest req = getRequest(params);
-        RandomStorage.setSessionState(req, "1234");
-
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
-        when(client.userInfo("theAccessToken")).thenThrow(Auth0Exception.class);
-
-        RequestProcessor handler = new RequestProcessor(client, "code", null);
-        handler.process(req);
-        verify(client).userInfo("theAccessToken");
-    }
-
-    @Test
-    public void shouldFailToGetTheUserIdOnCodeGrant() throws Exception {
-        exception.expect(IdentityVerificationException.class);
-        exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.unknown_error"));
-        exception.expectMessage("An error occurred while trying to verify the user identity: The 'sub' claim contained in the token was null.");
-        Map<String, Object> params = new HashMap<>();
-        params.put("code", "abc123");
-        params.put("state", "1234");
-        params.put("access_token", "theAccessToken");
-        params.put("id_token", "theIdToken");
-        HttpServletRequest req = getRequest(params);
-        RandomStorage.setSessionState(req, "1234");
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
-        when(userInfo.getValues()).thenReturn(Collections.<String, Object>emptyMap());
-        when(client.userInfo("theAccessToken")).thenReturn(userInfoRequest);
-
-        RequestProcessor handler = new RequestProcessor(client, "code", null);
-        handler.process(req);
-        verify(client).userInfo("theAccessToken");
-    }
-
-    @Test
     public void shouldBuildAuthorizeUrl() throws Exception {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "code", null);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -393,9 +337,9 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldNotSetNonceIfRequestTypeIsNotIdToken() throws Exception {
+    public void shouldNotSetNonceIfRequestTypeDoesNotContainIdToken() throws Exception {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "code", null);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -405,9 +349,9 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldSetNonceIfRequestTypeIsIdToken() throws Exception {
+    public void shouldSetNonceIfRequestTypeContainsIdToken() throws Exception {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "id_token", null);
+        RequestProcessor handler = new RequestProcessor(client, "id_token", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -417,9 +361,9 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeIsIdToken() throws Exception {
+    public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeContainsIdToken() throws Exception {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "id_token", null);
+        RequestProcessor handler = new RequestProcessor(client, "id_token", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -436,9 +380,9 @@ public class RequestProcessorTest {
     }
 
     @Test
-    public void shouldBuildAuthorizeUrlWithFormPostIfResponseTypeIsToken() throws Exception {
+    public void shouldBuildAuthorizeUrlWithFormPostIfResponseTypeContainsToken() throws Exception {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "token", null);
+        RequestProcessor handler = new RequestProcessor(client, "token", verifier);
         HttpServletRequest req = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -455,7 +399,7 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldGetAuthAPIClient() throws Exception {
-        RequestProcessor handler = new RequestProcessor(client, "responseType", null);
+        RequestProcessor handler = new RequestProcessor(client, "responseType", verifier);
         assertThat(handler.getClient(), is(client));
     }
 

@@ -18,7 +18,8 @@ class RequestProcessorFactory {
 
         AuthAPI client = new AuthAPI(domain, clientId, clientSecret);
         setupTelemetry(client);
-        return new RequestProcessor(client, responseType, null);
+        TokenVerifier verifier = new TokenVerifier(clientId, domain);
+        return new RequestProcessor(client, responseType, verifier);
     }
 
     RequestProcessor forImplicitGrant(String domain, String clientId, String clientSecret, String responseType) throws UnsupportedEncodingException {

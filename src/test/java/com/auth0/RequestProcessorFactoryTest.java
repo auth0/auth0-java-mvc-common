@@ -39,7 +39,7 @@ public class RequestProcessorFactoryTest {
         assertThat(processor, is(notNullValue()));
         assertThat(processor.client, is(capturedClient));
         assertThat(processor.responseType, is("responseType"));
-        assertThat(processor.verifier, is(nullValue()));
+        assertThat(processor.verifier, is(notNullValue()));
     }
 
     @Test

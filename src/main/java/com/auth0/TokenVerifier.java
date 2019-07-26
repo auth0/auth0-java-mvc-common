@@ -7,12 +7,15 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import com.auth0.jwt.interfaces.RSAKeyProvider;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.lang3.Validate;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.security.interfaces.RSAKey;
+import java.util.regex.Pattern;
 
 /**
  * Class that verifies the signature of Auth0 issued id tokens.
@@ -20,11 +23,32 @@ import java.security.interfaces.RSAKey;
 @SuppressWarnings("WeakerAccess")
 class TokenVerifier {
 
+    private static final String NONE_ALGORITHM = "none";
     private final Algorithm algorithm;
     private final JwkProvider jwkProvider;
     private final String audience;
     private final String issuer;
+    private Pattern algPattern;
     private JWTVerifier verifier;
+
+    /**
+     * Creates a new instance that will not verify the signature. Use as a shortcut for Code flows where the signature validation
+     * can be skipped given the TLS server validation already happened.
+     * See https://openid.net/specs/openid-connect-core-1_0-final.html#IDTokenValidation
+     *
+     * @param clientId the Auth0 application's client id that this token is issued for.
+     * @param domain   the Auth0 domain that issued this token.
+     */
+    public TokenVerifier(String clientId, String domain) {
+        Validate.notNull(clientId);
+        Validate.notNull(domain);
+
+        this.algPattern = Pattern.compile("rs256|hs256", Pattern.CASE_INSENSITIVE);
+        this.algorithm = Algorithm.none();
+        this.jwkProvider = null;
+        this.audience = clientId;
+        this.issuer = toUrl(domain);
+    }
 
     /**
      * Creates a new instance using the HS256 algorithm and the application's Client Secret as secret.
@@ -64,23 +88,51 @@ class TokenVerifier {
     }
 
     private DecodedJWT verifyToken(String idToken) throws JwkException {
+        DecodedJWT decoded = JWT.decode(idToken);
         if (verifier != null) {
-            return verifier.verify(idToken);
+            //HS256 scenario
+            return verifier.verify(decoded);
         }
-        if (algorithm != null) {
-            verifier = JWT.require(algorithm)
+        if (algorithm == null) {
+            //RS256 scenario
+            String kid = decoded.getKeyId();
+            PublicKey publicKey = jwkProvider.get(kid).getPublicKey();
+            return JWT.require(Algorithm.RSA256((RSAKey) publicKey))
+                    .withAudience(audience)
+                    .withIssuer(issuer)
+                    .build()
+                    .verify(idToken);
+        }
+        if (NONE_ALGORITHM.equals(algorithm.getName())) {
+            //RS256/HS256 scenario without signature check
+            decoded = updateTokenHeader(decoded);
+            JWTVerifier noneVerifier = JWT.require(algorithm)
                     .withAudience(audience)
                     .withIssuer(issuer)
                     .build();
-            return verifier.verify(idToken);
+            return noneVerifier.verify(decoded);
         }
-        String kid = JWT.decode(idToken).getKeyId();
-        PublicKey publicKey = jwkProvider.get(kid).getPublicKey();
-        return JWT.require(Algorithm.RSA256((RSAKey) publicKey))
+
+        //HS256 scenario (First time used)
+        verifier = JWT.require(algorithm)
                 .withAudience(audience)
                 .withIssuer(issuer)
-                .build()
-                .verify(idToken);
+                .build();
+        return verifier.verify(decoded);
+    }
+
+    /**
+     * Replaces the Header's algorithm with "none" and removes the Token's signature.
+     * Use only when the authenticity of the token was already verified by the TLS server.
+     *
+     * @param decoded the original JWT, already decoded.
+     * @return a JWT with the "none" algorithm, also decoded.
+     */
+    private DecodedJWT updateTokenHeader(DecodedJWT decoded) {
+        String headerJson = StringUtils.newStringUtf8(Base64.decodeBase64(decoded.getHeader()));
+        String updatedHeaderJson = algPattern.matcher(headerJson).replaceFirst(NONE_ALGORITHM);
+        String updatedHeader = Base64.encodeBase64URLSafeString(updatedHeaderJson.getBytes(StandardCharsets.UTF_8));
+        return JWT.decode(String.format("%s.%s.", updatedHeader, decoded.getPayload()));
     }
 
     /**
