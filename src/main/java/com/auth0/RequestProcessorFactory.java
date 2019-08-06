@@ -10,6 +10,8 @@ import java.io.UnsupportedEncodingException;
 
 class RequestProcessorFactory {
 
+    private static final String JAVA_SPECIFICATION_VERSION = "java.specification.version";
+
     RequestProcessor forCodeGrant(String domain, String clientId, String clientSecret, String responseType) {
         Validate.notNull(domain);
         Validate.notNull(clientId);
@@ -56,6 +58,12 @@ class RequestProcessorFactory {
     String obtainPackageVersion() {
         //Value if taken from jar's manifest file.
         //Call will return null on dev environment (outside of a jar)
-        return RequestProcessorFactory.class.getPackage().getImplementationVersion();
+        String version;
+        try {
+            version = System.getProperty(JAVA_SPECIFICATION_VERSION);
+        } catch (Exception ignored) {
+            version = RequestProcessorFactory.class.getPackage().getImplementationVersion();
+        }
+        return version;
     }
 }
