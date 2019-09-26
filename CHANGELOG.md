@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.11](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.11) (2019-09-26)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.10...1.0.11)
+
+**Security**
+- Update dependencies to address CVE [\#41](https://github.com/auth0/auth0-java-mvc-common/pull/41) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.0.10](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.10) (2019-08-15)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.9...1.0.10)
 
