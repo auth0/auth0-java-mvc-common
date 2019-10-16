@@ -20,7 +20,7 @@ public class RandomStorageTest {
         MockHttpServletRequest req = new MockHttpServletRequest();
 
         RandomStorage.setSessionState(req, "123456");
-        assertThat((String) req.getSession().getAttribute("com.auth0.state"), is("123456"));
+        assertThat(req.getSession().getAttribute("com.auth0.state"), is("123456"));
     }
 
     @Test
@@ -55,7 +55,7 @@ public class RandomStorageTest {
         MockHttpServletRequest req = new MockHttpServletRequest();
 
         RandomStorage.setSessionNonce(req, "123456");
-        assertThat((String) req.getSession().getAttribute("com.auth0.nonce"), is("123456"));
+        assertThat(req.getSession().getAttribute("com.auth0.nonce"), is("123456"));
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
 import javax.servlet.http.HttpServletRequest;
@@ -35,28 +36,32 @@ class RequestProcessor {
     private static final String KEY_FORM_POST = "form_post";
 
     //Visible for testing
-    final AuthAPI client;
-    final String responseType;
     final IdTokenVerifier.Options verifyOptions;
+    private final String responseType;
+    private final AuthAPI client;
+    private final IdTokenVerifier tokenVerifier;
 
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
+    @VisibleForTesting
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
         this.client = client;
         this.responseType = responseType;
         this.verifyOptions = verifyOptions;
+        this.tokenVerifier = tokenVerifier;
+    }
+
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
+        this(client, responseType, verifyOptions, new IdTokenVerifier());
     }
 
     //TODO: Should we create this instance ONLY on this class? e.g. helper class to instantiate the required+customizable claims
     //static IdTokenVerifier.Options createOptions(){};
 
-    List<String> getResponseType() {
-        return Arrays.asList(responseType.split(" "));
-    }
-
     /**
      * Getter for the AuthAPI client instance.
+     * Used to customize options such as Telemetry and Logging.
      *
      * @return the AuthAPI client.
      */
@@ -104,11 +109,13 @@ class RequestProcessor {
 
         Tokens frontChannelTokens = getFrontChannelTokens(req);
         Tokens codeExchangeTokens = frontChannelTokens;
+        List<String> responseTypeList = getResponseType();
 
-        if (responseType.contains(KEY_ID_TOKEN) && frontChannelTokens.getIdToken() == null) {
+        //TODO: Do we want to use InvalidRequestException here ?
+        if (responseTypeList.contains(KEY_ID_TOKEN) && frontChannelTokens.getIdToken() == null) {
             throw new IdentityVerificationException("Id Token is missing from the response.");
         }
-        if (responseType.contains(KEY_TOKEN) &&  frontChannelTokens.getAccessToken() == null){
+        if (responseTypeList.contains(KEY_TOKEN) && frontChannelTokens.getAccessToken() == null) {
             throw new IdentityVerificationException("Access Token is missing from the response.");
         }
 
@@ -118,22 +125,21 @@ class RequestProcessor {
 
         //Dynamically set. Changes on every request!
         verifyOptions.setNonce(expectedNonce);
-        final IdTokenVerifier verifier = new IdTokenVerifier();
 
         try {
-            if (responseType.contains(KEY_ID_TOKEN)) {
+            if (responseTypeList.contains(KEY_ID_TOKEN)) {
                 //Implicit/Hybrid flow: must verify front-channel ID Token first
-                verifier.verify(idToken, verifyOptions);
+                tokenVerifier.verify(idToken, verifyOptions);
             }
-            if (responseType.contains(KEY_CODE)) {
+            if (responseTypeList.contains(KEY_CODE)) {
                 //Code/Hybrid flow
                 String redirectUri = req.getRequestURL().toString();
                 codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
-                if (!responseType.contains(KEY_ID_TOKEN)) {
+                if (!responseTypeList.contains(KEY_ID_TOKEN)) {
                     //If already verified the front-channel token, don't verify it again.
                     idToken = codeExchangeTokens.getIdToken();
                     if (idToken != null) {
-                        verifier.verify(idToken, verifyOptions);
+                        tokenVerifier.verify(idToken, verifyOptions);
                     }
                 }
             }
@@ -145,6 +151,10 @@ class RequestProcessor {
         }
         //Keep the front-channel ID Token and the code-exchange Access Token.
         return mergeTokens(frontChannelTokens, codeExchangeTokens);
+    }
+
+    List<String> getResponseType() {
+        return Arrays.asList(responseType.split(" "));
     }
 
     /**

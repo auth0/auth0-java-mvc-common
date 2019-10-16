@@ -15,10 +15,20 @@ import javax.servlet.http.HttpServletRequest;
  */
 @SuppressWarnings({"WeakerAccess", "UnusedReturnValue", "SameParameterValue"})
 public class AuthenticationController {
+
     private final RequestProcessor requestProcessor;
 
-    private AuthenticationController(RequestProcessor requestProcessor) {
+    /**
+     * Called from the Builder but also from tests in order to pass the mock.
+     */
+    @VisibleForTesting
+    AuthenticationController(RequestProcessor requestProcessor) {
         this.requestProcessor = requestProcessor;
+    }
+
+    @VisibleForTesting
+    RequestProcessor getRequestProcessor() {
+        return requestProcessor;
     }
 
     /**
@@ -114,7 +124,7 @@ public class AuthenticationController {
          * @throws UnsupportedOperationException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
          */
         public AuthenticationController build() throws UnsupportedOperationException {
-            AuthAPI apiClient = new AuthAPI(domain, clientId, clientSecret);
+            AuthAPI apiClient = createAPIClient(domain, clientId, clientSecret);
             setupTelemetry(apiClient);
 
             final boolean isSymmetric = jwkProvider == null;
@@ -130,6 +140,11 @@ public class AuthenticationController {
             verifyOptions.setMaxAge(authenticationMaxAge);
             RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions);
             return new AuthenticationController(processor);
+        }
+
+        @VisibleForTesting
+        AuthAPI createAPIClient(String domain, String clientId, String clientSecret) {
+            return new AuthAPI(domain, clientId, clientSecret);
         }
 
         @VisibleForTesting
