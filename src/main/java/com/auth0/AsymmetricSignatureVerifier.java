@@ -1,5 +1,6 @@
 package com.auth0;
 
+import com.auth0.jwk.Jwk;
 import com.auth0.jwk.JwkException;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.jwt.JWT;
@@ -22,7 +23,8 @@ class AsymmetricSignatureVerifier extends SignatureVerifier {
             @Override
             public RSAPublicKey getPublicKeyById(String keyId) {
                 try {
-                    return (RSAPublicKey) jwkProvider.get(keyId);
+                    Jwk jwk = jwkProvider.get(keyId);
+                    return (RSAPublicKey) jwk.getPublicKey();
                 } catch (JwkException ignored) {
                     //Nothing to do here! :(
                     //TODO: See how to improve the exception handling on the java-jwt side

@@ -1,6 +1,7 @@
 package com.auth0;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
+import org.apache.commons.lang3.Validate;
 
 import java.util.Calendar;
 import java.util.Date;
@@ -15,6 +16,10 @@ class IdTokenVerifier {
 
     private static final Integer DEFAULT_LEEWAY = 60; //1 min = 60 sec
 
+    private static final String NONCE_CLAIM = "nonce";
+    private static final String AZP_CLAIM = "azp";
+    private static final String AUTH_TIME_CLAIM = "auth_time";
+
     /**
      * Verifies a provided ID Token following the OIDC specification.
      * See https://openid.net/specs/openid-connect-core-1_0-final.html#IDTokenValidation
@@ -24,8 +29,10 @@ class IdTokenVerifier {
      * @throws TokenValidationException If the ID Token is null, its signing algorithm not supported, its signature invalid or one of its claim invalid.
      */
     void verify(String token, Options verifyOptions) throws TokenValidationException {
+        Validate.notNull(verifyOptions);
+
         //1 presence
-        if (token == null) {
+        if (isEmpty(token)) {
             throw new TokenValidationException("ID token is required but missing");
         }
 
@@ -84,7 +91,7 @@ class IdTokenVerifier {
 
 
         if (verifyOptions.nonce != null) {
-            String nonceClaim = decoded.getClaim("nonce").asString();
+            String nonceClaim = decoded.getClaim(NONCE_CLAIM).asString();
             if (isEmpty(nonceClaim)) {
                 throw new TokenValidationException("Nonce (nonce) claim must be a string present in the ID token");
             }
@@ -94,7 +101,7 @@ class IdTokenVerifier {
         }
 
         if (audience.size() > 1) {
-            String azpClaim = decoded.getClaim("azp").asString();
+            String azpClaim = decoded.getClaim(AZP_CLAIM).asString();
             if (isEmpty(azpClaim)) {
                 throw new TokenValidationException("Authorized Party (azp) claim must be a string present in the ID token when Audience (aud) claim has multiple values");
             }
@@ -104,7 +111,7 @@ class IdTokenVerifier {
         }
 
         if (verifyOptions.maxAge != null) {
-            Date authTime = decoded.getClaim("auth_time").asDate();
+            Date authTime = decoded.getClaim(AUTH_TIME_CLAIM).asDate();
             if (authTime == null) {
                 throw new TokenValidationException("Authentication Time (auth_time) claim must be a number present in the ID token when Max Age (max_age) is specified");
             }
