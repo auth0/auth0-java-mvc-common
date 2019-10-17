@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 public class SignatureVerifierTest {
 
+    private static final String EXPIRED_HS_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIiwiZXhwIjo5NzE3ODkzMTd9.5_VOXBmOVMSi8OGgonyfyiJSq3A03PwOEuZlPD-Gxik";
     private static final String HS_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.a7ayNmFTxS2D-EIoUikoJ6dck7I8veWyxnje_mYD3qY";
     private static final String RS_JWT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFiYzEyMyJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.PkPWdoZNfXz8EB0SBPH83lNSOhyhdhdqYIgIwgY2nHozUnFOaUjVewlAXxP_3LBGibQ_ng4s5fEEOCJjaKBy04McryvOuL6nqb1dPQseeyxuv2zQitfrs-7kEtfeS3umywM-tV6guw9_W3nmIgaXOiYiF4WJM23ItbdCmvwdXLaf9-xHkQbRY_zEwEFbprFttKUXFbkPt6XjZ3zZwZbNZn64bx2PBiSJ2KMZAE3Lghmci-RXdhi7hXpmN30Tzze1ZsjvVeRRKNzShByKK9ZGZPmQ5yggJOXFy32ehjGkYwFMCqgMQomcGbcYhsd97huKHMHl3HOE5GDYjIq9o9oKRA";
     private static final String RS_PUBLIC_KEY = "src/test/resources/public.pem";
@@ -46,7 +47,25 @@ public class SignatureVerifierTest {
     }
 
     @Test
-    public void succeedsWithValidSecretHS256Token() {
+    public void failsWhenAlgorithmRS256IsNotExpected() {
+        exception.expect(TokenValidationException.class);
+        exception.expectMessage("Signature algorithm of \"RS256\" is not supported. Expected the ID token to be signed with \"HS256\".");
+
+        SignatureVerifier verifier = new SymmetricSignatureVerifier("secret");
+        verifier.verifySignature(RS_JWT);
+    }
+
+    @Test
+    public void failsWhenAlgorithmHS256IsNotExpected() throws Exception {
+        exception.expect(TokenValidationException.class);
+        exception.expectMessage("Signature algorithm of \"HS256\" is not supported. Expected the ID token to be signed with \"RS256\".");
+
+        SignatureVerifier verifier = new AsymmetricSignatureVerifier(getRSProvider(RS_PUBLIC_KEY));
+        verifier.verifySignature(HS_JWT);
+    }
+
+    @Test
+    public void succeedsWithValidSignatureHS256Token() {
         SignatureVerifier verifier = new SymmetricSignatureVerifier("secret");
         DecodedJWT decodedJWT = verifier.verifySignature(HS_JWT);
 
@@ -54,7 +73,15 @@ public class SignatureVerifierTest {
     }
 
     @Test
-    public void failsWithInvalidSecretHS256Token() {
+    public void succeedsAndIgnoresExpiredTokenException() {
+        SignatureVerifier verifier = new SymmetricSignatureVerifier("secret");
+        DecodedJWT decodedJWT = verifier.verifySignature(EXPIRED_HS_JWT);
+
+        assertThat(decodedJWT, notNullValue());
+    }
+
+    @Test
+    public void failsWithInvalidSignatureHS256Token() {
         exception.expect(TokenValidationException.class);
         exception.expectMessage("Invalid token signature");
 
@@ -63,7 +90,7 @@ public class SignatureVerifierTest {
     }
 
     @Test
-    public void succeedsWithValidRS256Token() throws Exception {
+    public void succeedsWithValidSignatureRS256Token() throws Exception {
         SignatureVerifier verifier = new AsymmetricSignatureVerifier(getRSProvider(RS_PUBLIC_KEY));
         DecodedJWT decodedJWT = verifier.verifySignature(RS_JWT);
 
@@ -71,7 +98,9 @@ public class SignatureVerifierTest {
     }
 
     @Test
-    public void failsWithInvalidRS256Token() throws Exception {
+    public void failsWithInvalidSignatureRS256Token() throws Exception {
+        exception.expect(TokenValidationException.class);
+        exception.expectMessage("Invalid token signature");
         SignatureVerifier verifier = new AsymmetricSignatureVerifier(getRSProvider(RS_PUBLIC_KEY_BAD));
         DecodedJWT decodedJWT = verifier.verifySignature(RS_JWT);
 
@@ -82,7 +111,7 @@ public class SignatureVerifierTest {
         JwkProvider jwkProvider = mock(JwkProvider.class);
         Jwk jwk = mock(Jwk.class);
         when(jwkProvider.get("abc123")).thenReturn(jwk);
-        RSAPublicKey key = readPublicKeyFromFile(RS_PUBLIC_KEY);
+        RSAPublicKey key = readPublicKeyFromFile(rsaPath);
         when(jwk.getPublicKey()).thenReturn(key);
         return jwkProvider;
     }
