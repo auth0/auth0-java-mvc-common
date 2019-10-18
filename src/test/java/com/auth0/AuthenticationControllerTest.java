@@ -133,7 +133,7 @@ public class AuthenticationControllerTest {
         assertThat(requestProcessor.verifyOptions.leeway, is(nullValue()));
         assertThat(requestProcessor.verifyOptions.clock, is(nullValue()));
         assertThat(requestProcessor.verifyOptions.nonce, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.maxAge, is(nullValue()));
+        assertThat(requestProcessor.verifyOptions.getMaxAge(), is(nullValue()));
     }
 
     @Test
@@ -171,7 +171,7 @@ public class AuthenticationControllerTest {
                 .build();
 
         RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.verifyOptions.maxAge, is(12345));
+        assertThat(requestProcessor.verifyOptions.getMaxAge(), is(12345));
     }
 
     @Test

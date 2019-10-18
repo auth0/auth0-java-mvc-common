@@ -2,13 +2,15 @@ package com.auth0;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.util.Date;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class IdTokenVerifierTest {
 
@@ -22,12 +24,37 @@ public class IdTokenVerifierTest {
     @Rule
     public ExpectedException exception = ExpectedException.none();
 
+    private SignatureVerifier signatureVerifier;
+
+    @Before
+    public void setUp() {
+        signatureVerifier = mock(SignatureVerifier.class);
+    }
+
+    @Test
+    public void failsToCreateOptionsWhenIssuerIsNull() {
+        exception.expect(NullPointerException.class);
+        new IdTokenVerifier.Options(null, "audience", signatureVerifier);
+    }
+
+    @Test
+    public void failsToCreateOptionsWhenAudienceIsNull() {
+        exception.expect(NullPointerException.class);
+        new IdTokenVerifier.Options("issuer", null, signatureVerifier);
+    }
+
+    @Test
+    public void failsToCreateOptionsWhenVerifierIsNull() {
+        exception.expect(NullPointerException.class);
+        new IdTokenVerifier.Options("issuer", "audience", null);
+    }
+
     @Test
     public void failsWhenIDTokenMissing() throws Exception {
         exception.expect(TokenValidationException.class);
         exception.expectMessage("ID token is required but missing");
 
-        IdTokenVerifier.Options opts = new IdTokenVerifier.Options("issuer", "audience", null);
+        IdTokenVerifier.Options opts = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
         IdTokenVerifier verifier = new IdTokenVerifier();
         verifier.verify(null, opts);
     }
@@ -37,13 +64,13 @@ public class IdTokenVerifierTest {
         exception.expect(TokenValidationException.class);
         exception.expectMessage("ID token is required but missing");
 
-        IdTokenVerifier.Options opts = new IdTokenVerifier.Options("issuer", "audience", null);
+        IdTokenVerifier.Options opts = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
         IdTokenVerifier verifier = new IdTokenVerifier();
         verifier.verify("", opts);
     }
 
     @Test
-    public void failsWhenOptionsNull() throws Exception {
+    public void failsWhenOptionsIsNull() throws Exception {
         exception.expect(NullPointerException.class);
 
         new IdTokenVerifier().verify("token", null);
@@ -53,7 +80,7 @@ public class IdTokenVerifierTest {
     public void failsWhenTokenCannotBeDecoded() throws Exception {
         String token = "boom!";
 
-        SignatureVerifier  signatureVerifier = new SymmetricSignatureVerifier("secret");
+        SignatureVerifier signatureVerifier = new SymmetricSignatureVerifier("secret");
         IdTokenVerifier.Options opts = new IdTokenVerifier.Options(DOMAIN, AUDIENCE, signatureVerifier);
 
         exception.expect(TokenValidationException.class);
@@ -157,7 +184,7 @@ public class IdTokenVerifierTest {
 
         exception.expect(TokenValidationException.class);
         exception.expectMessage(String.format("Expiration Time (exp) claim error in the ID token; current time %d is after expiration time %d",
-                clock.getTime() / 1000, actualExpTime + DEFAULT_LEEWAY ));
+                clock.getTime() / 1000, actualExpTime + DEFAULT_LEEWAY));
 
         new IdTokenVerifier().verify(token, options);
     }
@@ -185,7 +212,7 @@ public class IdTokenVerifierTest {
 
         // set clock to September 1, 2019 5:00:00 AM GMT
         Date clock = new Date(1567314000000l);
-        clock.setTime(clock.getTime() + ((leeway + 1)* 1000));
+        clock.setTime(clock.getTime() + ((leeway + 1) * 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setLeeway(leeway);

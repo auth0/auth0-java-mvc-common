@@ -3,7 +3,6 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
-import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
@@ -13,7 +12,7 @@ import java.util.List;
 
 import static com.auth0.IdentityVerificationException.API_ERROR;
 import static com.auth0.IdentityVerificationException.JWT_VERIFICATION_ERROR;
-import static com.auth0.InvalidRequestException.INVALID_STATE_ERROR;
+import static com.auth0.InvalidRequestException.*;
 
 /**
  * Main class to handle the Authorize Redirect request.
@@ -34,6 +33,7 @@ class RequestProcessor {
     private static final String KEY_TOKEN = "token";
     private static final String KEY_RESPONSE_MODE = "response_mode";
     private static final String KEY_FORM_POST = "form_post";
+    private static final String KEY_MAX_AGE = "max_age";
 
     //Visible for testing
     final IdTokenVerifier.Options verifyOptions;
@@ -55,9 +55,6 @@ class RequestProcessor {
     RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
         this(client, responseType, verifyOptions, new IdTokenVerifier());
     }
-
-    //TODO: Should we create this instance ONLY on this class? e.g. helper class to instantiate the required+customizable claims
-    //static IdTokenVerifier.Options createOptions(){};
 
     /**
      * Getter for the AuthAPI client instance.
@@ -89,6 +86,9 @@ class RequestProcessor {
         if (responseTypeList.contains(KEY_TOKEN) || responseTypeList.contains(KEY_ID_TOKEN)) {
             creator.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);
         }
+        if (verifyOptions.getMaxAge() != null) {
+            creator.withParameter(KEY_MAX_AGE, verifyOptions.getMaxAge().toString());
+        }
         return creator;
     }
 
@@ -111,12 +111,11 @@ class RequestProcessor {
         Tokens codeExchangeTokens = frontChannelTokens;
         List<String> responseTypeList = getResponseType();
 
-        //TODO: Do we want to use InvalidRequestException here ?
         if (responseTypeList.contains(KEY_ID_TOKEN) && frontChannelTokens.getIdToken() == null) {
-            throw new IdentityVerificationException("Id Token is missing from the response.");
+            throw new InvalidRequestException(MISSING_ID_TOKEN, "Id Token is missing from the response.");
         }
         if (responseTypeList.contains(KEY_TOKEN) && frontChannelTokens.getAccessToken() == null) {
-            throw new IdentityVerificationException("Access Token is missing from the response.");
+            throw new InvalidRequestException(MISSING_ACCESS_TOKEN, "Access Token is missing from the response.");
         }
 
         String expectedNonce = RandomStorage.removeSessionNonce(req);
@@ -144,7 +143,7 @@ class RequestProcessor {
                 }
             }
 
-        } catch (JWTVerificationException e) {
+        } catch (TokenValidationException e) {
             throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the Id Token.", e);
         } catch (Auth0Exception e) {
             throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the Authorization Code for Auth0 Tokens.", e);

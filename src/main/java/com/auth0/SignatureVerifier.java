@@ -3,8 +3,8 @@ package com.auth0;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.exceptions.JWTDecodeException;
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.exceptions.SignatureVerificationException;
-import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 
 abstract class SignatureVerifier {
@@ -35,10 +35,12 @@ abstract class SignatureVerifier {
             verifier.verify(decoded);
         } catch (SignatureVerificationException e) {
             throw new TokenValidationException("Invalid token signature", e);
-        } catch (TokenExpiredException ignored) {
+        } catch (JWTVerificationException ignored){
             //NO-OP. Will be catch on a different step
+            //Would only trigger for "expired tokens" (invalid exp)
             // ¯\_(ツ)_/¯
         }
+
         return decoded;
     }
 }

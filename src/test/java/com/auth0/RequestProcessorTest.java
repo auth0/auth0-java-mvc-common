@@ -3,7 +3,6 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
-import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.net.AuthRequest;
 import org.hamcrest.CoreMatchers;
 import org.junit.Before;
@@ -60,6 +59,8 @@ public class RequestProcessorTest {
     @Test
     public void shouldThrowOnProcessIfRequestHasError() throws Exception {
         exception.expect(InvalidRequestException.class);
+        exception.expect(InvalidRequestExceptionMatcher.hasCode("something happened"));
+        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The request contains an error: something happened"));
         exception.expectMessage("The request contains an error: something happened");
 
         Map<String, Object> params = new HashMap<>();
@@ -72,8 +73,11 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldThrowOnProcessIfRequestHasInvalidState() throws Exception {
+        //FIXME
         exception.expect(InvalidRequestException.class);
-        exception.expectMessage("The request contains an error: a0.invalid_state");
+        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
+        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The received state doesn't match the expected one."));
+        exception.expectMessage("The received state doesn't match the expected one.");
 
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
@@ -86,7 +90,9 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldThrowOnProcessIfIdTokenRequestIsMissingIdToken() throws Exception {
-        exception.expect(IdentityVerificationException.class);
+        exception.expect(InvalidRequestException.class);
+        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.missing_id_token"));
+        exception.expect(InvalidRequestExceptionMatcher.hasDescription("Id Token is missing from the response."));
         exception.expectMessage("Id Token is missing from the response.");
 
         Map<String, Object> params = new HashMap<>();
@@ -100,7 +106,9 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldThrowOnProcessIfTokenRequestIsMissingAccessToken() throws Exception {
-        exception.expect(IdentityVerificationException.class);
+        exception.expect(InvalidRequestException.class);
+        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.missing_access_token"));
+        exception.expect(InvalidRequestExceptionMatcher.hasDescription("Access Token is missing from the response."));
         exception.expectMessage("Access Token is missing from the response.");
 
         Map<String, Object> params = new HashMap<>();
@@ -118,7 +126,7 @@ public class RequestProcessorTest {
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
         exception.expectMessage("An error occurred while trying to verify the Id Token.");
 
-        doThrow(JWTVerificationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
+        doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
 
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
@@ -152,7 +160,7 @@ public class RequestProcessorTest {
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
         exception.expectMessage("An error occurred while trying to verify the Id Token.");
 
-        doThrow(JWTVerificationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
+        doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
 
         Map<String, Object> params = new HashMap<>();
         params.put("code", "abc123");
@@ -192,7 +200,7 @@ public class RequestProcessorTest {
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
         exception.expectMessage("An error occurred while trying to verify the Id Token.");
 
-        doThrow(JWTVerificationException.class).when(tokenVerifier).verify(eq("backIdToken"), eq(verifyOptions));
+        doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("backIdToken"), eq(verifyOptions));
 
         Map<String, Object> params = new HashMap<>();
         params.put("code", "abc123");
@@ -242,6 +250,8 @@ public class RequestProcessorTest {
     @Test
     public void shouldBuildAuthorizeUrl() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        SignatureVerifier signatureVerifier = mock(SignatureVerifier.class);
+        IdTokenVerifier.Options verifyOptions = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
         RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
         HttpServletRequest req = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
@@ -254,8 +264,22 @@ public class RequestProcessorTest {
         assertThat(authorizeUrl, containsString("response_type=code"));
         assertThat(authorizeUrl, containsString("scope=openid"));
         assertThat(authorizeUrl, containsString("state=state"));
+        assertThat(authorizeUrl, not(containsString("max_age=")));
         assertThat(authorizeUrl, not(containsString("nonce=nonce")));
         assertThat(authorizeUrl, not(containsString("response_mode=form_post")));
+    }
+
+    @Test
+    public void shouldSetMaxAgeIfProvided() {
+        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        when(verifyOptions.getMaxAge()).thenReturn(906030);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        HttpServletRequest req = new MockHttpServletRequest();
+        AuthorizeUrl builder = handler.buildAuthorizeUrl(req, "https://redirect.uri/here", "state", "nonce");
+        String authorizeUrl = builder.build();
+
+        assertThat(authorizeUrl, is(notNullValue()));
+        assertThat(authorizeUrl, containsString("max_age=906030"));
     }
 
     @Test

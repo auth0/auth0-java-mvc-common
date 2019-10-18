@@ -146,12 +146,14 @@ class IdTokenVerifier {
         final String audience;
         final SignatureVerifier verifier;
         String nonce;
-        Integer maxAge;
+        private Integer maxAge;
         Integer leeway;
         Date clock;
 
         public Options(String issuer, String audience, SignatureVerifier verifier) {
-            //TODO: Null check these required values?
+            Validate.notNull(issuer);
+            Validate.notNull(audience);
+            Validate.notNull(verifier);
             this.issuer = issuer;
             this.audience = audience;
             this.verifier = verifier;
@@ -173,5 +175,8 @@ class IdTokenVerifier {
             this.clock = now;
         }
 
+        Integer getMaxAge() {
+            return maxAge;
+        }
     }
 }
