@@ -60,8 +60,8 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfRequestHasError() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("something happened"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The request contains an error: something happened"));
-        exception.expectMessage("The request contains an error: something happened");
+        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The request contains an error"));
+        exception.expectMessage("The request contains an error");
 
         Map<String, Object> params = new HashMap<>();
         params.put("error", "something happened");

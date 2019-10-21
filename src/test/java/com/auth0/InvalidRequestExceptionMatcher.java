@@ -27,7 +27,7 @@ public class InvalidRequestExceptionMatcher extends TypeSafeMatcher<InvalidReque
     @Override
     protected boolean matchesSafely(InvalidRequestException exception) {
         code = exception.getCode();
-        description = exception.getDescription();
+        description = exception.getMessage();
 
         if (expectedDescription != null) {
             return expectedDescription.equals(description);

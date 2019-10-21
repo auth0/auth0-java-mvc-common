@@ -9,10 +9,6 @@ public class IdentityVerificationException extends Exception {
     private static final String UNKNOWN_ERROR = "a0.unknown_error";
     private final String code;
 
-    IdentityVerificationException(String message) {
-        this(UNKNOWN_ERROR, message, null);
-    }
-
     IdentityVerificationException(String code, String message, Throwable cause) {
         super(message, cause);
         this.code = code;
