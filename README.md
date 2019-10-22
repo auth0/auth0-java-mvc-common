@@ -62,7 +62,6 @@ String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirec
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
     .withAudience("https://myapi.me.auth0.com")
     .withScope("openid create:photos read:photos")
-    .withState("state")
     .withParameter("name", "value")
     .build();
 ```
@@ -79,8 +78,10 @@ try {
     SessionUtils.set(request, "access_token", tokens.getAccessToken());
 } catch (IdentityVerificationException e) {
     String code = e.getCode();
-    // Something happened when trying to verify the user id
-    // Check the code to have an idea of what went wrong
+    // Something happened when trying to process the request.
+    // Could be a bad request, an error from the server, 
+    // or a configuration issue that triggered a failure. 
+    // Check the exception code to have an idea of what went wrong.
 }
 ```
 
@@ -89,41 +90,67 @@ That's it! You have authenticated the user using Auth0.
 
 
 
-### Builder Options
-By default, the **Code Grant** flow will be preferred over other flows. This is the most secure and recommended way, read more about it [here](https://auth0.com/docs/api-auth/grant/authorization-code). This means that if the response type contains `code` along with other types, Code Grant will still be preferred.
+### Builder options
+By default, this library will execute the [Open ID Connect](https://openid.net/specs/openid-connect-core-1_0-final.html) **Code Grant** flow and verify the ID token if received. The library expects to interact with an Application that is signing the tokens using the **HS256 symmetric algorithm** with the client secret being the shared secret. You can customize this behavior with the builder methods below.
 
-You can change the authentication behavior to use **Implicit Grant** instead. To do this you'll need to check in your Applications's Settings on the [Dashboard](https://manage.auth0.com/#/applications) which Algorithm is used by the Server to sign the tokens. The default algorithm is `HS256`, but it can be changed to `RS256` in the "Advanced Settings" section on the "OAuth" tab. Below you'll find some configuration examples:
+#### Expected Signing Algorithm
+You must ensure the right expected algorithm is set in order to resolve correctly the verification of ID tokens. The default expected algorithm is HS256.
 
-
-#### Using Implicit Grant with HS256 algorithm
-
-The token's are signed by the Auth0 Server using the `Client Secret`.
-
-```java
-AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-    .withResponseType("id_token")
-    .build();
-```
-
-#### Using Implicit Grant with RS256 algorithm.
-
-The tokens are signed using the Private Key. To verify them, the **Public Key** certificate must be obtained from a trusted source like the `well-known.json` file, which can be located locally or hosted by a server. For this example, we will use the one Auth0 hosts for your application. We can obtain it using the application's domain:
+If your application is using the **RS256 asymmetric algorithm**, the tokens are signed using the Private Key instead. You must update your setup passing a `JwkProvider` instance to the builder in order to change the expected algorithm to RS256. This `JwkProvider` is in charge of fetching the Public Key associated to your Auth0 Domain, required for the verification phase. 
 
 
 ```java
 JwkProvider jwkProvider = new JwkProviderBuilder("domain").build();
 AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-    .withResponseType("id_token")
     .withJwkProvider(jwkProvider)
     .build();
 ```
 
-The `JwkProvider` returned from the `JwkProviderBuilder` it's cached and rate limited, check it's [repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize it.
+The `JwkProvider` returned from the `JwkProviderBuilder` it's cached and rate limited by default. Check it's [repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize these options.
+
+#### Choosing a different Response Type
+
+**Code Grant** flow will be preferred over other flows. This is the most secure and recommended way, read more about it [here](https://auth0.com/docs/flows/concepts/auth-code).
+
+You can still change the authentication behavior to use **Implicit Grant** flow instead.
+
+```java
+AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    .withResponseType("id_token")
+    .build();
+```
+
+or **Hybrid Grant** flow.
+
+```java
+AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    .withResponseType("id_token code")
+    .build();
+```
+
+#### Limiting the time to complete the authentication
+The time to sign on measured since the login page is shown and the result parsed by this library can also be a deciding factor to reject the authentication. This behavior is by default disabled, and can be changed like this:
+
+```java
+String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+    .withAuthenticationMaxAge(60 * 1)   //1 minute
+    .build();
+```
 
 
 ### Troubleshooting
 
-Once you have created the instance of the `AuthenticationController` you can enable HTTP logging for all Requests and Responses if you need to debug a specific endpoint. Keep in mind that this will log everything including sensitive information. Don't use it in production environment.
+#### Allowing a clock skew
+Depending on where your application is being executed on, there might be slight differences between the computer's clock and the Auth0 servers' clock. This difference could lead to reject a valid ID token and thus, unauthorized access. To prevent this type of errors the library allows a default of 60 seconds of clock skewing or leeway. To specify a value bigger than that:    
+
+```java
+String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+    .withIdTokenVerificationLeeway(60 * 5)   //5 minutes
+    .build();
+```
+
+#### HTTP Logging 
+Once you have created the instance of the `AuthenticationController` you can enable HTTP logging for all Requests and Responses if you need to debug a specific endpoint. Keep in mind that this will log everything including sensitive information. Don't use it in a production environment.
 
 ```java
 authController.setLoggingEnabled(true);

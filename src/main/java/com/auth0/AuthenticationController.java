@@ -94,6 +94,7 @@ public class AuthenticationController {
 
         /**
          * Sets the leeway or clock-skew value to use in the ID Token verification. The value must be in seconds.
+         * Defaults to 60 seconds.
          *
          * @param leeway the leeway to use for ID Token verification, in seconds.
          * @return this same builder instance.
@@ -105,9 +106,10 @@ public class AuthenticationController {
         }
 
         /**
-         * TODO
+         * Sets the time window during which the user must complete the authentication once started. The value must be in seconds.
+         * By default this behavior is disabled.
          *
-         * @param maxAge
+         * @param maxAge the max age of the authentication, in seconds.
          * @return this same builder instance.
          */
         public Builder withAuthenticationMaxAge(Integer maxAge) {
