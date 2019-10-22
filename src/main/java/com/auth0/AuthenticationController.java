@@ -128,19 +128,29 @@ public class AuthenticationController {
             AuthAPI apiClient = createAPIClient(domain, clientId, clientSecret);
             setupTelemetry(apiClient);
 
-            final boolean isSymmetric = jwkProvider == null;
-            SignatureVerifier signatureVerifier;
-            if (isSymmetric) {
-                signatureVerifier = new SymmetricSignatureVerifier(clientSecret);
-            } else {
+            final boolean expectedAlgorithmIsExplicitlySetAndAsymmetric = jwkProvider != null;
+            final SignatureVerifier signatureVerifier;
+            if (expectedAlgorithmIsExplicitlySetAndAsymmetric) {
                 signatureVerifier = new AsymmetricSignatureVerifier(jwkProvider);
+            } else if (responseType.contains(RESPONSE_TYPE_CODE)) {
+                // Old behavior: To maintain 100% retro-compatibility when
+                // no explicit algorithm is set by the user, we
+                // must skip ID Token signature check!
+                signatureVerifier = new AlgorithmNameVerifier();
+            } else {
+                signatureVerifier = new SymmetricSignatureVerifier(clientSecret);
             }
 
-            IdTokenVerifier.Options verifyOptions = new IdTokenVerifier.Options(domain, clientId, signatureVerifier);
+            IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(domain, clientId, signatureVerifier);
             verifyOptions.setLeeway(idTokenVerificationLeeway);
             verifyOptions.setMaxAge(authenticationMaxAge);
             RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions);
             return new AuthenticationController(processor);
+        }
+
+        @VisibleForTesting
+        IdTokenVerifier.Options createIdTokenVerificationOptions(String issuer, String audience, SignatureVerifier signatureVerifier) {
+            return new IdTokenVerifier.Options(issuer, audience, signatureVerifier);
         }
 
         @VisibleForTesting

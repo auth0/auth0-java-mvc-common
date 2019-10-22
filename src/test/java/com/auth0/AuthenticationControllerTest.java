@@ -8,6 +8,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -26,6 +27,10 @@ public class AuthenticationControllerTest {
     public ExpectedException exception = ExpectedException.none();
     @Mock
     private AuthAPI client;
+    @Mock
+    private IdTokenVerifier.Options verificationOptions;
+    @Captor
+    private ArgumentCaptor<SignatureVerifier> signatureVerifierCaptor;
 
     private AuthenticationController.Builder builderSpy;
 
@@ -37,6 +42,7 @@ public class AuthenticationControllerTest {
         builderSpy = spy(builder);
 
         doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"));
+        doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("domain"), eq("clientId"), signatureVerifierCaptor.capture());
         doReturn("1.2.3").when(builderSpy).obtainPackageVersion();
     }
 
@@ -79,6 +85,130 @@ public class AuthenticationControllerTest {
 
         controller.setLoggingEnabled(true);
         verify(client).setLoggingEnabled(true);
+    }
+
+    @Test
+    public void shouldCreateWithSymmetricSignatureVerifierForNoCodeGrants() {
+        AuthenticationController controller = builderSpy
+                .withResponseType("id_token")
+                .build();
+
+        SignatureVerifier signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(SymmetricSignatureVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("token")
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(SymmetricSignatureVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+    }
+
+    @Test
+    public void shouldCreateWithAsymmetricSignatureVerifierWhenJwkProviderIsExplicitlySet() {
+        JwkProvider jwkProvider = mock(JwkProvider.class);
+        AuthenticationController controller = builderSpy
+                .withResponseType("code id_token")
+                .withJwkProvider(jwkProvider)
+                .build();
+
+        SignatureVerifier signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("code token")
+                .withJwkProvider(jwkProvider)
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("code id_token token")
+                .withJwkProvider(jwkProvider)
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("code")
+                .withJwkProvider(jwkProvider)
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("id_token")
+                .withJwkProvider(jwkProvider)
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("token")
+                .withJwkProvider(jwkProvider)
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+    }
+
+    @Test
+    public void shouldCreateWithAlgorithmNameSignatureVerifierForResponseTypesIncludingCode() {
+        AuthenticationController controller = builderSpy
+                .withResponseType("code id_token")
+                .build();
+
+        SignatureVerifier signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AlgorithmNameVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("code token")
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AlgorithmNameVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("code token id_token")
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AlgorithmNameVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+
+        controller = builderSpy
+                .withResponseType("code")
+                .build();
+
+        signatureVerifier = signatureVerifierCaptor.getValue();
+        assertThat(signatureVerifier, is(notNullValue()));
+        assertThat(signatureVerifier, instanceOf(AlgorithmNameVerifier.class));
+        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
     }
 
     @Test

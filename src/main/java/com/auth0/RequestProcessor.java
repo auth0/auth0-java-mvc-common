@@ -142,7 +142,6 @@ class RequestProcessor {
                     }
                 }
             }
-
         } catch (TokenValidationException e) {
             throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the Id Token.", e);
         } catch (Auth0Exception e) {

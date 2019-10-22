@@ -73,7 +73,6 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldThrowOnProcessIfRequestHasInvalidState() throws Exception {
-        //FIXME
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
         exception.expect(InvalidRequestExceptionMatcher.hasDescription("The received state doesn't match the expected one."));

@@ -45,7 +45,7 @@ public class SignatureVerifierTest {
         exception.expect(TokenValidationException.class);
         exception.expectMessage("Signature algorithm of \"none\" is not supported. Expected the ID token to be signed with \"[HS256, RS256]\".");
 
-        SignatureVerifier verifier = new AlgorithmVerifier();
+        SignatureVerifier verifier = new AlgorithmNameVerifier();
         verifier.verifySignature(NONE_JWT);
     }
 
@@ -78,7 +78,7 @@ public class SignatureVerifierTest {
 
     @Test
     public void succeedsSkippingSignatureCheckOnHS256Token() {
-        SignatureVerifier verifier = new AlgorithmVerifier();
+        SignatureVerifier verifier = new AlgorithmNameVerifier();
         DecodedJWT decodedJWT1 = verifier.verifySignature(HS_JWT);
         DecodedJWT decodedJWT2 = verifier.verifySignature(HS_JWT_INVALID_SIGNATURE);
 
@@ -88,7 +88,7 @@ public class SignatureVerifierTest {
 
     @Test
     public void succeedsSkippingSignatureCheckOnRS256Token() {
-        SignatureVerifier verifier = new AlgorithmVerifier();
+        SignatureVerifier verifier = new AlgorithmNameVerifier();
         DecodedJWT decodedJWT1 = verifier.verifySignature(RS_JWT);
         DecodedJWT decodedJWT2 = verifier.verifySignature(RS_JWT_INVALID_SIGNATURE);
 

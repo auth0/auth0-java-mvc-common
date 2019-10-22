@@ -1,9 +1,9 @@
 package com.auth0;
 
 @SuppressWarnings("unused")
-class AlgorithmVerifier extends SignatureVerifier {
+class AlgorithmNameVerifier extends SignatureVerifier {
 
-    AlgorithmVerifier() {
+    AlgorithmNameVerifier() {
         //Must only allow supported algorithms and never "none" algorithm
         super(null, "HS256", "RS256");
     }
