@@ -8,7 +8,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 class SymmetricSignatureVerifier extends SignatureVerifier {
 
     SymmetricSignatureVerifier(String secret) {
-        super("HS256", createJWTVerifier(secret));
+        super(createJWTVerifier(secret), "HS256");
     }
 
     private static JWTVerifier createJWTVerifier(String secret) {

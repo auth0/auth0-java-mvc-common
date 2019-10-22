@@ -15,7 +15,7 @@ import java.security.interfaces.RSAPublicKey;
 class AsymmetricSignatureVerifier extends SignatureVerifier {
 
     AsymmetricSignatureVerifier(JwkProvider jwkProvider) {
-        super("RS256", createJWTVerifier(jwkProvider));
+        super(createJWTVerifier(jwkProvider), "RS256");
     }
 
     private static JWTVerifier createJWTVerifier(final JwkProvider jwkProvider) {

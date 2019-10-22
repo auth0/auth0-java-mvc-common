@@ -6,15 +6,28 @@ import com.auth0.jwt.exceptions.JWTDecodeException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.exceptions.SignatureVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import org.apache.commons.lang3.Validate;
+
+import java.util.Arrays;
+import java.util.List;
 
 abstract class SignatureVerifier {
 
-    private final String algorithm;
-    private JWTVerifier verifier;
+    private final JWTVerifier verifier;
+    private final List<String> acceptedAlgorithms;
 
-    SignatureVerifier(String algorithm, JWTVerifier verifier) {
-        this.algorithm = algorithm;
+    /**
+     * Creates a new JWT Signature Verifier.
+     * This instance will validate the token was signed using an expected algorithm
+     * and then proceed to verify its signature
+     *
+     * @param verifier  the instance that knows how to verify the signature. When null, the signature will not be checked.
+     * @param algorithm the accepted algorithms. Must never be null!
+     */
+    SignatureVerifier(JWTVerifier verifier, String... algorithm) {
+        Validate.notEmpty(algorithm);
         this.verifier = verifier;
+        this.acceptedAlgorithms = Arrays.asList(algorithm);
     }
 
     private DecodedJWT decodeToken(String token) throws TokenValidationException {
@@ -27,18 +40,19 @@ abstract class SignatureVerifier {
 
     DecodedJWT verifySignature(String token) throws TokenValidationException {
         DecodedJWT decoded = decodeToken(token);
-        if (!this.algorithm.equals(decoded.getAlgorithm())) {
-            throw new TokenValidationException(String.format("Signature algorithm of \"%s\" is not supported. Expected the ID token to be signed with \"%s\".", decoded.getAlgorithm(), this.algorithm));
+        if (!this.acceptedAlgorithms.contains(decoded.getAlgorithm())) {
+            throw new TokenValidationException(String.format("Signature algorithm of \"%s\" is not supported. Expected the ID token to be signed with \"%s\".", decoded.getAlgorithm(), this.acceptedAlgorithms));
         }
-
-        try {
-            verifier.verify(decoded);
-        } catch (SignatureVerificationException e) {
-            throw new TokenValidationException("Invalid token signature", e);
-        } catch (JWTVerificationException ignored){
-            //NO-OP. Will be catch on a different step
-            //Would only trigger for "expired tokens" (invalid exp)
-            // ¯\_(ツ)_/¯
+        if (verifier != null) {
+            try {
+                verifier.verify(decoded);
+            } catch (SignatureVerificationException e) {
+                throw new TokenValidationException("Invalid token signature", e);
+            } catch (JWTVerificationException ignored) {
+                //NO-OP. Will be catch on a different step
+                //Would only trigger for "expired tokens" (invalid exp)
+                // ¯\_(ツ)_/¯
+            }
         }
 
         return decoded;

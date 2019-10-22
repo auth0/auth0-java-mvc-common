@@ -29,13 +29,25 @@ import static org.mockito.Mockito.when;
 public class SignatureVerifierTest {
 
     private static final String EXPIRED_HS_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIiwiZXhwIjo5NzE3ODkzMTd9.5_VOXBmOVMSi8OGgonyfyiJSq3A03PwOEuZlPD-Gxik";
+    private static final String NONE_JWT = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.";
     private static final String HS_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.a7ayNmFTxS2D-EIoUikoJ6dck7I8veWyxnje_mYD3qY";
     private static final String RS_JWT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFiYzEyMyJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.PkPWdoZNfXz8EB0SBPH83lNSOhyhdhdqYIgIwgY2nHozUnFOaUjVewlAXxP_3LBGibQ_ng4s5fEEOCJjaKBy04McryvOuL6nqb1dPQseeyxuv2zQitfrs-7kEtfeS3umywM-tV6guw9_W3nmIgaXOiYiF4WJM23ItbdCmvwdXLaf9-xHkQbRY_zEwEFbprFttKUXFbkPt6XjZ3zZwZbNZn64bx2PBiSJ2KMZAE3Lghmci-RXdhi7hXpmN30Tzze1ZsjvVeRRKNzShByKK9ZGZPmQ5yggJOXFy32ehjGkYwFMCqgMQomcGbcYhsd97huKHMHl3HOE5GDYjIq9o9oKRA";
     private static final String RS_PUBLIC_KEY = "src/test/resources/public.pem";
     private static final String RS_PUBLIC_KEY_BAD = "src/test/resources/bad-public.pem";
+    private static final String RS_JWT_INVALID_SIGNATURE = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFiYzEyMyJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.PkPWdoZNfXz8EB0SBPH83lNSOhyhdhdqYIgIwgY2nHozUnFOaUjVewlAXxP_3LBGibQ_ng4s5fEEOCJjaKBy04McryvOuL6nqb1dPQseeyxuv2zQitfrs-7kEtfeS3umywM-tV6guw9_W3nmIgaXOiYiF4WJM23ItbdCmvwdXLaf9-xHkQbRY_zEwEFbprFttKUXFbkPt6XjZ3zZwZbNZn64bx2PBiSJ2KMZAE3Lghmci-RXdhi7hXpmN30Tzze1ZsjvVeRRKNzShByKK9ZGZPmQ5yggJOXFy32ehjGkYwFMCqgMQomcGbcYhsd97huKHMHl3HOE5GDYjIq9o9oABC";
+    private static final String HS_JWT_INVALID_SIGNATURE = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.eTxhYFIHNii1zjxGr9QZvPcqofOd_4bHcjxGq7CQluY";
 
     @Rule
     public ExpectedException exception = ExpectedException.none();
+
+    @Test
+    public void failsWhenAlgorithmIsNotExpected() {
+        exception.expect(TokenValidationException.class);
+        exception.expectMessage("Signature algorithm of \"none\" is not supported. Expected the ID token to be signed with \"[HS256, RS256]\".");
+
+        SignatureVerifier verifier = new AlgorithmVerifier();
+        verifier.verifySignature(NONE_JWT);
+    }
 
     @Test
     public void failsWhenTokenCannotBeDecoded() {
@@ -49,7 +61,7 @@ public class SignatureVerifierTest {
     @Test
     public void failsWhenAlgorithmRS256IsNotExpected() {
         exception.expect(TokenValidationException.class);
-        exception.expectMessage("Signature algorithm of \"RS256\" is not supported. Expected the ID token to be signed with \"HS256\".");
+        exception.expectMessage("Signature algorithm of \"RS256\" is not supported. Expected the ID token to be signed with \"[HS256]\".");
 
         SignatureVerifier verifier = new SymmetricSignatureVerifier("secret");
         verifier.verifySignature(RS_JWT);
@@ -58,10 +70,30 @@ public class SignatureVerifierTest {
     @Test
     public void failsWhenAlgorithmHS256IsNotExpected() throws Exception {
         exception.expect(TokenValidationException.class);
-        exception.expectMessage("Signature algorithm of \"HS256\" is not supported. Expected the ID token to be signed with \"RS256\".");
+        exception.expectMessage("Signature algorithm of \"HS256\" is not supported. Expected the ID token to be signed with \"[RS256]\".");
 
         SignatureVerifier verifier = new AsymmetricSignatureVerifier(getRSProvider(RS_PUBLIC_KEY));
         verifier.verifySignature(HS_JWT);
+    }
+
+    @Test
+    public void succeedsSkippingSignatureCheckOnHS256Token() {
+        SignatureVerifier verifier = new AlgorithmVerifier();
+        DecodedJWT decodedJWT1 = verifier.verifySignature(HS_JWT);
+        DecodedJWT decodedJWT2 = verifier.verifySignature(HS_JWT_INVALID_SIGNATURE);
+
+        assertThat(decodedJWT1, notNullValue());
+        assertThat(decodedJWT2, notNullValue());
+    }
+
+    @Test
+    public void succeedsSkippingSignatureCheckOnRS256Token() {
+        SignatureVerifier verifier = new AlgorithmVerifier();
+        DecodedJWT decodedJWT1 = verifier.verifySignature(RS_JWT);
+        DecodedJWT decodedJWT2 = verifier.verifySignature(RS_JWT_INVALID_SIGNATURE);
+
+        assertThat(decodedJWT1, notNullValue());
+        assertThat(decodedJWT2, notNullValue());
     }
 
     @Test
