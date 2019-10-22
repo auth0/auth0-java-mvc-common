@@ -6,7 +6,6 @@ import org.apache.commons.lang3.Validate;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.TimeZone;
 
 /**
  * Token verification utility class.

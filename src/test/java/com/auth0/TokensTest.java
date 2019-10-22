@@ -9,7 +9,7 @@ import static org.junit.Assert.assertThat;
 public class TokensTest {
 
     @Test
-    public void shouldReturnValidTokens() throws Exception {
+    public void shouldReturnValidTokens() {
         Tokens tokens = new Tokens("accessToken", "idToken", "refreshToken", "bearer", 360000L);
         assertThat(tokens.getAccessToken(), is("accessToken"));
         assertThat(tokens.getIdToken(), is("idToken"));
@@ -19,7 +19,7 @@ public class TokensTest {
     }
 
     @Test
-    public void shouldReturnMissingTokens() throws Exception {
+    public void shouldReturnMissingTokens() {
         Tokens tokens = new Tokens(null, null, null, null, null);
         assertThat(tokens.getAccessToken(), is(nullValue()));
         assertThat(tokens.getIdToken(), is(nullValue()));

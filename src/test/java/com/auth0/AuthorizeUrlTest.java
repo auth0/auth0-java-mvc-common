@@ -21,12 +21,12 @@ public class AuthorizeUrlTest {
     private AuthAPI client;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         client = new AuthAPI("domain.auth0.com", "clientId", "clientSecret");
     }
 
     @Test
-    public void shouldBuildValidStringUrl() throws Exception {
+    public void shouldBuildValidStringUrl() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .build();
@@ -35,7 +35,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetDefaultScope() throws Exception {
+    public void shouldSetDefaultScope() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .build();
@@ -43,7 +43,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetResponseType() throws Exception {
+    public void shouldSetResponseType() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .build();
@@ -51,7 +51,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetRedirectUrl() throws Exception {
+    public void shouldSetRedirectUrl() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .build();
@@ -59,7 +59,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetConnection() throws Exception {
+    public void shouldSetConnection() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .withConnection("facebook")
@@ -68,7 +68,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetAudience() throws Exception {
+    public void shouldSetAudience() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .withAudience("https://api.auth0.com/")
@@ -77,7 +77,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetNonceAndSaveTheValueOnTheRequestSession() throws Exception {
+    public void shouldSetNonceAndSaveTheValueOnTheRequestSession() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .withNonce("asdfghjkl")
@@ -88,7 +88,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetStateAndSaveTheValueOnTheRequestSession() throws Exception {
+    public void shouldSetStateAndSaveTheValueOnTheRequestSession() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .withState("asdfghjkl")
@@ -99,7 +99,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetScope() throws Exception {
+    public void shouldSetScope() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .withScope("openid profile email")
@@ -108,7 +108,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetCustomParameterScope() throws Exception {
+    public void shouldSetCustomParameterScope() {
         HttpServletRequest req = new MockHttpServletRequest();
         String url = new AuthorizeUrl(client, req, "https://redirect.to/me", "id_token token")
                 .withParameter("custom", "value")
@@ -117,7 +117,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldThrowWhenReusingTheInstance() throws Exception {
+    public void shouldThrowWhenReusingTheInstance() {
         exception.expect(IllegalStateException.class);
         exception.expectMessage("The AuthorizeUrl instance must not be reused.");
         HttpServletRequest req = new MockHttpServletRequest();
@@ -128,7 +128,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldThrowWhenChangingTheRedirectURI() throws Exception {
+    public void shouldThrowWhenChangingTheRedirectURI() {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Redirect URI cannot be changed once set.");
         HttpServletRequest req = new MockHttpServletRequest();
@@ -137,7 +137,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldThrowWhenChangingTheResponseType() throws Exception {
+    public void shouldThrowWhenChangingTheResponseType() {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Response type cannot be changed once set.");
         HttpServletRequest req = new MockHttpServletRequest();
@@ -146,7 +146,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldThrowWhenChangingTheStateUsingCustomParameterSetter() throws Exception {
+    public void shouldThrowWhenChangingTheStateUsingCustomParameterSetter() {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.");
         HttpServletRequest req = new MockHttpServletRequest();
@@ -155,7 +155,7 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldThrowWhenChangingTheNonceUsingCustomParameterSetter() throws Exception {
+    public void shouldThrowWhenChangingTheNonceUsingCustomParameterSetter() {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.");
         HttpServletRequest req = new MockHttpServletRequest();

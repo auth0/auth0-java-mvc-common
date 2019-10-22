@@ -11,17 +11,18 @@ public class InvalidRequestExceptionTest {
     private InvalidRequestException exception;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         exception = new InvalidRequestException("error", "message");
     }
 
+    @SuppressWarnings("deprecation")
     @Test
-    public void shouldGetDescription() throws Exception {
+    public void shouldGetDescription() {
         assertThat(exception.getDescription(), is("message"));
     }
 
     @Test
-    public void shouldGetCode() throws Exception {
+    public void shouldGetCode() {
         assertThat(exception.getCode(), is("error"));
     }
 

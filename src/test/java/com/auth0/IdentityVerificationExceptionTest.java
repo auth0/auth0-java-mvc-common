@@ -12,34 +12,34 @@ public class IdentityVerificationExceptionTest {
     private IdentityVerificationException exception;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         cause = mock(Throwable.class);
         exception = new IdentityVerificationException("error", "description", cause);
     }
 
     @Test
-    public void shouldGetCode() throws Exception {
+    public void shouldGetCode() {
         assertThat(exception.getCode(), is("error"));
     }
 
     @Test
-    public void shouldGetDescription() throws Exception {
+    public void shouldGetDescription() {
         assertThat(exception.getMessage(), is("description"));
     }
 
     @Test
-    public void shouldGetCause() throws Exception {
+    public void shouldGetCause() {
         assertThat(exception.getCause(), is(cause));
     }
 
     @Test
-    public void shouldBeAPIError() throws Exception {
+    public void shouldBeAPIError() {
         IdentityVerificationException exception = new IdentityVerificationException("a0.api_error", "description", null);
         assertThat(exception.isAPIError(), is(true));
     }
 
     @Test
-    public void shouldBeJWTError() throws Exception {
+    public void shouldBeJWTError() {
         IdentityVerificationException exception = new IdentityVerificationException("a0.missing_jwt_public_key_error", "description", null);
         assertThat(exception.isJWTError(), is(true));
         IdentityVerificationException exception2 = new IdentityVerificationException("a0.invalid_jwt_error", "description", null);

@@ -128,8 +128,8 @@ AuthenticationController authController = AuthenticationController.newBuilder("d
     .build();
 ```
 
-#### Limiting the time to complete the authentication
-The time to sign on measured since the login page is shown and the result parsed by this library can also be a deciding factor to reject the authentication. This behavior is by default disabled, and can be changed like this:
+#### Limiting the time since last authentication
+The time to sign on measured since the last successful user authentication can also be a deciding factor to reject the authentication. This behavior is by default disabled, and can be changed like this:
 
 ```java
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")

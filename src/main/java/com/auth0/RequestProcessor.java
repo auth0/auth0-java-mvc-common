@@ -10,8 +10,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.auth0.IdentityVerificationException.API_ERROR;
-import static com.auth0.IdentityVerificationException.JWT_VERIFICATION_ERROR;
 import static com.auth0.InvalidRequestException.*;
 
 /**

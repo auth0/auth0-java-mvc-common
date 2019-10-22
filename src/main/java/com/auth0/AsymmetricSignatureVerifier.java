@@ -10,7 +10,6 @@ import com.auth0.jwt.interfaces.RSAKeyProvider;
 
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.Arrays;
 
 @SuppressWarnings("unused")
 class AsymmetricSignatureVerifier extends SignatureVerifier {
