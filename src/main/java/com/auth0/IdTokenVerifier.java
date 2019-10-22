@@ -60,8 +60,7 @@ class IdTokenVerifier {
         }
 
         //epoch/seconds clock!
-        //TODO: Verify UTC (JWT / Epoch / System.getCurrentTimeMillis()) is == GMT (new Date(long millis))
-        final Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        final Calendar cal = Calendar.getInstance();
         final Date now = verifyOptions.clock != null ? verifyOptions.clock : cal.getTime();
         final int leeway = verifyOptions.leeway != null ? verifyOptions.leeway : DEFAULT_LEEWAY;
 
