@@ -106,14 +106,13 @@ public class AuthenticationController {
         }
 
         /**
-         * Sets the time window during which the user must complete the authentication once started. The value must be in seconds.
+         * Sets the allowable elapsed time in seconds since the last time user was authenticated.
          * By default this behavior is disabled.
          *
          * @param maxAge the max age of the authentication, in seconds.
          * @return this same builder instance.
          */
         public Builder withAuthenticationMaxAge(Integer maxAge) {
-            //TODO: Evaluate renaming / refactoring these docs
             Validate.notNull(maxAge);
             this.authenticationMaxAge = maxAge;
             return this;

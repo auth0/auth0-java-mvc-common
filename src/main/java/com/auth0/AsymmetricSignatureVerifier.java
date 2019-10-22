@@ -26,8 +26,7 @@ class AsymmetricSignatureVerifier extends SignatureVerifier {
                     Jwk jwk = jwkProvider.get(keyId);
                     return (RSAPublicKey) jwk.getPublicKey();
                 } catch (JwkException ignored) {
-                    //Nothing to do here! :(
-                    //TODO: See how to improve the exception handling on the java-jwt side
+                    // JwkException handled by Algorithm verify implementation from java-jwt
                 }
                 return null;
             }
