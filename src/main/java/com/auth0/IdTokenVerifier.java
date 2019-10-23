@@ -139,7 +139,7 @@ class IdTokenVerifier {
         return domain;
     }
 
-    public static class Options {
+    static class Options {
         final String issuer;
         final String audience;
         final SignatureVerifier verifier;

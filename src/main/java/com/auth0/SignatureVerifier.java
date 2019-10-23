@@ -51,7 +51,6 @@ abstract class SignatureVerifier {
             } catch (JWTVerificationException ignored) {
                 //NO-OP. Will be catch on a different step
                 //Would only trigger for "expired tokens" (invalid exp)
-                // ¯\_(ツ)_/¯
             }
         }
 
