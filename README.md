@@ -150,7 +150,7 @@ String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirec
 ```
 
 #### HTTP Logging 
-Once you have created the instance of the `AuthenticationController` you can enable HTTP logging for all Requests and Responses if you need to debug a specific endpoint. Keep in mind that this will log everything including sensitive information. Don't use it in a production environment.
+Once you have created the instance of the `AuthenticationController` you can enable HTTP logging for all Requests and Responses to debug a specific endpoint. **This will log everything including sensitive information** so don't use it in a production environment.
 
 ```java
 authController.setLoggingEnabled(true);
