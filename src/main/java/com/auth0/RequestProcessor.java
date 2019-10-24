@@ -25,7 +25,6 @@ class RequestProcessor {
     private static final String KEY_EXPIRES_IN = "expires_in";
     private static final String KEY_ACCESS_TOKEN = "access_token";
     private static final String KEY_ID_TOKEN = "id_token";
-    private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_TOKEN_TYPE = "token_type";
     private static final String KEY_CODE = "code";
     private static final String KEY_TOKEN = "token";
@@ -33,7 +32,7 @@ class RequestProcessor {
     private static final String KEY_FORM_POST = "form_post";
     private static final String KEY_MAX_AGE = "max_age";
 
-    //Visible for testing
+    // Visible for testing
     final IdTokenVerifier.Options verifyOptions;
     private final String responseType;
     private final AuthAPI client;
@@ -106,7 +105,6 @@ class RequestProcessor {
         assertValidState(req);
 
         Tokens frontChannelTokens = getFrontChannelTokens(req);
-        Tokens codeExchangeTokens = frontChannelTokens;
         List<String> responseTypeList = getResponseType();
 
         if (responseTypeList.contains(KEY_ID_TOKEN) && frontChannelTokens.getIdToken() == null) {
@@ -117,26 +115,41 @@ class RequestProcessor {
         }
 
         String expectedNonce = RandomStorage.removeSessionNonce(req);
-        String authorizationCode = req.getParameter(KEY_CODE);
-        String idToken = frontChannelTokens.getIdToken();
 
-        //Dynamically set. Changes on every request!
+        // Dynamically set. Changes on every request.
         verifyOptions.setNonce(expectedNonce);
+
+        return getVerifiedTokens(req, frontChannelTokens, responseTypeList);
+    }
+
+    /**
+     * Obtains code request tokens (if using Code flow) and validates the ID token.
+     * @param req the HTTP request
+     * @param frontChannelTokens the tokens obtained from the front channel
+     * @param responseTypeList the reponse types
+     * @return a Tokens object that wraps the values obtained from the front-channel and/or the code request response.
+     * @throws IdentityVerificationException
+     */
+    private Tokens getVerifiedTokens(HttpServletRequest req, Tokens frontChannelTokens, List<String> responseTypeList)
+            throws IdentityVerificationException {
+
+        String authorizationCode = req.getParameter(KEY_CODE);
+        Tokens codeExchangeTokens = null;
 
         try {
             if (responseTypeList.contains(KEY_ID_TOKEN)) {
-                //Implicit/Hybrid flow: must verify front-channel ID Token first
-                tokenVerifier.verify(idToken, verifyOptions);
+                // Implicit/Hybrid flow: must verify front-channel ID Token first
+                tokenVerifier.verify(frontChannelTokens.getIdToken(), verifyOptions);
             }
             if (responseTypeList.contains(KEY_CODE)) {
-                //Code/Hybrid flow
+                // Code/Hybrid flow
                 String redirectUri = req.getRequestURL().toString();
                 codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
                 if (!responseTypeList.contains(KEY_ID_TOKEN)) {
-                    //If already verified the front-channel token, don't verify it again.
-                    idToken = codeExchangeTokens.getIdToken();
-                    if (idToken != null) {
-                        tokenVerifier.verify(idToken, verifyOptions);
+                    // If we already verified the front-channel token, don't verify it again.
+                    String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
+                    if (idTokenFromCodeExchange != null) {
+                        tokenVerifier.verify(idTokenFromCodeExchange, verifyOptions);
                     }
                 }
             }
@@ -145,7 +158,7 @@ class RequestProcessor {
         } catch (Auth0Exception e) {
             throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the Authorization Code for Auth0 Tokens.", e);
         }
-        //Keep the front-channel ID Token and the code-exchange Access Token.
+        // Keep the front-channel ID Token and the code-exchange Access Token.
         return mergeTokens(frontChannelTokens, codeExchangeTokens);
     }
 
@@ -161,7 +174,7 @@ class RequestProcessor {
      */
     private Tokens getFrontChannelTokens(HttpServletRequest req) {
         Long expiresIn = req.getParameter(KEY_EXPIRES_IN) == null ? null : Long.parseLong(req.getParameter(KEY_EXPIRES_IN));
-        return new Tokens(req.getParameter(KEY_ACCESS_TOKEN), req.getParameter(KEY_ID_TOKEN), req.getParameter(KEY_REFRESH_TOKEN), req.getParameter(KEY_TOKEN_TYPE), expiresIn);
+        return new Tokens(req.getParameter(KEY_ACCESS_TOKEN), req.getParameter(KEY_ID_TOKEN), null, req.getParameter(KEY_TOKEN_TYPE), expiresIn);
     }
 
     /**
@@ -217,13 +230,31 @@ class RequestProcessor {
      * @return a merged version of Tokens using the best tokens when possible.
      */
     private Tokens mergeTokens(Tokens frontChannelTokens, Tokens codeExchangeTokens) {
-        //Prefer access token from the code exchange
-        String accessToken = codeExchangeTokens.getAccessToken() != null ? codeExchangeTokens.getAccessToken() : frontChannelTokens.getAccessToken();
-        //Prefer id token from the front-channel
+        if (codeExchangeTokens == null) {
+            return frontChannelTokens;
+        }
+
+        // Prefer access token from the code exchange
+        String accessToken;
+        String type;
+        Long expiresIn;
+
+        if (codeExchangeTokens.getAccessToken() != null) {
+            accessToken = codeExchangeTokens.getAccessToken();
+            type = codeExchangeTokens.getType();
+            expiresIn = codeExchangeTokens.getExpiresIn();
+        } else {
+            accessToken = frontChannelTokens.getAccessToken();
+            type = frontChannelTokens.getType();
+            expiresIn = frontChannelTokens.getExpiresIn();
+        }
+
+        // Prefer id token from the front-channel
         String idToken = frontChannelTokens.getIdToken() != null ? frontChannelTokens.getIdToken() : codeExchangeTokens.getIdToken();
-        String refreshToken = frontChannelTokens.getRefreshToken() != null ? frontChannelTokens.getRefreshToken() : codeExchangeTokens.getRefreshToken();
-        String type = frontChannelTokens.getType() != null ? frontChannelTokens.getType() : codeExchangeTokens.getType();
-        Long expiresIn = frontChannelTokens.getExpiresIn() != null ? frontChannelTokens.getExpiresIn() : codeExchangeTokens.getExpiresIn();
+
+        // Refresh token only available from the code exchange
+        String refreshToken = codeExchangeTokens.getRefreshToken();
+
         return new Tokens(accessToken, idToken, refreshToken, type, expiresIn);
     }
 

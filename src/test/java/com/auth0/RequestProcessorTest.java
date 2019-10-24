@@ -225,12 +225,16 @@ public class RequestProcessorTest {
         params.put("code", "abc123");
         params.put("state", "1234");
         params.put("id_token", "frontIdToken");
+        params.put("expires_in", "8400");
+        params.put("token_type", "frontTokenType");
         HttpServletRequest req = getRequest(params);
         RandomStorage.setSessionState(req, "1234");
 
         AuthRequest codeExchangeRequest = mock(AuthRequest.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
         when(tokenHolder.getIdToken()).thenReturn("backIdToken");
+        when(tokenHolder.getExpiresIn()).thenReturn(4800L);
+        when(tokenHolder.getTokenType()).thenReturn("backTokenType");
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
@@ -244,6 +248,103 @@ public class RequestProcessorTest {
 
         assertThat(tokens, is(notNullValue()));
         assertThat(tokens.getIdToken(), is("frontIdToken"));
+        assertThat(tokens.getType(), is("frontTokenType"));
+        assertThat(tokens.getExpiresIn(), is(8400L));
+    }
+
+    @Test
+    public void shouldReturnTokensOnProcessIfTokenIdTokenCodeRequestPassesIdTokenVerification() throws Exception {
+        doNothing().when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        params.put("id_token", "frontIdToken");
+        params.put("access_token", "frontAccessToken");
+        params.put("expires_in", "8400");
+        params.put("token_type", "frontTokenType");
+        HttpServletRequest req = getRequest(params);
+        RandomStorage.setSessionState(req, "1234");
+
+        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenHolder tokenHolder = mock(TokenHolder.class);
+        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
+        when(tokenHolder.getAccessToken()).thenReturn("backAccessToken");
+        when(tokenHolder.getRefreshToken()).thenReturn("backRefreshToken");
+        when(tokenHolder.getExpiresIn()).thenReturn(4800L);
+        when(tokenHolder.getTokenType()).thenReturn("backTokenType");
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+
+        RequestProcessor handler = new RequestProcessor(client, "id_token token code", verifyOptions, tokenVerifier);
+        Tokens tokens = handler.process(req);
+
+        //Should not verify the ID Token twice
+        verify(tokenVerifier).verify("frontIdToken", verifyOptions);
+        verify(tokenVerifier, never()).verify("backIdToken", verifyOptions);
+        verifyNoMoreInteractions(tokenVerifier);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getIdToken(), is("frontIdToken"));
+        assertThat(tokens.getAccessToken(), is("backAccessToken"));
+        assertThat(tokens.getRefreshToken(), is("backRefreshToken"));
+        assertThat(tokens.getExpiresIn(), is(4800L));
+        assertThat(tokens.getType(), is("backTokenType"));
+    }
+
+    @Test
+    public void shouldReturnTokensOnProcessIfCodeRequestPassesIdTokenVerification() throws Exception {
+        doNothing().when(tokenVerifier).verify(eq("backIdToken"), eq(verifyOptions));
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        HttpServletRequest req = getRequest(params);
+        RandomStorage.setSessionState(req, "1234");
+
+        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenHolder tokenHolder = mock(TokenHolder.class);
+        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
+        when(tokenHolder.getAccessToken()).thenReturn("backAccessToken");
+        when(tokenHolder.getRefreshToken()).thenReturn("backRefreshToken");
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+
+        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier);
+        Tokens tokens = handler.process(req);
+
+        verify(tokenVerifier).verify("backIdToken", verifyOptions);
+        verifyNoMoreInteractions(tokenVerifier);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getIdToken(), is("backIdToken"));
+        assertThat(tokens.getAccessToken(), is("backAccessToken"));
+        assertThat(tokens.getRefreshToken(), is("backRefreshToken"));
+    }
+
+    @Test
+    public void shouldReturnEmptyTokensWhenCodeRequestReturnsNoTokens() throws Exception {
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        HttpServletRequest req = getRequest(params);
+        RandomStorage.setSessionState(req, "1234");
+
+        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenHolder tokenHolder = mock(TokenHolder.class);
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+
+        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier);
+        Tokens tokens = handler.process(req);
+
+        verifyNoMoreInteractions(tokenVerifier);
+
+        assertThat(tokens, is(notNullValue()));
+
+        assertThat(tokens.getIdToken(), is(nullValue()));
+        assertThat(tokens.getAccessToken(), is(nullValue()));
+        assertThat(tokens.getRefreshToken(), is(nullValue()));
     }
 
     @Test
