@@ -106,7 +106,7 @@ AuthenticationController authController = AuthenticationController.newBuilder("d
     .build();
 ```
 
-The `JwkProvider` returned from the `JwkProviderBuilder` it's cached and rate limited by default. Check it's [repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize these options.
+The `JwkProvider` returned from the `JwkProviderBuilder` is cached and rate limited by default. Please see the [jwks-rsa-java repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize these options.
 
 #### Choosing a different Response Type
 
