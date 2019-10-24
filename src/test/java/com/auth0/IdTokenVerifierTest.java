@@ -1,12 +1,14 @@
 package com.auth0;
 
 import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+import java.util.Calendar;
 import java.util.Date;
 
 import static org.mockito.Mockito.mock;
@@ -458,6 +460,69 @@ public class IdTokenVerifierTest {
         new IdTokenVerifier().verify(token, options);
     }
 
+    @Test
+    public void succeedsWithValidTokenUsingDefaultClock() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("nonce", "nonce")
+                .sign(Algorithm.HMAC256("secret"));
+
+        DecodedJWT decodedJWT = JWT.decode(token);
+        SignatureVerifier verifier = mock(SignatureVerifier.class);
+        when(verifier.verifySignature(token)).thenReturn(decodedJWT);
+
+        IdTokenVerifier.Options opts = new IdTokenVerifier.Options(DOMAIN, AUDIENCE, verifier);
+        opts.setNonce("nonce");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void succeedsWithValidTokenUsingDefaultClockAndHttpDomain() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("http://" + DOMAIN + "/")
+                .withClaim("nonce", "nonce")
+                .sign(Algorithm.HMAC256("secret"));
+
+        DecodedJWT decodedJWT = JWT.decode(token);
+        SignatureVerifier verifier = mock(SignatureVerifier.class);
+        when(verifier.verifySignature(token)).thenReturn(decodedJWT);
+
+        IdTokenVerifier.Options opts = new IdTokenVerifier.Options("http://" + DOMAIN + "/", AUDIENCE, verifier);
+        opts.setNonce("nonce");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void succeedsWithValidTokenUsingDefaultClockAndHttpsDomain() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("nonce", "nonce")
+                .sign(Algorithm.HMAC256("secret"));
+
+        DecodedJWT decodedJWT = JWT.decode(token);
+        SignatureVerifier verifier = mock(SignatureVerifier.class);
+        when(verifier.verifySignature(token)).thenReturn(decodedJWT);
+
+        IdTokenVerifier.Options opts = new IdTokenVerifier.Options("https://" + DOMAIN + "/", AUDIENCE, verifier);
+        opts.setNonce("nonce");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
     private IdTokenVerifier.Options configureOptions(String token) {
         DecodedJWT decodedJWT = JWT.decode(token);
         SignatureVerifier verifier = mock(SignatureVerifier.class);
@@ -466,5 +531,19 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options opts = new IdTokenVerifier.Options(DOMAIN, AUDIENCE, verifier);
         opts.setClock(DEFAULT_CLOCK);
         return opts;
+    }
+
+    private Date getYesterday() {
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DATE, -1);
+
+        return cal.getTime();
+    }
+
+    private Date getTomorrow() {
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DATE, 1);
+
+        return cal.getTime();
     }
 }
