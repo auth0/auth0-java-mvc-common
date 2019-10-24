@@ -91,8 +91,8 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfIdTokenRequestIsMissingIdToken() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.missing_id_token"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("Id Token is missing from the response."));
-        exception.expectMessage("Id Token is missing from the response.");
+        exception.expect(InvalidRequestExceptionMatcher.hasDescription("ID Token is missing from the response."));
+        exception.expectMessage("ID Token is missing from the response.");
 
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
@@ -123,7 +123,7 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfIdTokenRequestDoesNotPassIdTokenVerification() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        exception.expectMessage("An error occurred while trying to verify the Id Token.");
+        exception.expectMessage("An error occurred while trying to verify the ID Token.");
 
         doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
 
@@ -157,7 +157,7 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfIdTokenCodeRequestDoesNotPassIdTokenVerification() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        exception.expectMessage("An error occurred while trying to verify the Id Token.");
+        exception.expectMessage("An error occurred while trying to verify the ID Token.");
 
         doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
 
@@ -176,7 +176,7 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfCodeRequestFailsToExecuteCodeExchange() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.api_error"));
-        exception.expectMessage("An error occurred while exchanging the Authorization Code for Auth0 Tokens.");
+        exception.expectMessage("An error occurred while exchanging the authorization code.");
 
 
         Map<String, Object> params = new HashMap<>();
@@ -197,7 +197,7 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfCodeRequestSucceedsButDoesNotPassIdTokenVerification() throws Exception {
         exception.expect(IdentityVerificationException.class);
         exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        exception.expectMessage("An error occurred while trying to verify the Id Token.");
+        exception.expectMessage("An error occurred while trying to verify the ID Token.");
 
         doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("backIdToken"), eq(verifyOptions));
 

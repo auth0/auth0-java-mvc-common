@@ -108,7 +108,7 @@ class RequestProcessor {
         List<String> responseTypeList = getResponseType();
 
         if (responseTypeList.contains(KEY_ID_TOKEN) && frontChannelTokens.getIdToken() == null) {
-            throw new InvalidRequestException(MISSING_ID_TOKEN, "Id Token is missing from the response.");
+            throw new InvalidRequestException(MISSING_ID_TOKEN, "ID Token is missing from the response.");
         }
         if (responseTypeList.contains(KEY_TOKEN) && frontChannelTokens.getAccessToken() == null) {
             throw new InvalidRequestException(MISSING_ACCESS_TOKEN, "Access Token is missing from the response.");
@@ -154,9 +154,9 @@ class RequestProcessor {
                 }
             }
         } catch (TokenValidationException e) {
-            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the Id Token.", e);
+            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the ID Token.", e);
         } catch (Auth0Exception e) {
-            throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the Authorization Code for Auth0 Tokens.", e);
+            throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the authorization code.", e);
         }
         // Keep the front-channel ID Token and the code-exchange Access Token.
         return mergeTokens(frontChannelTokens, codeExchangeTokens);
@@ -249,7 +249,7 @@ class RequestProcessor {
             expiresIn = frontChannelTokens.getExpiresIn();
         }
 
-        // Prefer id token from the front-channel
+        // Prefer ID token from the front-channel
         String idToken = frontChannelTokens.getIdToken() != null ? frontChannelTokens.getIdToken() : codeExchangeTokens.getIdToken();
 
         // Refresh token only available from the code exchange
