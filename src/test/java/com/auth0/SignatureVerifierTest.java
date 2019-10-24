@@ -1,6 +1,7 @@
 package com.auth0;
 
 import com.auth0.jwk.Jwk;
+import com.auth0.jwk.JwkException;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import org.bouncycastle.util.io.pem.PemReader;
@@ -137,6 +138,17 @@ public class SignatureVerifierTest {
         DecodedJWT decodedJWT = verifier.verifySignature(RS_JWT);
 
         assertThat(decodedJWT, notNullValue());
+    }
+
+    @Test
+    public void failsWhenErrorGettingJwk() throws Exception {
+        JwkProvider  jwkProvider = mock(JwkProvider.class);
+        when(jwkProvider.get("abc123")).thenThrow(JwkException.class);
+
+        exception.expect(TokenValidationException.class);
+        exception.expectMessage("Invalid token signature");
+        SignatureVerifier verifier = new AsymmetricSignatureVerifier(jwkProvider);
+        verifier.verifySignature(RS_JWT);
     }
 
     private JwkProvider getRSProvider(String rsaPath) throws Exception {
