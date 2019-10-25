@@ -185,7 +185,7 @@ public class IdTokenVerifierTest {
         options.setClock(clock);
 
         exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Expiration Time (exp) claim error in the ID token; current time %d is after expiration time %d",
+        exception.expectMessage(String.format("Expiration Time (exp) claim error in the ID token; current time (%d) is after expiration time (%d)",
                 clock.getTime() / 1000, actualExpTime + DEFAULT_CLOCK_SKEW));
 
         new IdTokenVerifier().verify(token, options);
@@ -221,7 +221,7 @@ public class IdTokenVerifierTest {
         options.setClock(clock);
 
         exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Expiration Time (exp) claim error in the ID token; current time %d is after expiration time %d",
+        exception.expectMessage(String.format("Expiration Time (exp) claim error in the ID token; current time (%d) is after expiration time (%d)",
                 clock.getTime() / 1000, ((actualExp.getTime() / 1000) + leeway)));
         new IdTokenVerifier().verify(token, options);
     }
@@ -261,7 +261,7 @@ public class IdTokenVerifierTest {
         clock.setTime(clock.getTime() - ((DEFAULT_CLOCK_SKEW + 1) * 1000));
 
         exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Issued At (iat) claim error in the ID token; current time %d is before issued at time 1567486740", clock.getTime() / 1000));
+        exception.expectMessage(String.format("Issued At (iat) claim error in the ID token; current time (%d) is before issued at time (1567486740)", clock.getTime() / 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
@@ -291,7 +291,7 @@ public class IdTokenVerifierTest {
         clock.setTime(clock.getTime() - ((leeway + 1) * 1000));
 
         exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Issued At (iat) claim error in the ID token; current time %d is before issued at time 1567486680", clock.getTime() / 1000));
+        exception.expectMessage(String.format("Issued At (iat) claim error in the ID token; current time (%d) is before issued at time (1567486680)", clock.getTime() / 1000));
 
 
         IdTokenVerifier.Options options = configureOptions(token);
@@ -396,7 +396,7 @@ public class IdTokenVerifierTest {
         options.setMaxAge(maxAge);
 
         exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time %d is after last auth at %d",
+        exception.expectMessage(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time (%d) is after last auth at (%d)",
                 clock.getTime() / 1000, actualAuthTime + maxAge + DEFAULT_CLOCK_SKEW));
         new IdTokenVerifier().verify(token, options);
     }
@@ -436,7 +436,7 @@ public class IdTokenVerifierTest {
         options.setClockSkew(customLeeway);
 
         exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time %d is after last auth at %d",
+        exception.expectMessage(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time (%d) is after last auth at (%d)",
                 clock.getTime() / 1000, actualAuthTime + maxAge + customLeeway));
         new IdTokenVerifier().verify(token, options);
     }

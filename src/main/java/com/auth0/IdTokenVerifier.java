@@ -68,7 +68,7 @@ class IdTokenVerifier {
         Date expDate = cal.getTime();
 
         if (now.after(expDate)) {
-            throw new TokenValidationException(String.format("Expiration Time (exp) claim error in the ID token; current time %d is after expiration time %d", now.getTime() / 1000, expDate.getTime() / 1000));
+            throw new TokenValidationException(String.format("Expiration Time (exp) claim error in the ID token; current time (%d) is after expiration time (%d)", now.getTime() / 1000, expDate.getTime() / 1000));
         }
 
         if (decoded.getIssuedAt() == null) {
@@ -80,7 +80,7 @@ class IdTokenVerifier {
         Date iatDate = cal.getTime();
 
         if (now.before(iatDate)) {
-            throw new TokenValidationException(String.format("Issued At (iat) claim error in the ID token; current time %d is before issued at time %d", now.getTime() / 1000, iatDate.getTime() / 1000));
+            throw new TokenValidationException(String.format("Issued At (iat) claim error in the ID token; current time (%d) is before issued at time (%d)", now.getTime() / 1000, iatDate.getTime() / 1000));
         }
 
 
@@ -116,7 +116,7 @@ class IdTokenVerifier {
             Date authTimeDate = cal.getTime();
 
             if (now.after(authTimeDate)) {
-                throw new TokenValidationException(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time %d is after last auth at %d", now.getTime() / 1000, authTimeDate.getTime() / 1000));
+                throw new TokenValidationException(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time (%d) is after last auth at (%d)", now.getTime() / 1000, authTimeDate.getTime() / 1000));
             }
         }
     }
