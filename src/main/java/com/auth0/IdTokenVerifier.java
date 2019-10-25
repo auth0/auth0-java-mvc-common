@@ -20,7 +20,7 @@ class IdTokenVerifier {
     private static final String AUTH_TIME_CLAIM = "auth_time";
 
     /**
-     * Verifies a provided ID Token following the OIDC specification.
+     * Verifies a provided ID Token follows the OIDC specification.
      * See https://openid.net/specs/openid-connect-core-1_0-final.html#IDTokenValidation
      *
      * @param token         the ID Token to verify.
@@ -30,15 +30,12 @@ class IdTokenVerifier {
     void verify(String token, Options verifyOptions) throws TokenValidationException {
         Validate.notNull(verifyOptions);
 
-        //1 presence
         if (isEmpty(token)) {
             throw new TokenValidationException("ID token is required but missing");
         }
 
-        //2 and 3
         DecodedJWT decoded = verifyOptions.verifier.verifySignature(token);
 
-        //4. Claims
         if (isEmpty(decoded.getIssuer())) {
             throw new TokenValidationException("Issuer (iss) claim must be a string present in the ID token");
         }
@@ -58,7 +55,6 @@ class IdTokenVerifier {
             throw new TokenValidationException(String.format("Audience (aud) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.audience, decoded.getAudience()));
         }
 
-        //epoch/seconds clock!
         final Calendar cal = Calendar.getInstance();
         final Date now = verifyOptions.clock != null ? verifyOptions.clock : cal.getTime();
         final int clockSkew = verifyOptions.clockSkew != null ? verifyOptions.clockSkew : DEFAULT_CLOCK_SKEW;
