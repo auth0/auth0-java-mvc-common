@@ -142,7 +142,7 @@ You can customize the clock skew as shown below:
 
 ```java
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
-    .withIdTokenVerificationLeeway(60 * 2)   //2 minutes
+    .setClockSkew(60 * 2)   //2 minutes
     .build();
 ```
 

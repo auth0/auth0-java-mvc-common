@@ -13,7 +13,7 @@ import java.util.List;
  */
 class IdTokenVerifier {
 
-    private static final Integer DEFAULT_LEEWAY = 60; //1 min = 60 sec
+    private static final Integer DEFAULT_CLOCK_SKEW = 60; //1 min = 60 sec
 
     private static final String NONCE_CLAIM = "nonce";
     private static final String AZP_CLAIM = "azp";
@@ -61,14 +61,14 @@ class IdTokenVerifier {
         //epoch/seconds clock!
         final Calendar cal = Calendar.getInstance();
         final Date now = verifyOptions.clock != null ? verifyOptions.clock : cal.getTime();
-        final int leeway = verifyOptions.leeway != null ? verifyOptions.leeway : DEFAULT_LEEWAY;
+        final int clockSkew = verifyOptions.clockSkew != null ? verifyOptions.clockSkew : DEFAULT_CLOCK_SKEW;
 
         if (decoded.getExpiresAt() == null) {
             throw new TokenValidationException("Expiration Time (exp) claim must be a number present in the ID token");
         }
 
         cal.setTime(decoded.getExpiresAt());
-        cal.add(Calendar.SECOND, leeway);
+        cal.add(Calendar.SECOND, clockSkew);
         Date expDate = cal.getTime();
 
         if (now.after(expDate)) {
@@ -80,7 +80,7 @@ class IdTokenVerifier {
         }
 
         cal.setTime(decoded.getIssuedAt());
-        cal.add(Calendar.SECOND, -1 * leeway);
+        cal.add(Calendar.SECOND, -1 * clockSkew);
         Date iatDate = cal.getTime();
 
         if (now.before(iatDate)) {
@@ -116,7 +116,7 @@ class IdTokenVerifier {
 
             cal.setTime(authTime);
             cal.add(Calendar.SECOND, verifyOptions.maxAge);
-            cal.add(Calendar.SECOND, leeway);
+            cal.add(Calendar.SECOND, clockSkew);
             Date authTimeDate = cal.getTime();
 
             if (now.after(authTimeDate)) {
@@ -145,7 +145,7 @@ class IdTokenVerifier {
         final SignatureVerifier verifier;
         String nonce;
         private Integer maxAge;
-        Integer leeway;
+        Integer clockSkew;
         Date clock;
 
         public Options(String issuer, String audience, SignatureVerifier verifier) {
@@ -165,8 +165,8 @@ class IdTokenVerifier {
             this.maxAge = maxAge;
         }
 
-        void setLeeway(Integer leeway) {
-            this.leeway = leeway;
+        void setClockSkew(Integer clockSkew) {
+            this.clockSkew = clockSkew;
         }
 
         void setClock(Date now) {

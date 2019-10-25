@@ -21,7 +21,7 @@ public class IdTokenVerifierTest {
 
     // Default clock time of September 2, 2019 5:00:00 AM GMT
     private final static Date DEFAULT_CLOCK = new Date(1567400400000L);
-    private final static Integer DEFAULT_LEEWAY = 60;
+    private final static Integer DEFAULT_CLOCK_SKEW = 60;
 
     @Rule
     public ExpectedException exception = ExpectedException.none();
@@ -179,14 +179,14 @@ public class IdTokenVerifierTest {
 
         // set clock to September 1, 2019 5:00:00 AM GMT
         Date clock = new Date(1567314000000L);
-        clock.setTime(clock.getTime() + ((DEFAULT_LEEWAY + 1) * 1000));
+        clock.setTime(clock.getTime() + ((DEFAULT_CLOCK_SKEW + 1) * 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
 
         exception.expect(TokenValidationException.class);
         exception.expectMessage(String.format("Expiration Time (exp) claim error in the ID token; current time %d is after expiration time %d",
-                clock.getTime() / 1000, actualExpTime + DEFAULT_LEEWAY));
+                clock.getTime() / 1000, actualExpTime + DEFAULT_CLOCK_SKEW));
 
         new IdTokenVerifier().verify(token, options);
     }
@@ -197,7 +197,7 @@ public class IdTokenVerifierTest {
 
         // set clock to September 1, 2019 5:00:00 AM GMT
         Date clock = new Date(1567314000000L);
-        clock.setTime(clock.getTime() + ((DEFAULT_LEEWAY - 1) * 1000));
+        clock.setTime(clock.getTime() + ((DEFAULT_CLOCK_SKEW - 1) * 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
@@ -217,7 +217,7 @@ public class IdTokenVerifierTest {
         clock.setTime(clock.getTime() + ((leeway + 1) * 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
-        options.setLeeway(leeway);
+        options.setClockSkew(leeway);
         options.setClock(clock);
 
         exception.expect(TokenValidationException.class);
@@ -236,7 +236,7 @@ public class IdTokenVerifierTest {
         clock.setTime(clock.getTime() + ((leeway - 1) * 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
-        options.setLeeway(leeway);
+        options.setClockSkew(leeway);
         options.setClock(clock);
         new IdTokenVerifier().verify(token, options);
     }
@@ -258,7 +258,7 @@ public class IdTokenVerifierTest {
 
         // set clock to September 1, 2019 5:00:00 AM GMT
         Date clock = new Date(1567486800000L);
-        clock.setTime(clock.getTime() - ((DEFAULT_LEEWAY + 1) * 1000));
+        clock.setTime(clock.getTime() - ((DEFAULT_CLOCK_SKEW + 1) * 1000));
 
         exception.expect(TokenValidationException.class);
         exception.expectMessage(String.format("Issued At (iat) claim error in the ID token; current time %d is before issued at time 1567486740", clock.getTime() / 1000));
@@ -274,7 +274,7 @@ public class IdTokenVerifierTest {
 
         // set clock to September 1, 2019 5:00:00 AM GMT
         Date clock = new Date(1567486800000L);
-        clock.setTime(clock.getTime() - ((DEFAULT_LEEWAY - 1) * 1000));
+        clock.setTime(clock.getTime() - ((DEFAULT_CLOCK_SKEW - 1) * 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
@@ -296,7 +296,7 @@ public class IdTokenVerifierTest {
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
-        options.setLeeway(leeway);
+        options.setClockSkew(leeway);
         new IdTokenVerifier().verify(token, options);
     }
 
@@ -311,7 +311,7 @@ public class IdTokenVerifierTest {
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
-        options.setLeeway(leeway);
+        options.setClockSkew(leeway);
 
         new IdTokenVerifier().verify(token, options);
     }
@@ -389,7 +389,7 @@ public class IdTokenVerifierTest {
 
         // set clock to September 1, 2019 5:00:00 AM GMT
         Date clock = new Date(1567314000000L);
-        clock.setTime(clock.getTime() + ((maxAge + (DEFAULT_LEEWAY + 1)) * 1000));
+        clock.setTime(clock.getTime() + ((maxAge + (DEFAULT_CLOCK_SKEW + 1)) * 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
@@ -397,7 +397,7 @@ public class IdTokenVerifierTest {
 
         exception.expect(TokenValidationException.class);
         exception.expectMessage(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time %d is after last auth at %d",
-                clock.getTime() / 1000, actualAuthTime + maxAge + DEFAULT_LEEWAY));
+                clock.getTime() / 1000, actualAuthTime + maxAge + DEFAULT_CLOCK_SKEW));
         new IdTokenVerifier().verify(token, options);
     }
 
@@ -409,7 +409,7 @@ public class IdTokenVerifierTest {
 
         // set clock to September 1, 2019 5:00:00 AM GMT
         Date clock = new Date(1567314000000L);
-        clock.setTime(clock.getTime() + ((maxAge + (DEFAULT_LEEWAY - 1)) * 1000));
+        clock.setTime(clock.getTime() + ((maxAge + (DEFAULT_CLOCK_SKEW - 1)) * 1000));
 
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
@@ -433,7 +433,7 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
         options.setMaxAge(maxAge);
-        options.setLeeway(customLeeway);
+        options.setClockSkew(customLeeway);
 
         exception.expect(TokenValidationException.class);
         exception.expectMessage(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time %d is after last auth at %d",
@@ -455,7 +455,7 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
         options.setMaxAge(maxAge);
-        options.setLeeway(customLeeway);
+        options.setClockSkew(customLeeway);
 
         new IdTokenVerifier().verify(token, options);
     }

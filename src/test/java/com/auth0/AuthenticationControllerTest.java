@@ -259,7 +259,7 @@ public class AuthenticationControllerTest {
         assertThat(requestProcessor.verifyOptions.issuer, is("domain"));
         assertThat(requestProcessor.verifyOptions.verifier, is(notNullValue()));
 
-        assertThat(requestProcessor.verifyOptions.leeway, is(nullValue()));
+        assertThat(requestProcessor.verifyOptions.clockSkew, is(nullValue()));
         assertThat(requestProcessor.verifyOptions.clock, is(nullValue()));
         assertThat(requestProcessor.verifyOptions.nonce, is(nullValue()));
         assertThat(requestProcessor.verifyOptions.getMaxAge(), is(nullValue()));
@@ -286,11 +286,11 @@ public class AuthenticationControllerTest {
     @Test
     public void shouldCreateWithIDTokenVerificationLeeway() {
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withIdTokenVerificationLeeway(12345)
+                .withClockSkew(12345)
                 .build();
 
         RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.verifyOptions.leeway, is(12345));
+        assertThat(requestProcessor.verifyOptions.clockSkew, is(12345));
     }
 
     @Test

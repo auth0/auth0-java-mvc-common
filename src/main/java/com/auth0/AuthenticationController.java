@@ -53,7 +53,7 @@ public class AuthenticationController {
         private final String clientSecret;
         private String responseType;
         private JwkProvider jwkProvider;
-        private Integer idTokenVerificationLeeway;
+        private Integer clockSkew;
         private Integer authenticationMaxAge;
 
         Builder(String domain, String clientId, String clientSecret) {
@@ -93,15 +93,15 @@ public class AuthenticationController {
         }
 
         /**
-         * Sets the leeway or clock-skew value to use in the ID Token verification. The value must be in seconds.
+         * Sets the clock-skew or leeway value to use in the ID Token verification. The value must be in seconds.
          * Defaults to 60 seconds.
          *
-         * @param leeway the leeway to use for ID Token verification, in seconds.
+         * @param clockSkew the clock-skew to use for ID Token verification, in seconds.
          * @return this same builder instance.
          */
-        public Builder withIdTokenVerificationLeeway(Integer leeway) {
-            Validate.notNull(leeway);
-            this.idTokenVerificationLeeway = leeway;
+        public Builder withClockSkew(Integer clockSkew) {
+            Validate.notNull(clockSkew);
+            this.clockSkew = clockSkew;
             return this;
         }
 
@@ -142,7 +142,7 @@ public class AuthenticationController {
             }
 
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(domain, clientId, signatureVerifier);
-            verifyOptions.setLeeway(idTokenVerificationLeeway);
+            verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
             RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions);
             return new AuthenticationController(processor);
