@@ -91,12 +91,15 @@ That's it! You have authenticated the user using Auth0.
 
 
 ### Builder options
-By default, this library will execute the [Open ID Connect](https://openid.net/specs/openid-connect-core-1_0-final.html) **Code Grant** flow and verify the ID token if received. The library expects to interact with an Application that is signing the tokens using the **HS256 symmetric algorithm** with the client secret being the shared secret. You can customize this behavior with the builder methods below.
 
-#### Expected Signing Algorithm
-You must ensure the right expected algorithm is set in order to resolve correctly the verification of ID tokens. The default expected algorithm is HS256.
+By default, this library will execute the [Open ID Connect](https://openid.net/specs/openid-connect-core-1_0-final.html) **Authorization Code Flow** and verify the ID token (if received) using the **HS256 symmetric algorithm**.
 
-If your application is using the **RS256 asymmetric algorithm**, the tokens are signed using the Private Key instead. You must update your setup passing a `JwkProvider` instance to the builder in order to change the expected algorithm to RS256. This `JwkProvider` is in charge of fetching the Public Key associated to your Auth0 Domain, required for the verification phase. 
+#### Signing Algorithms
+
+The **HS256 symmetric algorithm** is the default expected signing algorithm. Tokens are verified using the client secret found in your Auth0 Application's settings.
+
+If your application is using the **RS256 asymmetric algorithm**, tokens are signed using a private key and verified using the public key associated with your Auth0 domain.
+For RS256, configure a `JwkProvider` for your Auth0 domain to enable retrieving the public key needed during the verification phase: 
 
 
 ```java
@@ -108,11 +111,11 @@ AuthenticationController authController = AuthenticationController.newBuilder("d
 
 The `JwkProvider` returned from the `JwkProviderBuilder` is cached and rate limited by default. Please see the [jwks-rsa-java repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize these options.
 
-#### Choosing a different Response Type
+#### OAuth Flows
 
-**Code Grant** flow will be preferred over other flows. This is the most secure and recommended way, read more about it [here](https://auth0.com/docs/flows/concepts/auth-code).
+The [Authorization Code Flow](https://auth0.com/docs/flows/concepts/auth-code) is the default authorization flow.
 
-You can still change the authentication behavior to use **Implicit Grant** flow instead.
+To use the [Implicit Grant Flow](https://auth0.com/docs/flows/concepts/implicit), configure the `AuthenticationController` with the `id_token` response type:
 
 ```java
 AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
@@ -120,7 +123,7 @@ AuthenticationController authController = AuthenticationController.newBuilder("d
     .build();
 ```
 
-or **Hybrid Grant** flow.
+To use the **[Hybrid Flow](https://auth0.com/docs/api-auth/grant/hybrid)**, specify `id_token code` as the response type:
 
 ```java
 AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
@@ -128,24 +131,18 @@ AuthenticationController authController = AuthenticationController.newBuilder("d
     .build();
 ```
 
-#### Limiting the time since last authentication
-The time to sign on measured since the last successful user authentication can also be a deciding factor to reject the authentication. This behavior is by default disabled, and can be changed like this:
-
-```java
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
-    .withAuthenticationMaxAge(60 * 1)   //1 minute
-    .build();
-```
-
-
 ### Troubleshooting
 
 #### Allowing a clock skew
-Depending on where your application is being executed on, there might be slight differences between the computer's clock and the Auth0 servers' clock. This difference could lead to reject a valid ID token and thus, unauthorized access. To prevent this type of errors the library allows a default of 60 seconds of clock skewing or leeway. To specify a value bigger than that:    
+
+During ID token validation, time-based claims such as the time the token was issued at and the token's expiration time, are verified to ensure the token is valid. 
+To accommodate potential small differences in system clocks, this library allows a default of **60 seconds** of clock skew.
+
+You can customize the clock skew as shown below:     
 
 ```java
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
-    .withIdTokenVerificationLeeway(60 * 5)   //5 minutes
+    .withIdTokenVerificationLeeway(60 * 2)   //2 minutes
     .build();
 ```
 
