@@ -41,7 +41,7 @@ public class AuthenticationControllerTest {
         builderSpy = spy(builder);
 
         doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"));
-        doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("domain"), eq("clientId"), signatureVerifierCaptor.capture());
+        doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("https://domain/"), eq("clientId"), signatureVerifierCaptor.capture());
         doReturn("1.2.3").when(builderSpy).obtainPackageVersion();
     }
 
@@ -256,7 +256,43 @@ public class AuthenticationControllerTest {
         RequestProcessor requestProcessor = controller.getRequestProcessor();
         assertThat(requestProcessor.getResponseType(), contains("code"));
         assertThat(requestProcessor.verifyOptions.audience, is("clientId"));
-        assertThat(requestProcessor.verifyOptions.issuer, is("domain"));
+        assertThat(requestProcessor.verifyOptions.issuer, is("https://domain/"));
+        assertThat(requestProcessor.verifyOptions.verifier, is(notNullValue()));
+
+        assertThat(requestProcessor.verifyOptions.clockSkew, is(nullValue()));
+        assertThat(requestProcessor.verifyOptions.clock, is(nullValue()));
+        assertThat(requestProcessor.verifyOptions.nonce, is(nullValue()));
+        assertThat(requestProcessor.verifyOptions.getMaxAge(), is(nullValue()));
+    }
+
+    @Test
+    public void shouldHandleHttpDomain() {
+        AuthenticationController controller = AuthenticationController.newBuilder("http://domain/", "clientId", "clientSecret")
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+        RequestProcessor requestProcessor = controller.getRequestProcessor();
+        assertThat(requestProcessor.getResponseType(), contains("code"));
+        assertThat(requestProcessor.verifyOptions.audience, is("clientId"));
+        assertThat(requestProcessor.verifyOptions.issuer, is("http://domain/"));
+        assertThat(requestProcessor.verifyOptions.verifier, is(notNullValue()));
+
+        assertThat(requestProcessor.verifyOptions.clockSkew, is(nullValue()));
+        assertThat(requestProcessor.verifyOptions.clock, is(nullValue()));
+        assertThat(requestProcessor.verifyOptions.nonce, is(nullValue()));
+        assertThat(requestProcessor.verifyOptions.getMaxAge(), is(nullValue()));
+    }
+
+    @Test
+    public void shouldHandleHttpsDomain() {
+        AuthenticationController controller = AuthenticationController.newBuilder("https://domain/", "clientId", "clientSecret")
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+        RequestProcessor requestProcessor = controller.getRequestProcessor();
+        assertThat(requestProcessor.getResponseType(), contains("code"));
+        assertThat(requestProcessor.verifyOptions.audience, is("clientId"));
+        assertThat(requestProcessor.verifyOptions.issuer, is("https://domain/"));
         assertThat(requestProcessor.verifyOptions.verifier, is(notNullValue()));
 
         assertThat(requestProcessor.verifyOptions.clockSkew, is(nullValue()));

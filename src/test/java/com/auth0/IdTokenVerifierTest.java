@@ -122,7 +122,7 @@ public class IdTokenVerifierTest {
 
         exception.expect(TokenValidationException.class);
         exception.expectMessage(String.format("Issuer (iss) claim mismatch in the ID token, expected \"%s\", found \"%s\"",
-                DOMAIN, "something-else"));
+                "https://" + DOMAIN + "/", "something-else"));
 
         new IdTokenVerifier().verify(token, options);
     }
@@ -475,7 +475,7 @@ public class IdTokenVerifierTest {
         SignatureVerifier verifier = mock(SignatureVerifier.class);
         when(verifier.verifySignature(token)).thenReturn(decodedJWT);
 
-        IdTokenVerifier.Options opts = new IdTokenVerifier.Options(DOMAIN, AUDIENCE, verifier);
+        IdTokenVerifier.Options opts = new IdTokenVerifier.Options("https://" + DOMAIN + "/", AUDIENCE, verifier);
         opts.setNonce("nonce");
 
         new IdTokenVerifier().verify(token, opts);
@@ -528,7 +528,7 @@ public class IdTokenVerifierTest {
         SignatureVerifier verifier = mock(SignatureVerifier.class);
         when(verifier.verifySignature(token)).thenReturn(decodedJWT);
 
-        IdTokenVerifier.Options opts = new IdTokenVerifier.Options(DOMAIN, AUDIENCE, verifier);
+        IdTokenVerifier.Options opts = new IdTokenVerifier.Options("https://" + DOMAIN + "/", AUDIENCE, verifier);
         opts.setClock(DEFAULT_CLOCK);
         return opts;
     }

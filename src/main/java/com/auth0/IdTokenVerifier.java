@@ -39,7 +39,7 @@ class IdTokenVerifier {
         if (isEmpty(decoded.getIssuer())) {
             throw new TokenValidationException("Issuer (iss) claim must be a string present in the ID token");
         }
-        if (!decoded.getIssuer().equals(ensureIsIssuer(verifyOptions.issuer))) {
+        if (!decoded.getIssuer().equals(verifyOptions.issuer)) {
             throw new TokenValidationException(String.format("Issuer (iss) claim mismatch in the ID token, expected \"%s\", found \"%s\"", verifyOptions.issuer, decoded.getIssuer()));
         }
 
@@ -123,16 +123,6 @@ class IdTokenVerifier {
 
     private boolean isEmpty(String value) {
         return value == null || value.isEmpty();
-    }
-
-    private String ensureIsIssuer(String domain) {
-        if (!domain.startsWith("http://") && !domain.startsWith("https://")) {
-            domain = "https://" + domain;
-        }
-        if (!domain.endsWith("/")) {
-            domain = domain + "/";
-        }
-        return domain;
     }
 
     static class Options {

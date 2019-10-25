@@ -141,7 +141,8 @@ public class AuthenticationController {
                 signatureVerifier = new SymmetricSignatureVerifier(clientSecret);
             }
 
-            IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(domain, clientId, signatureVerifier);
+            String issuer = getIssuer(domain);
+            IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
             verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
             RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions);
@@ -169,6 +170,16 @@ public class AuthenticationController {
             //Value if taken from jar's manifest file.
             //Call will return null on dev environment (outside of a jar)
             return getClass().getPackage().getImplementationVersion();
+        }
+
+        private String getIssuer(String domain) {
+            if (!domain.startsWith("http://") && !domain.startsWith("https://")) {
+                domain = "https://" + domain;
+            }
+            if (!domain.endsWith("/")) {
+                domain = domain + "/";
+            }
+            return domain;
         }
     }
 
