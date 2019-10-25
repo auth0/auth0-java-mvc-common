@@ -96,10 +96,10 @@ By default, this library will execute the [Open ID Connect](https://openid.net/s
 
 #### Signing Algorithms
 
-The **HS256 symmetric algorithm** is the default expected signing algorithm. Tokens are verified using the client secret found in your Auth0 Application's settings.
+The **HS256 symmetric algorithm** is the default expected signing algorithm. Tokens are signed and verified using the client secret found in your Auth0 Application's settings. You use this value when you instantiate the `AuthenticationController` instance.
 
 If your application is using the **RS256 asymmetric algorithm**, tokens are signed using a private key and verified using the public key associated with your Auth0 domain.
-For RS256, configure a `JwkProvider` for your Auth0 domain to enable retrieving the public key needed during the verification phase: 
+If using RS256, configure a `JwkProvider` for your Auth0 domain to enable retrieving the public key needed during the verification phase: 
 
 
 ```java
