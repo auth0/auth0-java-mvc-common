@@ -133,7 +133,7 @@ public class AuthenticationController {
             if (expectedAlgorithmIsExplicitlySetAndAsymmetric) {
                 signatureVerifier = new AsymmetricSignatureVerifier(jwkProvider);
             } else if (responseType.contains(RESPONSE_TYPE_CODE)) {
-                // Old behavior: To maintain 100% retro-compatibility when
+                // Old behavior: To maintain backwards-compatibility when
                 // no explicit algorithm is set by the user, we
                 // must skip ID Token signature check!
                 signatureVerifier = new AlgorithmNameVerifier();
