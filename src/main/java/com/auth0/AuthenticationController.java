@@ -107,7 +107,7 @@ public class AuthenticationController {
 
         /**
          * Sets the allowable elapsed time in seconds since the last time user was authenticated.
-         * By default this behavior is disabled.
+         * By default there is no limit.
          *
          * @param maxAge the max age of the authentication, in seconds.
          * @return this same builder instance.
