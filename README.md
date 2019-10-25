@@ -141,8 +141,8 @@ To accommodate potential small differences in system clocks, this library allows
 You can customize the clock skew as shown below:     
 
 ```java
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
-    .setClockSkew(60 * 2)   //2 minutes
+AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    .withClockSkew(60 * 2)   //2 minutes
     .build();
 ```
 
