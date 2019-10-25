@@ -135,7 +135,7 @@ public class AuthenticationController {
             } else if (responseType.contains(RESPONSE_TYPE_CODE)) {
                 // Old behavior: To maintain backwards-compatibility when
                 // no explicit algorithm is set by the user, we
-                // must skip ID Token signature check!
+                // must skip ID Token signature check.
                 signatureVerifier = new AlgorithmNameVerifier();
             } else {
                 signatureVerifier = new SymmetricSignatureVerifier(clientSecret);
