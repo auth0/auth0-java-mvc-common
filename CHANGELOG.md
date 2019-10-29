@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.1.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.1.0) (2019-10-29)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.11...1.1.0)
+
+**Security**
+- Improved OIDC compliance [\#43](https://github.com/auth0/auth0-java-mvc-common/pull/43) ([lbalmaceda](https://github.com/lbalmaceda))
+
 ## [1.0.11](https://github.com/auth0/auth0-java-mvc-common/tree/1.0.11) (2019-09-26)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.10...1.0.11)
 
