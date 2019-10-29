@@ -6,12 +6,7 @@ public class IdentityVerificationException extends Exception {
     static final String API_ERROR = "a0.api_error";
     static final String JWT_MISSING_PUBLIC_KEY_ERROR = "a0.missing_jwt_public_key_error";
     static final String JWT_VERIFICATION_ERROR = "a0.invalid_jwt_error";
-    private static final String UNKNOWN_ERROR = "a0.unknown_error";
     private final String code;
-
-    IdentityVerificationException(String message) {
-        this(UNKNOWN_ERROR, message, null);
-    }
 
     IdentityVerificationException(String code, String message, Throwable cause) {
         super(message, cause);

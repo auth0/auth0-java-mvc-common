@@ -62,7 +62,6 @@ String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirec
 String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
     .withAudience("https://myapi.me.auth0.com")
     .withScope("openid create:photos read:photos")
-    .withState("state")
     .withParameter("name", "value")
     .build();
 ```
@@ -79,8 +78,10 @@ try {
     SessionUtils.set(request, "access_token", tokens.getAccessToken());
 } catch (IdentityVerificationException e) {
     String code = e.getCode();
-    // Something happened when trying to verify the user id
-    // Check the code to have an idea of what went wrong
+    // Something happened when trying to process the request.
+    // Could be a bad request, an error from the server, 
+    // or a configuration issue that triggered a failure. 
+    // Check the exception code to have an idea of what went wrong.
 }
 ```
 
@@ -89,41 +90,64 @@ That's it! You have authenticated the user using Auth0.
 
 
 
-### Builder Options
-By default, the **Code Grant** flow will be preferred over other flows. This is the most secure and recommended way, read more about it [here](https://auth0.com/docs/api-auth/grant/authorization-code). This means that if the response type contains `code` along with other types, Code Grant will still be preferred.
+### Builder options
 
-You can change the authentication behavior to use **Implicit Grant** instead. To do this you'll need to check in your Applications's Settings on the [Dashboard](https://manage.auth0.com/#/applications) which Algorithm is used by the Server to sign the tokens. The default algorithm is `HS256`, but it can be changed to `RS256` in the "Advanced Settings" section on the "OAuth" tab. Below you'll find some configuration examples:
+By default, this library will execute the [Open ID Connect](https://openid.net/specs/openid-connect-core-1_0-final.html) **Authorization Code Flow** and verify the ID token (if received) using the **HS256 symmetric algorithm**.
 
+#### Signing Algorithms
 
-#### Using Implicit Grant with HS256 algorithm
+The **HS256 symmetric algorithm** is the default expected signing algorithm. Tokens are signed and verified using the client secret found in your Auth0 Application's settings. You use this value when you instantiate the `AuthenticationController` instance.
 
-The token's are signed by the Auth0 Server using the `Client Secret`.
-
-```java
-AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-    .withResponseType("id_token")
-    .build();
-```
-
-#### Using Implicit Grant with RS256 algorithm.
-
-The tokens are signed using the Private Key. To verify them, the **Public Key** certificate must be obtained from a trusted source like the `well-known.json` file, which can be located locally or hosted by a server. For this example, we will use the one Auth0 hosts for your application. We can obtain it using the application's domain:
+If your application is using the **RS256 asymmetric algorithm**, tokens are signed using a private key and verified using the public key associated with your Auth0 domain.
+If using RS256, configure a `JwkProvider` for your Auth0 domain to enable retrieving the public key needed during the verification phase: 
 
 
 ```java
 JwkProvider jwkProvider = new JwkProviderBuilder("domain").build();
 AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-    .withResponseType("id_token")
     .withJwkProvider(jwkProvider)
     .build();
 ```
 
-The `JwkProvider` returned from the `JwkProviderBuilder` it's cached and rate limited, check it's [repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize it.
+The `JwkProvider` returned from the `JwkProviderBuilder` is cached and rate limited by default. Please see the [jwks-rsa-java repository](https://github.com/auth0/jwks-rsa-java) to learn how to customize these options.
 
+#### OAuth Flows
+
+The [Authorization Code Flow](https://auth0.com/docs/flows/concepts/auth-code) is the default authorization flow.
+
+To use the [Implicit Grant Flow](https://auth0.com/docs/flows/concepts/implicit), configure the `AuthenticationController` with the `id_token` response type:
+
+```java
+AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    .withResponseType("id_token")
+    .build();
+```
+
+To use the **[Hybrid Flow](https://auth0.com/docs/api-auth/grant/hybrid)**, specify `id_token code` as the response type:
+
+```java
+AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    .withResponseType("id_token code")
+    .build();
+```
 
 ### Troubleshooting
 
-Once you have created the instance of the `AuthenticationController` you can enable HTTP logging for all Requests and Responses if you need to debug a specific endpoint. Keep in mind that this will log everything including sensitive information. Don't use it in production environment.
+#### Allowing a clock skew
+
+During ID token validation, time-based claims such as the time the token was issued at and the token's expiration time, are verified to ensure the token is valid. 
+To accommodate potential small differences in system clocks, this library allows a default of **60 seconds** of clock skew.
+
+You can customize the clock skew as shown below:     
+
+```java
+AuthenticationController authController = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    .withClockSkew(60 * 2)   //2 minutes
+    .build();
+```
+
+#### HTTP Logging 
+Once you have created the instance of the `AuthenticationController` you can enable HTTP logging for all Requests and Responses to debug a specific endpoint. **This will log everything including sensitive information** so don't use it in a production environment.
 
 ```java
 authController.setLoggingEnabled(true);

@@ -3,18 +3,14 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
-import com.auth0.json.auth.UserInfo;
-import com.auth0.jwk.JwkException;
-import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.auth0.IdentityVerificationException.*;
-import static com.auth0.InvalidRequestException.INVALID_STATE_ERROR;
-import static com.auth0.InvalidRequestException.MISSING_AUTHORIZATION_CODE_ERROR;
+import static com.auth0.InvalidRequestException.*;
 
 /**
  * Main class to handle the Authorize Redirect request.
@@ -23,39 +19,43 @@ import static com.auth0.InvalidRequestException.MISSING_AUTHORIZATION_CODE_ERROR
  */
 class RequestProcessor {
 
-    private static final String KEY_SUB = "sub";
     private static final String KEY_STATE = "state";
     private static final String KEY_ERROR = "error";
     private static final String KEY_ERROR_DESCRIPTION = "error_description";
     private static final String KEY_EXPIRES_IN = "expires_in";
     private static final String KEY_ACCESS_TOKEN = "access_token";
     private static final String KEY_ID_TOKEN = "id_token";
-    private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_TOKEN_TYPE = "token_type";
     private static final String KEY_CODE = "code";
     private static final String KEY_TOKEN = "token";
     private static final String KEY_RESPONSE_MODE = "response_mode";
     private static final String KEY_FORM_POST = "form_post";
+    private static final String KEY_MAX_AGE = "max_age";
 
-    //Visible for testing
-    final AuthAPI client;
-    final String responseType;
-    final TokenVerifier verifier;
+    // Visible for testing
+    final IdTokenVerifier.Options verifyOptions;
+    private final String responseType;
+    private final AuthAPI client;
+    private final IdTokenVerifier tokenVerifier;
 
-    RequestProcessor(AuthAPI client, String responseType, TokenVerifier verifier) {
+    @VisibleForTesting
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier) {
         Validate.notNull(client);
         Validate.notNull(responseType);
+        Validate.notNull(verifyOptions);
         this.client = client;
         this.responseType = responseType;
-        this.verifier = verifier;
+        this.verifyOptions = verifyOptions;
+        this.tokenVerifier = tokenVerifier;
     }
 
-    List<String> getResponseType() {
-        return Arrays.asList(responseType.split(" "));
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
+        this(client, responseType, verifyOptions, new IdTokenVerifier());
     }
 
     /**
      * Getter for the AuthAPI client instance.
+     * Used to customize options such as Telemetry and Logging.
      *
      * @return the AuthAPI client.
      */
@@ -83,18 +83,20 @@ class RequestProcessor {
         if (responseTypeList.contains(KEY_TOKEN) || responseTypeList.contains(KEY_ID_TOKEN)) {
             creator.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);
         }
+        if (verifyOptions.getMaxAge() != null) {
+            creator.withParameter(KEY_MAX_AGE, verifyOptions.getMaxAge().toString());
+        }
         return creator;
     }
 
     /**
      * Entrypoint for HTTP request
      * <p>
-     * 1). Responsible for validating the request and ensuring the state value in session storage matches the state value passed to this endpoint.
-     * 2). Exchanging the authorization code received with this HTTP request for auth0 tokens.
-     * 3). Getting the user information associated to the id_token/access_token.
-     * 4). Storing both tokens and user information into session storage.
-     * 5). Clearing the stored state value.
-     * 6). Handling success and any failure outcomes.
+     * 1). Responsible for validating the request.
+     * 2). Exchanging the authorization code received with this HTTP request for Auth0 tokens.
+     * 3). Validating the ID Token.
+     * 4). Clearing the stored state, nonce and max_age values.
+     * 5). Handling success and any failure outcomes.
      *
      * @throws IdentityVerificationException if an error occurred while processing the request
      */
@@ -102,56 +104,77 @@ class RequestProcessor {
         assertNoError(req);
         assertValidState(req);
 
-        Tokens tokens = tokensFromRequest(req);
-        String authorizationCode = req.getParameter(KEY_CODE);
+        Tokens frontChannelTokens = getFrontChannelTokens(req);
+        List<String> responseTypeList = getResponseType();
 
-        String userId;
-        if (authorizationCode == null && verifier == null) {
-            throw new InvalidRequestException(MISSING_AUTHORIZATION_CODE_ERROR, "Authorization Code is missing from the request and Implicit Grant is not allowed.");
-        } else if (verifier != null) {
-            if (getResponseType().contains(KEY_ID_TOKEN)) {
-                String expectedNonce = RandomStorage.removeSessionNonce(req);
-                try {
-                    userId = verifier.verifyNonce(tokens.getIdToken(), expectedNonce);
-                } catch (JwkException e) {
-                    throw new IdentityVerificationException(JWT_MISSING_PUBLIC_KEY_ERROR, "An error occurred while trying to verify the Id Token.", e);
-                } catch (JWTVerificationException e) {
-                    throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the Id Token.", e);
-                }
-            } else {
-                try {
-                    userId = fetchUserId(tokens.getAccessToken());
-                } catch (Auth0Exception e) {
-                    throw new IdentityVerificationException(API_ERROR, "An error occurred while trying to verify the Access Token.", e);
-                }
-            }
-        } else {
-            String redirectUri = req.getRequestURL().toString();
-            try {
-                Tokens latestTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
-                tokens = mergeTokens(tokens, latestTokens);
-                userId = fetchUserId(tokens.getAccessToken());
-            } catch (Auth0Exception e) {
-                throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the Authorization Code for Auth0 Tokens.", e);
-            }
+        if (responseTypeList.contains(KEY_ID_TOKEN) && frontChannelTokens.getIdToken() == null) {
+            throw new InvalidRequestException(MISSING_ID_TOKEN, "ID Token is missing from the response.");
+        }
+        if (responseTypeList.contains(KEY_TOKEN) && frontChannelTokens.getAccessToken() == null) {
+            throw new InvalidRequestException(MISSING_ACCESS_TOKEN, "Access Token is missing from the response.");
         }
 
-        if (userId == null) {
-            throw new IdentityVerificationException("An error occurred while trying to verify the user identity: The 'sub' claim contained in the token was null.");
-        }
+        String expectedNonce = RandomStorage.removeSessionNonce(req);
 
-        return tokens;
+        // Dynamically set. Changes on every request.
+        verifyOptions.setNonce(expectedNonce);
+
+        return getVerifiedTokens(req, frontChannelTokens, responseTypeList);
     }
 
     /**
-     * Extract the tokens from the request parameters, present when using the Implicit Grant.
+     * Obtains code request tokens (if using Code flow) and validates the ID token.
+     * @param req the HTTP request
+     * @param frontChannelTokens the tokens obtained from the front channel
+     * @param responseTypeList the reponse types
+     * @return a Tokens object that wraps the values obtained from the front-channel and/or the code request response.
+     * @throws IdentityVerificationException
+     */
+    private Tokens getVerifiedTokens(HttpServletRequest req, Tokens frontChannelTokens, List<String> responseTypeList)
+            throws IdentityVerificationException {
+
+        String authorizationCode = req.getParameter(KEY_CODE);
+        Tokens codeExchangeTokens = null;
+
+        try {
+            if (responseTypeList.contains(KEY_ID_TOKEN)) {
+                // Implicit/Hybrid flow: must verify front-channel ID Token first
+                tokenVerifier.verify(frontChannelTokens.getIdToken(), verifyOptions);
+            }
+            if (responseTypeList.contains(KEY_CODE)) {
+                // Code/Hybrid flow
+                String redirectUri = req.getRequestURL().toString();
+                codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
+                if (!responseTypeList.contains(KEY_ID_TOKEN)) {
+                    // If we already verified the front-channel token, don't verify it again.
+                    String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
+                    if (idTokenFromCodeExchange != null) {
+                        tokenVerifier.verify(idTokenFromCodeExchange, verifyOptions);
+                    }
+                }
+            }
+        } catch (TokenValidationException e) {
+            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the ID Token.", e);
+        } catch (Auth0Exception e) {
+            throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the authorization code.", e);
+        }
+        // Keep the front-channel ID Token and the code-exchange Access Token.
+        return mergeTokens(frontChannelTokens, codeExchangeTokens);
+    }
+
+    List<String> getResponseType() {
+        return Arrays.asList(responseType.split(" "));
+    }
+
+    /**
+     * Extract the tokens from the request parameters, present when using the Implicit or Hybrid Grant.
      *
      * @param req the request
      * @return a new instance of Tokens wrapping the values present in the request parameters.
      */
-    private Tokens tokensFromRequest(HttpServletRequest req) {
+    private Tokens getFrontChannelTokens(HttpServletRequest req) {
         Long expiresIn = req.getParameter(KEY_EXPIRES_IN) == null ? null : Long.parseLong(req.getParameter(KEY_EXPIRES_IN));
-        return new Tokens(req.getParameter(KEY_ACCESS_TOKEN), req.getParameter(KEY_ID_TOKEN), req.getParameter(KEY_REFRESH_TOKEN), req.getParameter(KEY_TOKEN_TYPE), expiresIn);
+        return new Tokens(req.getParameter(KEY_ACCESS_TOKEN), req.getParameter(KEY_ID_TOKEN), null, req.getParameter(KEY_TOKEN_TYPE), expiresIn);
     }
 
     /**
@@ -199,34 +222,39 @@ class RequestProcessor {
     }
 
     /**
-     * Calls the Auth0 Authentication API to get the User Id.
+     * Used to keep the best version of each token.
+     * It will prioritize the ID Token received in the front-channel, and the Access Token received in the code exchange request.
      *
-     * @param accessToken the access token to get the user id for.
-     * @return the user id.
-     * @throws Auth0Exception if the request to the Auth0 server failed.
-     * @see AuthAPI#userInfo(String)
+     * @param frontChannelTokens the front-channel obtained tokens.
+     * @param codeExchangeTokens the code-exchange obtained tokens.
+     * @return a merged version of Tokens using the best tokens when possible.
      */
-    private String fetchUserId(String accessToken) throws Auth0Exception {
-        UserInfo info = client
-                .userInfo(accessToken)
-                .execute();
-        return info.getValues().containsKey(KEY_SUB) ? (String) info.getValues().get(KEY_SUB) : null;
-    }
+    private Tokens mergeTokens(Tokens frontChannelTokens, Tokens codeExchangeTokens) {
+        if (codeExchangeTokens == null) {
+            return frontChannelTokens;
+        }
 
+        // Prefer access token from the code exchange
+        String accessToken;
+        String type;
+        Long expiresIn;
 
-    /**
-     * Used to keep the best version of each token. If present, latest tokens will always be better than the first ones.
-     *
-     * @param tokens       the first obtained tokens.
-     * @param latestTokens the latest obtained tokens, preferred over the first ones.
-     * @return a merged version of Tokens using the latest tokens when possible.
-     */
-    private Tokens mergeTokens(Tokens tokens, Tokens latestTokens) {
-        String accessToken = latestTokens.getAccessToken() != null ? latestTokens.getAccessToken() : tokens.getAccessToken();
-        String idToken = latestTokens.getIdToken() != null ? latestTokens.getIdToken() : tokens.getIdToken();
-        String refreshToken = latestTokens.getRefreshToken() != null ? latestTokens.getRefreshToken() : tokens.getRefreshToken();
-        String type = latestTokens.getType() != null ? latestTokens.getType() : tokens.getType();
-        Long expiresIn = latestTokens.getExpiresIn() != null ? latestTokens.getExpiresIn() : tokens.getExpiresIn();
+        if (codeExchangeTokens.getAccessToken() != null) {
+            accessToken = codeExchangeTokens.getAccessToken();
+            type = codeExchangeTokens.getType();
+            expiresIn = codeExchangeTokens.getExpiresIn();
+        } else {
+            accessToken = frontChannelTokens.getAccessToken();
+            type = frontChannelTokens.getType();
+            expiresIn = frontChannelTokens.getExpiresIn();
+        }
+
+        // Prefer ID token from the front-channel
+        String idToken = frontChannelTokens.getIdToken() != null ? frontChannelTokens.getIdToken() : codeExchangeTokens.getIdToken();
+
+        // Refresh token only available from the code exchange
+        String refreshToken = codeExchangeTokens.getRefreshToken();
+
         return new Tokens(accessToken, idToken, refreshToken, type, expiresIn);
     }
 

@@ -10,28 +10,28 @@ import static org.junit.Assert.assertThat;
 public class RandomStorageTest {
 
     @Test
-    public void shouldGetRandomString() throws Exception {
+    public void shouldGetRandomString() {
         String string = RandomStorage.secureRandomString();
         Assert.assertThat(string, is(notNullValue()));
     }
 
     @Test
-    public void shouldSetState() throws Exception {
+    public void shouldSetState() {
         MockHttpServletRequest req = new MockHttpServletRequest();
 
         RandomStorage.setSessionState(req, "123456");
-        assertThat((String) req.getSession().getAttribute("com.auth0.state"), is("123456"));
+        assertThat(req.getSession().getAttribute("com.auth0.state"), is("123456"));
     }
 
     @Test
-    public void shouldAcceptBothNullStates() throws Exception {
+    public void shouldAcceptBothNullStates() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         boolean validState = RandomStorage.checkSessionState(req, null);
         assertThat(validState, is(true));
     }
 
     @Test
-    public void shouldCheckAndRemoveInvalidState() throws Exception {
+    public void shouldCheckAndRemoveInvalidState() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.getSession().setAttribute("com.auth0.state", "123456");
 
@@ -41,7 +41,7 @@ public class RandomStorageTest {
     }
 
     @Test
-    public void shouldCheckAndRemoveCorrectState() throws Exception {
+    public void shouldCheckAndRemoveCorrectState() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.getSession().setAttribute("com.auth0.state", "123456");
 
@@ -51,15 +51,15 @@ public class RandomStorageTest {
     }
 
     @Test
-    public void shouldSetNonce() throws Exception {
+    public void shouldSetNonce() {
         MockHttpServletRequest req = new MockHttpServletRequest();
 
         RandomStorage.setSessionNonce(req, "123456");
-        assertThat((String) req.getSession().getAttribute("com.auth0.nonce"), is("123456"));
+        assertThat(req.getSession().getAttribute("com.auth0.nonce"), is("123456"));
     }
 
     @Test
-    public void shouldGetAndRemoveNonce() throws Exception {
+    public void shouldGetAndRemoveNonce() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.getSession().setAttribute("com.auth0.nonce", "123456");
 
@@ -69,7 +69,7 @@ public class RandomStorageTest {
     }
 
     @Test
-    public void shouldGetAndRemoveNonceIfMissing() throws Exception {
+    public void shouldGetAndRemoveNonceIfMissing() {
         MockHttpServletRequest req = new MockHttpServletRequest();
 
         String nonce = RandomStorage.removeSessionNonce(req);

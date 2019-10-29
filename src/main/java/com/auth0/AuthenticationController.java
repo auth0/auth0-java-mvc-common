@@ -1,12 +1,12 @@
 package com.auth0;
 
+import com.auth0.client.auth.AuthAPI;
 import com.auth0.jwk.JwkProvider;
+import com.auth0.net.Telemetry;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.UnsupportedEncodingException;
-import java.util.Arrays;
-import java.util.List;
 
 
 /**
@@ -15,14 +15,20 @@ import java.util.List;
  */
 @SuppressWarnings({"WeakerAccess", "UnusedReturnValue", "SameParameterValue"})
 public class AuthenticationController {
-    private static final String RESPONSE_TYPE_CODE = "code";
-    private static final String RESPONSE_TYPE_TOKEN = "token";
-    private static final String RESPONSE_TYPE_ID_TOKEN = "id_token";
 
     private final RequestProcessor requestProcessor;
 
-    private AuthenticationController(RequestProcessor requestProcessor) {
+    /**
+     * Called from the Builder but also from tests in order to pass the mock.
+     */
+    @VisibleForTesting
+    AuthenticationController(RequestProcessor requestProcessor) {
         this.requestProcessor = requestProcessor;
+    }
+
+    @VisibleForTesting
+    RequestProcessor getRequestProcessor() {
+        return requestProcessor;
     }
 
     /**
@@ -40,11 +46,15 @@ public class AuthenticationController {
     }
 
     public static class Builder {
+        private static final String RESPONSE_TYPE_CODE = "code";
+
         private final String domain;
         private final String clientId;
         private final String clientSecret;
         private String responseType;
         private JwkProvider jwkProvider;
+        private Integer clockSkew;
+        private Integer authenticationMaxAge;
 
         Builder(String domain, String clientId, String clientSecret) {
             Validate.notNull(domain);
@@ -65,7 +75,7 @@ public class AuthenticationController {
          */
         public Builder withResponseType(String responseType) {
             Validate.notNull(responseType);
-            this.responseType = responseType;
+            this.responseType = responseType.trim().toLowerCase();
             return this;
         }
 
@@ -83,36 +93,93 @@ public class AuthenticationController {
         }
 
         /**
+         * Sets the clock-skew or leeway value to use in the ID Token verification. The value must be in seconds.
+         * Defaults to 60 seconds.
+         *
+         * @param clockSkew the clock-skew to use for ID Token verification, in seconds.
+         * @return this same builder instance.
+         */
+        public Builder withClockSkew(Integer clockSkew) {
+            Validate.notNull(clockSkew);
+            this.clockSkew = clockSkew;
+            return this;
+        }
+
+        /**
+         * Sets the allowable elapsed time in seconds since the last time user was authenticated.
+         * By default there is no limit.
+         *
+         * @param maxAge the max age of the authentication, in seconds.
+         * @return this same builder instance.
+         */
+        public Builder withAuthenticationMaxAge(Integer maxAge) {
+            Validate.notNull(maxAge);
+            this.authenticationMaxAge = maxAge;
+            return this;
+        }
+
+        /**
          * Create a new {@link AuthenticationController} instance that will handle both Code Grant and Implicit Grant flows using either Code Exchange or Token Signature verification.
          *
          * @return a new instance of {@link AuthenticationController}.
          * @throws UnsupportedOperationException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
          */
         public AuthenticationController build() throws UnsupportedOperationException {
-            return build(new RequestProcessorFactory());
+            AuthAPI apiClient = createAPIClient(domain, clientId, clientSecret);
+            setupTelemetry(apiClient);
+
+            final boolean expectedAlgorithmIsExplicitlySetAndAsymmetric = jwkProvider != null;
+            final SignatureVerifier signatureVerifier;
+            if (expectedAlgorithmIsExplicitlySetAndAsymmetric) {
+                signatureVerifier = new AsymmetricSignatureVerifier(jwkProvider);
+            } else if (responseType.contains(RESPONSE_TYPE_CODE)) {
+                // Old behavior: To maintain backwards-compatibility when
+                // no explicit algorithm is set by the user, we
+                // must skip ID Token signature check.
+                signatureVerifier = new AlgorithmNameVerifier();
+            } else {
+                signatureVerifier = new SymmetricSignatureVerifier(clientSecret);
+            }
+
+            String issuer = getIssuer(domain);
+            IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
+            verifyOptions.setClockSkew(clockSkew);
+            verifyOptions.setMaxAge(authenticationMaxAge);
+            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions);
+            return new AuthenticationController(processor);
         }
 
-        //Visible for testing
-        AuthenticationController build(RequestProcessorFactory factory) throws UnsupportedOperationException {
-            responseType = responseType.trim().toLowerCase();
-            List<String> types = Arrays.asList(responseType.split(" "));
-            if (types.contains(RESPONSE_TYPE_CODE)) {
-                return new AuthenticationController(factory.forCodeGrant(domain, clientId, clientSecret, responseType));
+        @VisibleForTesting
+        IdTokenVerifier.Options createIdTokenVerificationOptions(String issuer, String audience, SignatureVerifier signatureVerifier) {
+            return new IdTokenVerifier.Options(issuer, audience, signatureVerifier);
+        }
+
+        @VisibleForTesting
+        AuthAPI createAPIClient(String domain, String clientId, String clientSecret) {
+            return new AuthAPI(domain, clientId, clientSecret);
+        }
+
+        @VisibleForTesting
+        void setupTelemetry(AuthAPI client) {
+            Telemetry telemetry = new Telemetry("auth0-java-mvc-common", obtainPackageVersion());
+            client.setTelemetry(telemetry);
+        }
+
+        @VisibleForTesting
+        String obtainPackageVersion() {
+            //Value if taken from jar's manifest file.
+            //Call will return null on dev environment (outside of a jar)
+            return getClass().getPackage().getImplementationVersion();
+        }
+
+        private String getIssuer(String domain) {
+            if (!domain.startsWith("http://") && !domain.startsWith("https://")) {
+                domain = "https://" + domain;
             }
-            if (types.contains(RESPONSE_TYPE_TOKEN) || types.contains(RESPONSE_TYPE_ID_TOKEN)) {
-                RequestProcessor processor;
-                if (jwkProvider == null) {
-                    try {
-                        processor = factory.forImplicitGrant(domain, clientId, clientSecret, responseType);
-                    } catch (UnsupportedEncodingException e) {
-                        throw new UnsupportedOperationException(e);
-                    }
-                } else {
-                    processor = factory.forImplicitGrant(domain, clientId, clientSecret, responseType, jwkProvider);
-                }
-                return new AuthenticationController(processor);
+            if (!domain.endsWith("/")) {
+                domain = domain + "/";
             }
-            throw new IllegalArgumentException("Response Type must contain any combination of 'code', 'token' or 'id_token'.");
+            return domain;
         }
     }
 

@@ -5,33 +5,24 @@ package com.auth0;
  */
 @SuppressWarnings("WeakerAccess")
 public class InvalidRequestException extends IdentityVerificationException {
-    static final String MISSING_AUTHORIZATION_CODE_ERROR = "a0.missing_authorization_code";
     static final String INVALID_STATE_ERROR = "a0.invalid_state";
-
-    private final String code;
-    private final String description;
+    static final String MISSING_ID_TOKEN = "a0.missing_id_token";
+    static final String MISSING_ACCESS_TOKEN = "a0.missing_access_token";
+    static final String DEFAULT_DESCRIPTION = "The request contains an error";
 
     InvalidRequestException(String code, String description) {
-        super("The request contains an error: " + code);
-        this.code = code;
-        this.description = description;
+        super(code, description != null ? description : DEFAULT_DESCRIPTION, null);
     }
 
     /**
      * Getter for the description of the error.
      *
      * @return the error description if available, null otherwise.
+     * @deprecated use {@link #getMessage()}
      */
+    @Deprecated
     public String getDescription() {
-        return description;
+        return getMessage();
     }
 
-    /**
-     * Getter for the code of the error.
-     *
-     * @return the error code.
-     */
-    public String getCode() {
-        return code;
-    }
 }
