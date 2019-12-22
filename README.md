@@ -49,31 +49,31 @@ AuthenticationController controller = AuthenticationController.newBuilder("domai
 
 ```java
 //let the library generate the state/nonce parameters
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+String authorizeUrl = authController.buildAuthorizeUrl(request, response, "https://redirect.uri/here")
     .build();
 
 // or use custom state/nonce parameters
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+String authorizeUrl = authController.buildAuthorizeUrl(request, response, "https://redirect.uri/here")
     .withState("state")
     .withNonce("nonce")
     .build();
 
 // you can also specify custom parameters
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+String authorizeUrl = authController.buildAuthorizeUrl(request, response, "https://redirect.uri/here")
     .withAudience("https://myapi.me.auth0.com")
     .withScope("openid create:photos read:photos")
     .withParameter("name", "value")
     .build();
 ```
 
-6. The user will be presented with the Auth0 Hosted Login page in which he'll prompt his credentials and authenticate. Your application must expect a call to the `redirectURL`. 
+6. The user will be presented with the Auth0 Hosted Login page where they can authenticate. Your application must expect a call to the `redirectURL`. 
 7. Pass the received request to the `AuthenticationController#handle` method and expect a `Tokens` instance back if everything goes well. 
 
 **Keep in mind that this library will not store any value for you, but you can use the `SessionUtils` class as a helper to store key-value data in the request's Session Storage.**
 
 ```java
 try {
-    Tokens tokens = authController.handle(request);
+    Tokens tokens = authController.handle(request, response);
     //Use or store the tokens
     SessionUtils.set(request, "access_token", tokens.getAccessToken());
 } catch (IdentityVerificationException e) {
