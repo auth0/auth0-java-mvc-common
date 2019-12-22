@@ -7,6 +7,7 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 
 /**
@@ -45,6 +46,7 @@ public class AuthenticationController {
         return new Builder(domain, clientId, clientSecret);
     }
 
+
     public static class Builder {
         private static final String RESPONSE_TYPE_CODE = "code";
 
@@ -55,6 +57,7 @@ public class AuthenticationController {
         private JwkProvider jwkProvider;
         private Integer clockSkew;
         private Integer authenticationMaxAge;
+        private boolean legacySameSiteCookie;
 
         Builder(String domain, String clientId, String clientSecret) {
             Validate.notNull(domain);
@@ -65,6 +68,7 @@ public class AuthenticationController {
             this.clientId = clientId;
             this.clientSecret = clientSecret;
             this.responseType = RESPONSE_TYPE_CODE;
+            this.legacySameSiteCookie = true;
         }
 
         /**
@@ -119,6 +123,18 @@ public class AuthenticationController {
         }
 
         /**
+         * Sets whether fallback cookies will be set for clients that do not support SameSite=None cookie attribute.
+         * The SameSite Cookie attribute will only be set to "None" if the reponseType includes "id_token".
+         * By default this is true.
+         * @param legacySameSiteCookie whether fallback auth-based cookies should be set.
+         * @return this same builder instance.
+         */
+        public Builder withLegacySameSiteCookie(boolean legacySameSiteCookie) {
+            this.legacySameSiteCookie = legacySameSiteCookie;
+            return this;
+        }
+
+        /**
          * Create a new {@link AuthenticationController} instance that will handle both Code Grant and Implicit Grant flows using either Code Exchange or Token Signature verification.
          *
          * @return a new instance of {@link AuthenticationController}.
@@ -145,7 +161,7 @@ public class AuthenticationController {
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
             verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
-            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions);
+            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, legacySameSiteCookie);
             return new AuthenticationController(processor);
         }
 
@@ -205,31 +221,33 @@ public class AuthenticationController {
      * depending on the chosen Response Type, to finally obtain a set of {@link Tokens}.
      *
      * @param request the received request to process.
+     * @param response the received response to process.
      * @return the Tokens obtained after the user authentication.
      * @throws InvalidRequestException       if the error is result of making an invalid authentication request.
      * @throws IdentityVerificationException if an error occurred while verifying the request tokens.
      */
-    public Tokens handle(HttpServletRequest request) throws IdentityVerificationException {
+    public Tokens handle(HttpServletRequest request, HttpServletResponse response) throws IdentityVerificationException {
         Validate.notNull(request);
 
-        return requestProcessor.process(request);
+        return requestProcessor.process(request, response);
     }
 
     /**
      * Pre builds an Auth0 Authorize Url with the given redirect URI using a random state and a random nonce if applicable.
      *
-     * @param request     the caller request. Used to keep the session context.
+     * @param request     the request.
+     * @param response    the response. Used to store auth-based cookies.
      * @param redirectUri the url to call back with the authentication result.
      * @return the authorize url builder to continue any further parameter customization.
      */
-    public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri) {
-        Validate.notNull(request);
+    public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri) {
+        Validate.notNull(response);
         Validate.notNull(redirectUri);
 
-        String state = RandomStorage.secureRandomString();
-        String nonce = RandomStorage.secureRandomString();
+        String state = TransientCookieStore.secureRandomString();
+        String nonce = TransientCookieStore.secureRandomString();
 
-        return requestProcessor.buildAuthorizeUrl(request, redirectUri, state, nonce);
+        return requestProcessor.buildAuthorizeUrl(response, redirectUri, state, nonce);
     }
 
 }

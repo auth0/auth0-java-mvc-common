@@ -3,7 +3,10 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.client.auth.AuthorizeUrlBuilder;
 
-import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Class to create and customize an Auth0 Authorize URL.
@@ -13,18 +16,25 @@ import javax.servlet.http.HttpServletRequest;
 public class AuthorizeUrl {
 
     private static final String SCOPE_OPENID = "openid";
-    private final HttpServletRequest request;
+    private final HttpServletResponse response;
     private final AuthorizeUrlBuilder builder;
+    private final String responseType;
+    private boolean legacySameSiteCookie;
+    private String nonce;
+    private String state;
+
     private boolean used;
 
     /**
      * @param client       the Auth0 Authentication API client
-     * @param request      request where the state will be saved
+     * @param response     the response where the state and nonce will be stored as cookies
      * @param redirectUrl  the url to redirect to after authentication
      * @param responseType the response type to use
      */
-    AuthorizeUrl(AuthAPI client, HttpServletRequest request, String redirectUrl, String responseType) {
-        this.request = request;
+    AuthorizeUrl(AuthAPI client, HttpServletResponse response, String redirectUrl, String responseType) {
+        this.response = response;
+        this.responseType = responseType;
+        this.legacySameSiteCookie = true;
         this.builder = client.authorizeUrl(redirectUrl)
                 .withResponseType(responseType)
                 .withScope(SCOPE_OPENID);
@@ -38,6 +48,16 @@ public class AuthorizeUrl {
      */
     public AuthorizeUrl withConnection(String connection) {
         builder.withConnection(connection);
+        return this;
+    }
+
+    /**
+     * Sets whether a fallback cookie should be used for clients that do not support "SameSite=None"
+     * @param legacySameSiteCookie whether or not to set fallback auth cookies for clients that do not support "SameSite=None"
+     * @return the builder instance
+     */
+    AuthorizeUrl withLegacySameSiteCookie(boolean legacySameSiteCookie) {
+        this.legacySameSiteCookie = legacySameSiteCookie;
         return this;
     }
 
@@ -59,7 +79,7 @@ public class AuthorizeUrl {
      * @return the builder instance
      */
     public AuthorizeUrl withState(String state) {
-        RandomStorage.setSessionState(request, state);
+        this.state = state;
         builder.withState(state);
         return this;
     }
@@ -71,7 +91,7 @@ public class AuthorizeUrl {
      * @return the builder instance
      */
     public AuthorizeUrl withNonce(String nonce) {
-        RandomStorage.setSessionNonce(request, nonce);
+        this.nonce = nonce;
         builder.withParameter("nonce", nonce);
         return this;
     }
@@ -119,8 +139,28 @@ public class AuthorizeUrl {
         if (used) {
             throw new IllegalStateException("The AuthorizeUrl instance must not be reused.");
         }
+
+        TransientCookieStore.SameSite sameSiteValue = containsFormPost() ?
+                TransientCookieStore.SameSite.NONE : TransientCookieStore.SameSite.LAX;
+
+        if (state != null) {
+            TransientCookieStore.storeState(response, state, sameSiteValue, legacySameSiteCookie);
+        }
+
+        if (nonce != null) {
+            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, legacySameSiteCookie);
+        }
+
         used = true;
         return builder.build();
+    }
+
+    private boolean containsFormPost() {
+        String[] splitResponseTypes = responseType.trim().split(" ");
+        List<String> responseTypes = Collections.unmodifiableList(Arrays.asList(splitResponseTypes));
+
+        // form_post response mode will be set if responseType includes "id_token" or "token"
+        return RequestProcessor.requiresFormPostResponseMode((responseTypes));
     }
 
 }

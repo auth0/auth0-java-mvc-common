@@ -7,15 +7,16 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.auth0.InvalidRequestException.*;
 
 /**
  * Main class to handle the Authorize Redirect request.
  * It will try to parse the parameters looking for tokens or an authorization code to perform a Code Exchange against the Auth0 servers.
- * When the tokens are obtained, it will request the user id associated to them and save it in the {@link javax.servlet.http.HttpSession}.
  */
 class RequestProcessor {
 
@@ -37,9 +38,10 @@ class RequestProcessor {
     private final String responseType;
     private final AuthAPI client;
     private final IdTokenVerifier tokenVerifier;
+    private final boolean legacySameSiteCookie;
 
     @VisibleForTesting
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier) {
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean legacySameSiteCookie) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
@@ -47,10 +49,16 @@ class RequestProcessor {
         this.responseType = responseType;
         this.verifyOptions = verifyOptions;
         this.tokenVerifier = tokenVerifier;
+        this.legacySameSiteCookie = legacySameSiteCookie;
     }
 
+
     RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
-        this(client, responseType, verifyOptions, new IdTokenVerifier());
+        this(client, responseType, verifyOptions, true);
+    }
+
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean legacySameSiteCookie) {
+        this(client, responseType, verifyOptions, new IdTokenVerifier(), legacySameSiteCookie);
     }
 
     /**
@@ -66,21 +74,22 @@ class RequestProcessor {
     /**
      * Pre builds an Auth0 Authorize Url with the given redirect URI, state and nonce parameters.
      *
-     * @param request     the caller request. Used to keep the session context.
+     * @param response    the response, used to set auth-based cookies.
      * @param redirectUri the url to call with the authentication result.
      * @param state       a valid state value.
      * @param nonce       the nonce value that will be used if the response type contains 'id_token'. Can be null.
      * @return the authorize url builder to continue any further parameter customization.
      */
-    AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri, String state, String nonce) {
-        AuthorizeUrl creator = new AuthorizeUrl(client, request, redirectUri, responseType)
-                .withState(state);
+    AuthorizeUrl buildAuthorizeUrl(HttpServletResponse response, String redirectUri, String state, String nonce) {
+        AuthorizeUrl creator = new AuthorizeUrl(client, response, redirectUri, responseType)
+                .withState(state)
+                .withLegacySameSiteCookie(legacySameSiteCookie);
 
         List<String> responseTypeList = getResponseType();
         if (responseTypeList.contains(KEY_ID_TOKEN) && nonce != null) {
             creator.withNonce(nonce);
         }
-        if (responseTypeList.contains(KEY_TOKEN) || responseTypeList.contains(KEY_ID_TOKEN)) {
+        if (requiresFormPostResponseMode(responseTypeList)) {
             creator.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);
         }
         if (verifyOptions.getMaxAge() != null) {
@@ -100,9 +109,9 @@ class RequestProcessor {
      *
      * @throws IdentityVerificationException if an error occurred while processing the request
      */
-    Tokens process(HttpServletRequest req) throws IdentityVerificationException {
+    Tokens process(HttpServletRequest req, HttpServletResponse response) throws IdentityVerificationException {
         assertNoError(req);
-        assertValidState(req);
+        assertValidState(req, response);
 
         Tokens frontChannelTokens = getFrontChannelTokens(req);
         List<String> responseTypeList = getResponseType();
@@ -114,12 +123,16 @@ class RequestProcessor {
             throw new InvalidRequestException(MISSING_ACCESS_TOKEN, "Access Token is missing from the response.");
         }
 
-        String expectedNonce = RandomStorage.removeSessionNonce(req);
-
-        // Dynamically set. Changes on every request.
-        verifyOptions.setNonce(expectedNonce);
+        // Nonce dynamically set and changes on every request.
+        TransientCookieStore
+                .getNonce(req, response, legacySameSiteCookie)
+                .ifPresent(verifyOptions::setNonce);
 
         return getVerifiedTokens(req, frontChannelTokens, responseTypeList);
+    }
+
+    static boolean requiresFormPostResponseMode(List<String> responseType) {
+        return (responseType.contains(KEY_TOKEN) || responseType.contains(KEY_ID_TOKEN));
     }
 
     /**
@@ -192,15 +205,16 @@ class RequestProcessor {
     }
 
     /**
-     * Checks whether the state persisted in the session matches the state value received in the request parameters.
+     * Checks whether the state received in the request parameters is the same as the one in the state cookie for this request.
      *
      * @param req the request
      * @throws InvalidRequestException if the request contains a different state from the expected one
      */
-    private void assertValidState(HttpServletRequest req) throws InvalidRequestException {
+    private void assertValidState(HttpServletRequest req, HttpServletResponse response) throws InvalidRequestException {
         String stateFromRequest = req.getParameter(KEY_STATE);
-        boolean valid = RandomStorage.checkSessionState(req, stateFromRequest);
-        if (!valid) {
+        Optional<String> actualState = TransientCookieStore.getState(req, response, legacySameSiteCookie);
+
+        if (!actualState.isPresent() || !actualState.get().equals(stateFromRequest)) {
             throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one.");
         }
     }
