@@ -6,8 +6,10 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Collection;
 
@@ -19,17 +21,19 @@ public class AuthorizeUrlTest {
     @Rule
     public ExpectedException exception = ExpectedException.none();
     private AuthAPI client;
+    private HttpServletRequest request;
     private HttpServletResponse response;
 
     @Before
     public void setUp() {
         client = new AuthAPI("domain.auth0.com", "clientId", "clientSecret");
+        request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
     }
 
     @Test
     public void shouldBuildValidStringUrl() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .build();
         assertThat(url, is(notNullValue()));
         assertThat(HttpUrl.parse(url), is(notNullValue()));
@@ -37,28 +41,28 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetDefaultScope() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("scope"), is("openid"));
     }
 
     @Test
     public void shouldSetResponseType() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("response_type"), is("id_token token"));
     }
 
     @Test
     public void shouldSetRedirectUrl() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("redirect_uri"), is("https://redirect.to/me"));
     }
 
     @Test
     public void shouldSetConnection() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withConnection("facebook")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("connection"), is("facebook"));
@@ -66,7 +70,7 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetAudience() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withAudience("https://api.auth0.com/")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("audience"), is("https://api.auth0.com/"));
@@ -74,7 +78,7 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetNonceSameSiteAndLegacyCookieByDefault() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withNonce("asdfghjkl")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("nonce"), is("asdfghjkl"));
@@ -87,7 +91,7 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetNonceSameSiteAndNotLegacyCookieWhenConfigured() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withNonce("asdfghjkl")
                 .withLegacySameSiteCookie(false)
                 .build();
@@ -100,7 +104,7 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetStateSameSiteAndLegacyCookieByDefault() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withState("asdfghjkl")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("state"), is("asdfghjkl"));
@@ -113,7 +117,7 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetStateSameSiteAndNotLegacyCookieWhenConfigured() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withState("asdfghjkl")
                 .withLegacySameSiteCookie(false)
                 .build();
@@ -126,7 +130,7 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetNoCookiesWhenNonceAndStateNotSet() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("state"), nullValue());
         assertThat(HttpUrl.parse(url).queryParameter("nonce"), nullValue());
@@ -137,7 +141,7 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetScope() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withScope("openid profile email")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("scope"), is("openid profile email"));
@@ -145,7 +149,7 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldSetCustomParameterScope() {
-        String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withParameter("custom", "value")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("custom"), is("value"));
@@ -156,7 +160,7 @@ public class AuthorizeUrlTest {
         exception.expect(IllegalStateException.class);
         exception.expectMessage("The AuthorizeUrl instance must not be reused.");
 
-        AuthorizeUrl builder = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token");
+        AuthorizeUrl builder = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token");
         String firstCall = builder.build();
         assertThat(firstCall, is(notNullValue()));
         builder.build();
@@ -167,7 +171,7 @@ public class AuthorizeUrlTest {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Redirect URI cannot be changed once set.");
 
-        new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withParameter("redirect_uri", "new_value");
     }
 
@@ -176,7 +180,7 @@ public class AuthorizeUrlTest {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Response type cannot be changed once set.");
 
-        new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withParameter("response_type", "new_value");
     }
 
@@ -185,7 +189,7 @@ public class AuthorizeUrlTest {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.");
 
-        new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withParameter("state", "new_value");
     }
 
@@ -194,7 +198,7 @@ public class AuthorizeUrlTest {
         exception.expect(IllegalArgumentException.class);
         exception.expectMessage("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.");
 
-        new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+        new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withParameter("nonce", "new_value");
     }
 }

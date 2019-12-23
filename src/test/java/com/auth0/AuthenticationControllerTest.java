@@ -361,10 +361,11 @@ public class AuthenticationControllerTest {
         AuthenticationController controller = new AuthenticationController(requestProcessor);
 
         HttpServletResponse response = new MockHttpServletResponse();
+        HttpServletRequest request = new MockHttpServletRequest();
 
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response,"https://redirect.uri/here");
+        controller.buildAuthorizeUrl(request, response,"https://redirect.uri/here");
 
-        verify(requestProcessor).buildAuthorizeUrl( eq(response), eq("https://redirect.uri/here"), anyString(), anyString());
+        verify(requestProcessor).buildAuthorizeUrl(eq(request), eq(response), eq("https://redirect.uri/here"), anyString(), anyString());
     }
 
     @Test

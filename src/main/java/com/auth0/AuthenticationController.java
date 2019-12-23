@@ -247,7 +247,7 @@ public class AuthenticationController {
         String state = TransientCookieStore.secureRandomString();
         String nonce = TransientCookieStore.secureRandomString();
 
-        return requestProcessor.buildAuthorizeUrl(response, redirectUri, state, nonce);
+        return requestProcessor.buildAuthorizeUrl(request, response, redirectUri, state, nonce);
     }
 
 }

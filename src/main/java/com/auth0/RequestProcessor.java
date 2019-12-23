@@ -74,14 +74,15 @@ class RequestProcessor {
     /**
      * Pre builds an Auth0 Authorize Url with the given redirect URI, state and nonce parameters.
      *
+     * @param request     the Http request.
      * @param response    the response, used to set auth-based cookies.
      * @param redirectUri the url to call with the authentication result.
      * @param state       a valid state value.
      * @param nonce       the nonce value that will be used if the response type contains 'id_token'. Can be null.
      * @return the authorize url builder to continue any further parameter customization.
      */
-    AuthorizeUrl buildAuthorizeUrl(HttpServletResponse response, String redirectUri, String state, String nonce) {
-        AuthorizeUrl creator = new AuthorizeUrl(client, response, redirectUri, responseType)
+    AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri, String state, String nonce) {
+        AuthorizeUrl creator = new AuthorizeUrl(client, request, response, redirectUri, responseType)
                 .withState(state)
                 .withLegacySameSiteCookie(legacySameSiteCookie);
 
