@@ -1,19 +1,13 @@
 package com.auth0;
 
-import org.junit.Assert;
 import org.junit.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.junit.Assert.assertThat;
 
 public class RandomStorageTest {
-
-    @Test
-    public void shouldGetRandomString() {
-        String string = RandomStorage.secureRandomString();
-        Assert.assertThat(string, is(notNullValue()));
-    }
 
     @Test
     public void shouldSetState() {
