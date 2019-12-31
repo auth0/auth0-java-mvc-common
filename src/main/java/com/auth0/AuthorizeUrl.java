@@ -4,6 +4,10 @@ import com.auth0.client.auth.AuthAPI;
 import com.auth0.client.auth.AuthorizeUrlBuilder;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Class to create and customize an Auth0 Authorize URL.
@@ -13,21 +17,57 @@ import javax.servlet.http.HttpServletRequest;
 public class AuthorizeUrl {
 
     private static final String SCOPE_OPENID = "openid";
-    private final HttpServletRequest request;
+
+    private HttpServletResponse response;
+    private HttpServletRequest request;
     private final AuthorizeUrlBuilder builder;
+    private final String responseType;
+    private boolean legacySameSiteCookie = true;
+    private String nonce;
+    private String state;
+
     private boolean used;
 
     /**
+     * Creates a new instance that can be used to build an Auth0 Authorization URL.
+     *
+     * While this class can be used directly, it's recommended that you use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
+     * when possible.
+     *
      * @param client       the Auth0 Authentication API client
-     * @param request      request where the state will be saved
+     * @parem request      the HTTP request
+     * @param response     the response where the state and nonce will be stored as cookies
      * @param redirectUrl  the url to redirect to after authentication
      * @param responseType the response type to use
      */
-    AuthorizeUrl(AuthAPI client, HttpServletRequest request, String redirectUrl, String responseType) {
+    AuthorizeUrl(AuthAPI client, HttpServletRequest request, HttpServletResponse response, String redirectUrl, String responseType) {
         this.request = request;
+        this.response = response;
+        this.responseType = responseType;
         this.builder = client.authorizeUrl(redirectUrl)
                 .withResponseType(responseType)
                 .withScope(SCOPE_OPENID);
+    }
+
+    /**
+     * Creates a new instance that can be used to build an Auth0 Authorization URL.
+     *
+     * While this class can be used directly, it's recommended that you use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
+     * when possible.
+     *
+     * @deprecated This constructor will cause the state and nonce to be stored in the Session, and is incompatible with
+     * clients that are using the "id_token" or "token" responseType with browsers that enforce SameSite cookie restrictions.
+     * <p>Use {@link AuthorizeUrl#AuthorizeUrl(AuthAPI, HttpServletRequest, HttpServletResponse, String, String)} instead.</p>
+     *
+     * @param client       the Auth0 Authentication API client
+     * @param request      the request where the state and nonce will be stored in the {@link javax.servlet.http.HttpSession}
+     * @param redirectUrl  the url to redirect to after authentication
+     * @param responseType the response type to use
+     */
+    @Deprecated
+    AuthorizeUrl(AuthAPI client, HttpServletRequest request, String redirectUrl, String responseType) {
+        this(client, request, null, redirectUrl, responseType);
+        this.legacySameSiteCookie = false;
     }
 
     /**
@@ -38,6 +78,18 @@ public class AuthorizeUrl {
      */
     public AuthorizeUrl withConnection(String connection) {
         builder.withConnection(connection);
+        return this;
+    }
+
+    /**
+     * Sets whether a fallback cookie should be used for clients that do not support "SameSite=None".
+     * Only applicable when this instance is created with {@link AuthorizeUrl#AuthorizeUrl(AuthAPI, HttpServletRequest, HttpServletResponse, String, String)}.
+     *
+     * @param legacySameSiteCookie whether or not to set fallback auth cookies for clients that do not support "SameSite=None"
+     * @return the builder instance
+     */
+    AuthorizeUrl withLegacySameSiteCookie(boolean legacySameSiteCookie) {
+        this.legacySameSiteCookie = legacySameSiteCookie;
         return this;
     }
 
@@ -59,7 +111,7 @@ public class AuthorizeUrl {
      * @return the builder instance
      */
     public AuthorizeUrl withState(String state) {
-        RandomStorage.setSessionState(request, state);
+        this.state = state;
         builder.withState(state);
         return this;
     }
@@ -71,7 +123,7 @@ public class AuthorizeUrl {
      * @return the builder instance
      */
     public AuthorizeUrl withNonce(String nonce) {
-        RandomStorage.setSessionNonce(request, nonce);
+        this.nonce = nonce;
         builder.withParameter("nonce", nonce);
         return this;
     }
@@ -119,8 +171,41 @@ public class AuthorizeUrl {
         if (used) {
             throw new IllegalStateException("The AuthorizeUrl instance must not be reused.");
         }
+
+        if (response != null) {
+            TransientCookieStore.SameSite sameSiteValue = containsFormPost() ?
+                    TransientCookieStore.SameSite.NONE : TransientCookieStore.SameSite.LAX;
+
+            // Also store in Session just in case developer uses deprecated
+            // AuthenticationController.handle(HttpServletRequest) API
+            if (state != null) {
+                TransientCookieStore.storeState(response, state, sameSiteValue, legacySameSiteCookie);
+                RandomStorage.setSessionState(request, state);
+            }
+
+            if (nonce != null) {
+                TransientCookieStore.storeNonce(response, nonce, sameSiteValue, legacySameSiteCookie);
+                RandomStorage.setSessionNonce(request, nonce);
+            }
+        } else {
+            if (state != null) {
+                RandomStorage.setSessionState(request, state);
+            }
+
+            if (nonce != null) {
+                RandomStorage.setSessionNonce(request, nonce);
+            }
+        }
+
+
         used = true;
         return builder.build();
+    }
+
+    private boolean containsFormPost() {
+        String[] splitResponseTypes = responseType.trim().split("\\s+");
+        List<String> responseTypes = Collections.unmodifiableList(Arrays.asList(splitResponseTypes));
+        return RequestProcessor.requiresFormPostResponseMode((responseTypes));
     }
 
 }

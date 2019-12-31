@@ -49,17 +49,17 @@ AuthenticationController controller = AuthenticationController.newBuilder("domai
 
 ```java
 //let the library generate the state/nonce parameters
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+String authorizeUrl = authController.buildAuthorizeUrl(request, response, "https://redirect.uri/here")
     .build();
 
 // or use custom state/nonce parameters
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+String authorizeUrl = authController.buildAuthorizeUrl(request, response, "https://redirect.uri/here")
     .withState("state")
     .withNonce("nonce")
     .build();
 
 // you can also specify custom parameters
-String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirect.uri/here")
+String authorizeUrl = authController.buildAuthorizeUrl(request, response, "https://redirect.uri/here")
     .withAudience("https://myapi.me.auth0.com")
     .withScope("openid create:photos read:photos")
     .withParameter("name", "value")
@@ -73,9 +73,9 @@ String authorizeUrl = authController.buildAuthorizeUrl(request, "https://redirec
 
 ```java
 try {
-    Tokens tokens = authController.handle(request);
+    Tokens tokens = authController.handle(request, response);
     //Use or store the tokens
-    SessionUtils.set(request, "access_token", tokens.getAccessToken());
+    request.getSession().setAttrigbute("id_token", tokens.getIdToken());
 } catch (IdentityVerificationException e) {
     String code = e.getCode();
     // Something happened when trying to process the request.

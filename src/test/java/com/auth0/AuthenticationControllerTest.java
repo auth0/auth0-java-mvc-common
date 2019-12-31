@@ -1,7 +1,10 @@
 package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
+import com.auth0.client.auth.AuthorizeUrlBuilder;
+import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
+import com.auth0.net.AuthRequest;
 import com.auth0.net.Telemetry;
 import org.junit.Before;
 import org.junit.Rule;
@@ -12,14 +15,18 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.*;
 
+@SuppressWarnings("deprecated")
 public class AuthenticationControllerTest {
 
     @Rule
@@ -345,9 +352,11 @@ public class AuthenticationControllerTest {
         AuthenticationController controller = new AuthenticationController(requestProcessor);
 
         HttpServletRequest req = new MockHttpServletRequest();
-        controller.handle(req);
+        HttpServletResponse response = new MockHttpServletResponse();
 
-        verify(requestProcessor).process(req);
+        controller.handle(req, response);
+
+        verify(requestProcessor).process(req, response);
     }
 
     @Test
@@ -355,10 +364,144 @@ public class AuthenticationControllerTest {
         RequestProcessor requestProcessor = mock(RequestProcessor.class);
         AuthenticationController controller = new AuthenticationController(requestProcessor);
 
-        HttpServletRequest req = new MockHttpServletRequest();
-        controller.buildAuthorizeUrl(req, "https://redirect.uri/here");
+        HttpServletRequest request = new MockHttpServletRequest();
+        HttpServletResponse response = new MockHttpServletResponse();
 
-        verify(requestProcessor).buildAuthorizeUrl(eq(req), eq("https://redirect.uri/here"), anyString(), anyString());
+        controller.buildAuthorizeUrl(request, response,"https://redirect.uri/here");
+
+        verify(requestProcessor).buildAuthorizeUrl(eq(request), eq(response), eq("https://redirect.uri/here"), anyString(), anyString());
+    }
+
+    @Test
+    public void shouldSetLaxCookiesAndNoLegacyCookieWhenCodeFlow() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .build();
+
+        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
+                .withState("state")
+                .build();
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+
+        assertThat(headers.size(), is(1));
+        assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=Lax")));
+    }
+
+    @Test
+    public void shouldSetSameSiteNoneCookiesAndLegacyCookieWhenIdTokenResponse() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .withResponseType("id_token")
+                .build();
+
+        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
+                .withState("state")
+                .withNonce("nonce")
+                .build();
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+
+        assertThat(headers.size(), is(4));
+        assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers, hasItem("_com.auth0.state=state; HttpOnly; Max-Age=600"));
+        assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers, hasItem("_com.auth0.nonce=nonce; HttpOnly; Max-Age=600"));
+    }
+
+    @Test
+    public void shouldSetSameSiteNoneCookiesAndNoLegacyCookieWhenIdTokenResponse() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .withResponseType("id_token")
+                .withLegacySameSiteCookie(false)
+                .build();
+
+        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
+                .withState("state")
+                .withNonce("nonce")
+                .build();
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+
+        assertThat(headers.size(), is(2));
+        assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+    }
+
+    @Test
+    public void shouldCheckSessionFallbackWhenHandleCalledWithRequestAndResponse() throws Exception {
+        AuthenticationController controller = builderSpy.withResponseType("code").build();
+
+        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenHolder tokenHolder = mock(TokenHolder.class);
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
+
+        AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
+        when(mockBuilder.withResponseType("code")).thenReturn(mockBuilder);
+        when(mockBuilder.withScope("openid")).thenReturn(mockBuilder);
+        when(client.authorizeUrl("https://redirect.uri/here")).thenReturn(mockBuilder);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // build auth URL using deprecated method, which stores state and nonce in session
+        String authUrl = controller.buildAuthorizeUrl(request, "https://redirect.uri/here")
+                .withState("state")
+                .withNonce("nonce")
+                .build();
+
+        String state = (String) request.getSession().getAttribute("com.auth0.state");
+        String nonce = (String) request.getSession().getAttribute("com.auth0.nonce");
+        assertThat(state, is("state"));
+        assertThat(nonce, is("nonce"));
+
+        request.setParameter("state", "state");
+        request.setParameter("nonce", "nonce");
+        request.setParameter("code", "abc123");
+
+        // handle called with request and response, which should use cookies but fallback to session
+        controller.handle(request, response);
+    }
+
+    @Test
+    public void shouldCheckSessionFallbackWhenHandleCalledWithRequest() throws Exception {
+        AuthenticationController controller = builderSpy.withResponseType("code").build();
+
+        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenHolder tokenHolder = mock(TokenHolder.class);
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
+
+        AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
+        when(mockBuilder.withResponseType("code")).thenReturn(mockBuilder);
+        when(mockBuilder.withScope("openid")).thenReturn(mockBuilder);
+        when(client.authorizeUrl("https://redirect.uri/here")).thenReturn(mockBuilder);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // build auth URL using request and response, which stores state and nonce in cookies and also session as a fallback
+        String authUrl = controller.buildAuthorizeUrl(request, response,"https://redirect.uri/here")
+                .withState("state")
+                .withNonce("nonce")
+                .build();
+
+        String state = (String) request.getSession().getAttribute("com.auth0.state");
+        String nonce = (String) request.getSession().getAttribute("com.auth0.nonce");
+        assertThat(state, is("state"));
+        assertThat(nonce, is("nonce"));
+
+        request.setParameter("state", "state");
+        request.setParameter("nonce", "nonce");
+        request.setParameter("code", "abc123");
+
+        // handle called with request, which should use session
+        controller.handle(request);
     }
 
 }
