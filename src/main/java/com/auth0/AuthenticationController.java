@@ -220,7 +220,7 @@ public class AuthenticationController {
      * Processes a request validating the received parameters and performs a Code Exchange or a Token's Signature Verification,
      * depending on the chosen Response Type, to obtain a set of {@link Tokens}.
      *
-     * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also use the {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
+     * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
      * when building the {@link AuthorizeUrl} that the user will be redirected to to login. Failure to do so may result
      * in a broken login experience for the user.</p>
      *
