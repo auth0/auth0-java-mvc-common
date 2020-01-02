@@ -245,16 +245,12 @@ public class AuthenticationController {
      * when building the {@link AuthorizeUrl} that the user will be redirected to to login. Failure to do so may result
      * in a broken login experience for the user.</p>
      *
-     * @deprecated This method uses the HttpSession for auth-based data, and is incompatible with clients that are using the
-     * "id_token" or "token" responseType with browsers that enforce SameSite cookie restrictions. This method will be removed
-     * in version 2.0.0.
-     *
      * @param request the received request to process.
      * @return the Tokens obtained after the user authentication.
      * @throws InvalidRequestException       if the error is result of making an invalid authentication request.
      * @throws IdentityVerificationException if an error occurred while verifying the request tokens.
      */
-    @Deprecated
+    // TODO - deprecate in minor version, remove in next major
     public Tokens handle(HttpServletRequest request) throws IdentityVerificationException {
         Validate.notNull(request);
 
@@ -268,16 +264,11 @@ public class AuthenticationController {
      * {@link AuthenticationController#handle(HttpServletRequest)} method. Failure to do so may result in a broken login
      * experience for users.
      *
-     * @deprecated This method stores data in the HttpSession, and is incompatible with clients that are using the "id_token"
-     * or "token" responseType with browsers that enforce SameSite cookie restrictions. This method will be removed in
-     * version 2.0.0
-     * <p>Use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)} instead</p>
-     *
      * @param request     the caller request. Used to keep the session context.
      * @param redirectUri the url to call back with the authentication result.
      * @return the authorize url builder to continue any further parameter customization.
      */
-    @Deprecated
+    // TODO - deprecate in minor version, remove in next major
     public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri) {
         return buildAuthorizeUrl(request, null, redirectUri);
     }

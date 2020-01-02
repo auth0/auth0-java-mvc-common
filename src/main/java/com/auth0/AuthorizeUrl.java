@@ -55,16 +55,12 @@ public class AuthorizeUrl {
      * While this class can be used directly, it's recommended that you use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
      * when possible.
      *
-     * @deprecated This constructor will cause the state and nonce to be stored in the Session, and is incompatible with
-     * clients that are using the "id_token" or "token" responseType with browsers that enforce SameSite cookie restrictions.
-     * <p>Use {@link AuthorizeUrl#AuthorizeUrl(AuthAPI, HttpServletRequest, HttpServletResponse, String, String)} instead.</p>
-     *
      * @param client       the Auth0 Authentication API client
      * @param request      the request where the state and nonce will be stored in the {@link javax.servlet.http.HttpSession}
      * @param redirectUrl  the url to redirect to after authentication
      * @param responseType the response type to use
      */
-    @Deprecated
+    // TODO - deprecate in minor version, remove in next major
     AuthorizeUrl(AuthAPI client, HttpServletRequest request, String redirectUrl, String responseType) {
         this(client, request, null, redirectUrl, responseType);
         this.legacySameSiteCookie = false;
