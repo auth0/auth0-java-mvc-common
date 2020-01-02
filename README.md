@@ -75,7 +75,7 @@ String authorizeUrl = authController.buildAuthorizeUrl(request, response, "https
 try {
     Tokens tokens = authController.handle(request, response);
     //Use or store the tokens
-    request.getSession().setAttrigbute("id_token", tokens.getIdToken());
+    request.getSession().setAttribute("access_token", tokens.getAccessToken());
 } catch (IdentityVerificationException e) {
     String code = e.getCode();
     // Something happened when trying to process the request.
