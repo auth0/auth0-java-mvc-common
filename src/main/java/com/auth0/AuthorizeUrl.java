@@ -31,11 +31,13 @@ public class AuthorizeUrl {
     /**
      * Creates a new instance that can be used to build an Auth0 Authorization URL.
      *
-     * While this class can be used directly, it's recommended that you use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
-     * when possible.
+     * Using this constructor with a non-null {@link HttpServletResponse} will store the state and nonce as
+     * cookies when the {@link AuthorizeUrl#build()} method is called, with the appropriate SameSite attribute depending
+     * on the responseType. State and nonce will also be stored in the {@link javax.servlet.http.HttpSession} as a fallback,
+     * but this behavior will be removed in a future release, and only cookies will be used.
      *
      * @param client       the Auth0 Authentication API client
-     * @parem request      the HTTP request
+     * @parem request      the HTTP request. Used to store state and nonce as a fallback if cookies not set.
      * @param response     the response where the state and nonce will be stored as cookies
      * @param redirectUrl  the url to redirect to after authentication
      * @param responseType the response type to use
@@ -52,8 +54,8 @@ public class AuthorizeUrl {
     /**
      * Creates a new instance that can be used to build an Auth0 Authorization URL.
      *
-     * While this class can be used directly, it's recommended that you use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
-     * when possible.
+     * Using this constructor will store the state and nonce in the {@link javax.servlet.http.HttpSession}, and will be
+     * deprecated and removed in the future, in favor of storing the state and nonce in Cookies.
      *
      * @param client       the Auth0 Authentication API client
      * @param request      the request where the state and nonce will be stored in the {@link javax.servlet.http.HttpSession}
