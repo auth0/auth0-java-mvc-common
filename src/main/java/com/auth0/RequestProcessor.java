@@ -105,11 +105,11 @@ class RequestProcessor {
      *
      * @throws IdentityVerificationException if an error occurred while processing the request
      */
-    Tokens process(HttpServletRequest req, HttpServletResponse response) throws IdentityVerificationException {
-        assertNoError(req);
-        assertValidState(req, response);
+    Tokens process(HttpServletRequest request, HttpServletResponse response) throws IdentityVerificationException {
+        assertNoError(request);
+        assertValidState(request, response);
 
-        Tokens frontChannelTokens = getFrontChannelTokens(req);
+        Tokens frontChannelTokens = getFrontChannelTokens(request);
         List<String> responseTypeList = getResponseType();
 
         if (responseTypeList.contains(KEY_ID_TOKEN) && frontChannelTokens.getIdToken() == null) {
@@ -122,19 +122,19 @@ class RequestProcessor {
         String nonce;
         if (response != null) {
             // Nonce dynamically set and changes on every request.
-            nonce = TransientCookieStore.getNonce(req, response, legacySameSiteCookie);
+            nonce = TransientCookieStore.getNonce(request, response, legacySameSiteCookie);
 
             // Just in case the developer created the authorizeUrl that stores state/nonce in the session
             if (nonce == null) {
-                nonce = RandomStorage.removeSessionNonce(req);
+                nonce = RandomStorage.removeSessionNonce(request);
             }
         } else {
-            nonce = RandomStorage.removeSessionNonce(req);
+            nonce = RandomStorage.removeSessionNonce(request);
         }
 
         verifyOptions.setNonce(nonce);
 
-        return getVerifiedTokens(req, frontChannelTokens, responseTypeList);
+        return getVerifiedTokens(request, frontChannelTokens, responseTypeList);
     }
 
     static boolean requiresFormPostResponseMode(List<String> responseType) {
@@ -144,16 +144,16 @@ class RequestProcessor {
 
     /**
      * Obtains code request tokens (if using Code flow) and validates the ID token.
-     * @param req the HTTP request
+     * @param request the HTTP request
      * @param frontChannelTokens the tokens obtained from the front channel
      * @param responseTypeList the reponse types
      * @return a Tokens object that wraps the values obtained from the front-channel and/or the code request response.
      * @throws IdentityVerificationException
      */
-    private Tokens getVerifiedTokens(HttpServletRequest req, Tokens frontChannelTokens, List<String> responseTypeList)
+    private Tokens getVerifiedTokens(HttpServletRequest request, Tokens frontChannelTokens, List<String> responseTypeList)
             throws IdentityVerificationException {
 
-        String authorizationCode = req.getParameter(KEY_CODE);
+        String authorizationCode = request.getParameter(KEY_CODE);
         Tokens codeExchangeTokens = null;
 
         try {
@@ -163,7 +163,7 @@ class RequestProcessor {
             }
             if (responseTypeList.contains(KEY_CODE)) {
                 // Code/Hybrid flow
-                String redirectUri = req.getRequestURL().toString();
+                String redirectUri = request.getRequestURL().toString();
                 codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
                 if (!responseTypeList.contains(KEY_ID_TOKEN)) {
                     // If we already verified the front-channel token, don't verify it again.
@@ -203,24 +203,24 @@ class RequestProcessor {
     /**
      * Extract the tokens from the request parameters, present when using the Implicit or Hybrid Grant.
      *
-     * @param req the request
+     * @param request the request
      * @return a new instance of Tokens wrapping the values present in the request parameters.
      */
-    private Tokens getFrontChannelTokens(HttpServletRequest req) {
-        Long expiresIn = req.getParameter(KEY_EXPIRES_IN) == null ? null : Long.parseLong(req.getParameter(KEY_EXPIRES_IN));
-        return new Tokens(req.getParameter(KEY_ACCESS_TOKEN), req.getParameter(KEY_ID_TOKEN), null, req.getParameter(KEY_TOKEN_TYPE), expiresIn);
+    private Tokens getFrontChannelTokens(HttpServletRequest request) {
+        Long expiresIn = request.getParameter(KEY_EXPIRES_IN) == null ? null : Long.parseLong(request.getParameter(KEY_EXPIRES_IN));
+        return new Tokens(request.getParameter(KEY_ACCESS_TOKEN), request.getParameter(KEY_ID_TOKEN), null, request.getParameter(KEY_TOKEN_TYPE), expiresIn);
     }
 
     /**
      * Checks for the presence of an error in the request parameters
      *
-     * @param req the request
+     * @param request the request
      * @throws InvalidRequestException if the request contains an error
      */
-    private void assertNoError(HttpServletRequest req) throws InvalidRequestException {
-        String error = req.getParameter(KEY_ERROR);
+    private void assertNoError(HttpServletRequest request) throws InvalidRequestException {
+        String error = request.getParameter(KEY_ERROR);
         if (error != null) {
-            String errorDescription = req.getParameter(KEY_ERROR_DESCRIPTION);
+            String errorDescription = request.getParameter(KEY_ERROR_DESCRIPTION);
             throw new InvalidRequestException(error, errorDescription);
         }
     }
@@ -229,25 +229,25 @@ class RequestProcessor {
      * Checks whether the state received in the request parameters is the same as the one in the state cookie or session
      * for this request.
      *
-     * @param req the request
+     * @param request the request
      * @throws InvalidRequestException if the request contains a different state from the expected one
      */
-    private void assertValidState(HttpServletRequest req, HttpServletResponse response) throws InvalidRequestException {
-        String stateFromRequest = req.getParameter(KEY_STATE);
+    private void assertValidState(HttpServletRequest request, HttpServletResponse response) throws InvalidRequestException {
+        String stateFromRequest = request.getParameter(KEY_STATE);
 
         // If response is null, check the Session.
         // This can happen when the deprecated handle method that only takes the request parameter is called
         if (response == null) {
-            checkSessionState(req, stateFromRequest);
+            checkSessionState(request, stateFromRequest);
             return;
         }
 
-        String actualState = TransientCookieStore.getState(req, response, legacySameSiteCookie);
+        String actualState = TransientCookieStore.getState(request, response, legacySameSiteCookie);
 
         // Just in case state was stored in Session by building auth URL with deprecated method, but then called the
         // supported handle method with the request and response
         if (actualState == null) {
-            checkSessionState(req, stateFromRequest);
+            checkSessionState(request, stateFromRequest);
             return;
         }
 
@@ -256,8 +256,8 @@ class RequestProcessor {
         }
     }
 
-    private void checkSessionState(HttpServletRequest req, String stateFromRequest) throws InvalidRequestException {
-        boolean valid = RandomStorage.checkSessionState(req, stateFromRequest);
+    private void checkSessionState(HttpServletRequest request, String stateFromRequest) throws InvalidRequestException {
+        boolean valid = RandomStorage.checkSessionState(request, stateFromRequest);
         if (!valid) {
             throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one.");
         }

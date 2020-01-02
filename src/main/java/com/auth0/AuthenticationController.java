@@ -57,7 +57,7 @@ public class AuthenticationController {
         private JwkProvider jwkProvider;
         private Integer clockSkew;
         private Integer authenticationMaxAge;
-        private boolean legacySameSiteCookie;
+        private boolean useLegacySameSiteCookie;
 
         Builder(String domain, String clientId, String clientSecret) {
             Validate.notNull(domain);
@@ -68,7 +68,7 @@ public class AuthenticationController {
             this.clientId = clientId;
             this.clientSecret = clientSecret;
             this.responseType = RESPONSE_TYPE_CODE;
-            this.legacySameSiteCookie = true;
+            this.useLegacySameSiteCookie = true;
         }
 
         /**
@@ -126,11 +126,11 @@ public class AuthenticationController {
          * Sets whether fallback cookies will be set for clients that do not support SameSite=None cookie attribute.
          * The SameSite Cookie attribute will only be set to "None" if the reponseType includes "id_token".
          * By default this is true.
-         * @param legacySameSiteCookie whether fallback auth-based cookies should be set.
+         * @param useLegacySameSiteCookie whether fallback auth-based cookies should be set.
          * @return this same builder instance.
          */
-        public Builder withLegacySameSiteCookie(boolean legacySameSiteCookie) {
-            this.legacySameSiteCookie = legacySameSiteCookie;
+        public Builder withLegacySameSiteCookie(boolean useLegacySameSiteCookie) {
+            this.useLegacySameSiteCookie = useLegacySameSiteCookie;
             return this;
         }
 
@@ -161,7 +161,7 @@ public class AuthenticationController {
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
             verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
-            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, legacySameSiteCookie);
+            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, useLegacySameSiteCookie);
             return new AuthenticationController(processor);
         }
 
