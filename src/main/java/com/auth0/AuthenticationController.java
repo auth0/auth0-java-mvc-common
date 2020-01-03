@@ -270,7 +270,13 @@ public class AuthenticationController {
      */
     // TODO - deprecate in minor version, remove in next major
     public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri) {
-        return buildAuthorizeUrl(request, null, redirectUri);
+        Validate.notNull(request, "request must not be null");
+        Validate.notNull(redirectUri, "redirectUri must not be null");
+
+        String state = StorageUtils.secureRandomString();
+        String nonce = StorageUtils.secureRandomString();
+
+        return requestProcessor.buildAuthorizeUrl(request, null, redirectUri, state, nonce);
     }
 
     /**
@@ -287,6 +293,7 @@ public class AuthenticationController {
      */
     public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri) {
         Validate.notNull(request, "request must not be null");
+        Validate.notNull(response, "response must not be null");
         Validate.notNull(redirectUri, "redirectUri must not be null");
 
         String state = StorageUtils.secureRandomString();
