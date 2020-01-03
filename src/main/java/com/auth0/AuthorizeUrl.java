@@ -174,27 +174,15 @@ public class AuthorizeUrl {
             TransientCookieStore.SameSite sameSiteValue = containsFormPost() ?
                     TransientCookieStore.SameSite.NONE : TransientCookieStore.SameSite.LAX;
 
-            // Also store in Session just in case developer uses deprecated
-            // AuthenticationController.handle(HttpServletRequest) API
-            if (state != null) {
-                TransientCookieStore.storeState(response, state, sameSiteValue, legacySameSiteCookie);
-                RandomStorage.setSessionState(request, state);
-            }
 
-            if (nonce != null) {
-                TransientCookieStore.storeNonce(response, nonce, sameSiteValue, legacySameSiteCookie);
-                RandomStorage.setSessionNonce(request, nonce);
-            }
-        } else {
-            if (state != null) {
-                RandomStorage.setSessionState(request, state);
-            }
-
-            if (nonce != null) {
-                RandomStorage.setSessionNonce(request, nonce);
-            }
+            TransientCookieStore.storeState(response, state, sameSiteValue, legacySameSiteCookie);
+            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, legacySameSiteCookie);
         }
 
+        // Also store in Session just in case developer uses deprecated
+        // AuthenticationController.handle(HttpServletRequest) API
+        RandomStorage.setSessionState(request, state);
+        RandomStorage.setSessionNonce(request, nonce);
 
         used = true;
         return builder.build();

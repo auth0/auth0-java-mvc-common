@@ -27,6 +27,22 @@ public class TransientCookieStoreTest {
     }
 
     @Test
+    public void shouldNotSetCookieIfStateIsNull() {
+        TransientCookieStore.storeState(response, null, TransientCookieStore.SameSite.NONE, true);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(0));
+    }
+
+    @Test
+    public void shouldNotSetCookieIfNonceIsNull() {
+        TransientCookieStore.storeNonce(response, null, TransientCookieStore.SameSite.NONE, true);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(0));
+    }
+
+    @Test
     public void shouldSetStateSameSiteCookieAndFallbackCookie() {
         TransientCookieStore.storeState(response, "123456", TransientCookieStore.SameSite.NONE, true);
 
@@ -209,9 +225,4 @@ public class TransientCookieStoreTest {
         assertThat(nonce, is(nullValue()));
         assertThat(nonce, is(nullValue()));
     }
-
-//    @Test
-//    public void shouldStoreInSessionIfResponseIsNull() {
-//        TransientCookieStore.storeState(request, response, "123456", null, false);
-//    }
 }

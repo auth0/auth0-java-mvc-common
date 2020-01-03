@@ -21,8 +21,9 @@ class TransientCookieStore {
 
     /**
      * Stores a state value as a cookie on the response.
+     *
      * @param response the response object to set the cookie on
-     * @param state the value for the state cookie
+     * @param state the value for the state cookie. If null, no cookie will be set.
      * @param sameSite the value for the SameSite attribute on the cookie
      * @param legacySameSiteCookie whether to set a fallback cookie or not
      */
@@ -32,8 +33,9 @@ class TransientCookieStore {
 
     /**
      * Stores a nonce value as a cookie on the response.
+     *
      * @param response the response object to set the cookie on
-     * @param nonce the value for the nonce cookie
+     * @param nonce the value for the nonce cookie. If null, no cookie will be set.
      * @param sameSite the value for the SameSite attribute on the cookie
      * @param legacySameSiteCookie whether to set a fallback cookie or not
      */
@@ -66,8 +68,11 @@ class TransientCookieStore {
     private static void store(HttpServletResponse response, String key, String value, SameSite sameSite, boolean legacySameSiteCookie) {
         Validate.notNull(response, "response must not be null");
         Validate.notNull(key, "key must not be null");
-        Validate.notNull(value, "value must not be null");
         Validate.notNull(sameSite, "sameSite must not be null");
+
+        if (value == null) {
+            return;
+        }
 
         boolean sameSiteNone = SameSite.NONE == sameSite;
 
