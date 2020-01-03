@@ -22,7 +22,7 @@ public class AuthorizeUrl {
     private HttpServletRequest request;
     private final AuthorizeUrlBuilder builder;
     private final String responseType;
-    private boolean legacySameSiteCookie = true;
+    private boolean useLegacySameSiteCookie = true;
     private String nonce;
     private String state;
 
@@ -65,7 +65,7 @@ public class AuthorizeUrl {
     // TODO - deprecate in minor version, remove in next major
     AuthorizeUrl(AuthAPI client, HttpServletRequest request, String redirectUrl, String responseType) {
         this(client, request, null, redirectUrl, responseType);
-        this.legacySameSiteCookie = false;
+        this.useLegacySameSiteCookie = false;
     }
 
     /**
@@ -83,11 +83,11 @@ public class AuthorizeUrl {
      * Sets whether a fallback cookie should be used for clients that do not support "SameSite=None".
      * Only applicable when this instance is created with {@link AuthorizeUrl#AuthorizeUrl(AuthAPI, HttpServletRequest, HttpServletResponse, String, String)}.
      *
-     * @param legacySameSiteCookie whether or not to set fallback auth cookies for clients that do not support "SameSite=None"
+     * @param useLegacySameSiteCookie whether or not to set fallback auth cookies for clients that do not support "SameSite=None"
      * @return the builder instance
      */
-    AuthorizeUrl withLegacySameSiteCookie(boolean legacySameSiteCookie) {
-        this.legacySameSiteCookie = legacySameSiteCookie;
+    AuthorizeUrl withLegacySameSiteCookie(boolean useLegacySameSiteCookie) {
+        this.useLegacySameSiteCookie = useLegacySameSiteCookie;
         return this;
     }
 
@@ -175,8 +175,8 @@ public class AuthorizeUrl {
                     TransientCookieStore.SameSite.NONE : TransientCookieStore.SameSite.LAX;
 
 
-            TransientCookieStore.storeState(response, state, sameSiteValue, legacySameSiteCookie);
-            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, legacySameSiteCookie);
+            TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie);
+            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie);
         }
 
         // Also store in Session just in case developer uses deprecated
@@ -191,7 +191,7 @@ public class AuthorizeUrl {
     private boolean containsFormPost() {
         String[] splitResponseTypes = responseType.trim().split("\\s+");
         List<String> responseTypes = Collections.unmodifiableList(Arrays.asList(splitResponseTypes));
-        return RequestProcessor.requiresFormPostResponseMode((responseTypes));
+        return RequestProcessor.requiresFormPostResponseMode(responseTypes);
     }
 
 }

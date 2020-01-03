@@ -377,6 +377,7 @@ public class AuthenticationControllerTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .withResponseType("code")
                 .build();
 
         controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")

@@ -37,10 +37,10 @@ class RequestProcessor {
     private final String responseType;
     private final AuthAPI client;
     private final IdTokenVerifier tokenVerifier;
-    private final boolean legacySameSiteCookie;
+    private final boolean useLegacySameSiteCookie;
 
     @VisibleForTesting
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean legacySameSiteCookie) {
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
@@ -48,7 +48,7 @@ class RequestProcessor {
         this.responseType = responseType;
         this.verifyOptions = verifyOptions;
         this.tokenVerifier = tokenVerifier;
-        this.legacySameSiteCookie = legacySameSiteCookie;
+        this.useLegacySameSiteCookie = useLegacySameSiteCookie;
     }
 
 
@@ -56,8 +56,8 @@ class RequestProcessor {
         this(client, responseType, verifyOptions, true);
     }
 
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean legacySameSiteCookie) {
-        this(client, responseType, verifyOptions, new IdTokenVerifier(), legacySameSiteCookie);
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie) {
+        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie);
     }
 
     /**
@@ -88,7 +88,7 @@ class RequestProcessor {
 
         // null response means state and nonce will be stored in session, so legacy cookie flag does not apply
         if (response != null) {
-            creator.withLegacySameSiteCookie(legacySameSiteCookie);
+            creator.withLegacySameSiteCookie(useLegacySameSiteCookie);
         }
 
         return getAuthorizeUrl(nonce, creator);
@@ -122,7 +122,7 @@ class RequestProcessor {
         String nonce;
         if (response != null) {
             // Nonce dynamically set and changes on every request.
-            nonce = TransientCookieStore.getNonce(request, response, legacySameSiteCookie);
+            nonce = TransientCookieStore.getNonce(request, response, useLegacySameSiteCookie);
 
             // Just in case the developer created the authorizeUrl that stores state/nonce in the session
             if (nonce == null) {
@@ -242,16 +242,16 @@ class RequestProcessor {
             return;
         }
 
-        String actualState = TransientCookieStore.getState(request, response, legacySameSiteCookie);
+        String cookieState = TransientCookieStore.getState(request, response, useLegacySameSiteCookie);
 
         // Just in case state was stored in Session by building auth URL with deprecated method, but then called the
         // supported handle method with the request and response
-        if (actualState == null) {
+        if (cookieState == null) {
             checkSessionState(request, stateFromRequest);
             return;
         }
 
-        if (!actualState.equals(stateFromRequest)) {
+        if (!cookieState.equals(stateFromRequest)) {
             throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one.");
         }
     }
