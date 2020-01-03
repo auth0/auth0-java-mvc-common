@@ -231,8 +231,8 @@ public class AuthenticationController {
      * @throws IdentityVerificationException if an error occurred while verifying the request tokens.
      */
     public Tokens handle(HttpServletRequest request, HttpServletResponse response) throws IdentityVerificationException {
-        Validate.notNull(request);
-        Validate.notNull(response);
+        Validate.notNull(request, "request must not be null");
+        Validate.notNull(response, "response must not be null");
 
         return requestProcessor.process(request, response);
     }
@@ -252,7 +252,7 @@ public class AuthenticationController {
      */
     // TODO - deprecate in minor version, remove in next major
     public Tokens handle(HttpServletRequest request) throws IdentityVerificationException {
-        Validate.notNull(request);
+        Validate.notNull(request, "request must not be null");
 
         return requestProcessor.process(request, null);
     }
@@ -286,8 +286,8 @@ public class AuthenticationController {
      * @return the authorize url builder to continue any further parameter customization.
      */
     public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri) {
-        Validate.notNull(request);
-        Validate.notNull(redirectUri);
+        Validate.notNull(request, "request must not be null");
+        Validate.notNull(redirectUri, "redirectUri must not be null");
 
         String state = StorageUtils.secureRandomString();
         String nonce = StorageUtils.secureRandomString();
