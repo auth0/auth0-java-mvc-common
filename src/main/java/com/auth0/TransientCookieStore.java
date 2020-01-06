@@ -94,41 +94,40 @@ class TransientCookieStore {
     }
 
     private static String getOnce(String cookieName, HttpServletRequest request, HttpServletResponse response, boolean useLegacySameSiteCookie) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
+        Cookie[] requestCookies = request.getCookies();
+        if (requestCookies == null) {
             return null;
         }
-
-        List<Cookie> cookiesList = Arrays.asList(cookies);
-        Cookie cookie = null;
-        for (Cookie c : cookiesList) {
+        
+        Cookie foundCookie = null;
+        for (Cookie c : requestCookies) {
             if (cookieName.equals(c.getName())) {
-                cookie = c;
+                foundCookie = c;
                 break;
             }
         }
 
-        String cookieVal = null;
-        if (cookie != null) {
-            cookieVal = cookie.getValue();
-            delete(cookie, response);
+        String foundCookieVal = null;
+        if (foundCookie != null) {
+            foundCookieVal = foundCookie.getValue();
+            delete(foundCookie, response);
         }
 
-        Cookie legacyCookie = null;
-        for (Cookie c : cookiesList) {
+        Cookie foundLegacyCookie = null;
+        for (Cookie c : requestCookies) {
             if (("_" + cookieName).equals(c.getName())) {
-                legacyCookie = c;
+                foundLegacyCookie = c;
                 break;
             }
         }
 
-        String legacyCookieVal = null;
-        if (legacyCookie != null) {
-            legacyCookieVal = legacyCookie.getValue();
-            delete(legacyCookie, response);
+        String foundLegacyCookieVal = null;
+        if (foundLegacyCookie != null) {
+            foundLegacyCookieVal = foundLegacyCookie.getValue();
+            delete(foundLegacyCookie, response);
         }
 
-        return cookieVal != null ? cookieVal : legacyCookieVal;
+        return foundCookieVal != null ? foundCookieVal : foundLegacyCookieVal;
     }
 
     private static void delete(Cookie cookie, HttpServletResponse response) {
