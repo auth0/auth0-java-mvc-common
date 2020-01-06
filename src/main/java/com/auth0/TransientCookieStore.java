@@ -45,6 +45,7 @@ class TransientCookieStore {
 
     /**
      * Gets the value associated with the state cookie and removes it.
+     *
      * @param request the request object
      * @param response the response object
      * @param useLegacySameSiteCookie whether to use a fallback cookie or not
