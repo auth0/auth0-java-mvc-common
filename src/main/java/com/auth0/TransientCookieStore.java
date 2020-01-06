@@ -5,8 +5,6 @@ import org.apache.commons.lang3.Validate;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Allows storage and retrieval/removal of cookies.
@@ -75,20 +73,19 @@ class TransientCookieStore {
             return;
         }
 
-        boolean sameSiteNone = SameSite.NONE == sameSite;
+        boolean isSameSiteNone = SameSite.NONE == sameSite;
 
-        String cookie = String.format("%s=%s; HttpOnly; Max-Age=%d; SameSite=%s", key, value, MAX_AGE_SECONDS, sameSite.getValue());
-        if (sameSiteNone) {
-            cookie = cookie.concat("; Secure");
-        }
+        AuthCookie sameSiteCookie = new AuthCookie(key, value);
+        sameSiteCookie.setSameSite(sameSite);
+        sameSiteCookie.setSecure(isSameSiteNone);
 
         // Servlet Cookie API does not yet support setting the SameSite attribute, so just set cookie on header
-        response.addHeader("Set-Cookie", cookie);
+        response.addHeader("Set-Cookie", sameSiteCookie.buildHeaderString());
 
         // set legacy fallback cookie (if configured) for clients that won't accept SameSite=None
-        if (sameSiteNone && useLegacySameSiteCookie) {
-            String legacyCookie = String.format("%s=%s; HttpOnly; Max-Age=%d", "_" + key, value, MAX_AGE_SECONDS);
-            response.addHeader("Set-Cookie", legacyCookie);
+        if (isSameSiteNone && useLegacySameSiteCookie) {
+            AuthCookie legacyCookie = new AuthCookie("_" + key, value);
+            response.addHeader("Set-Cookie", legacyCookie.buildHeaderString());
         }
 
     }
@@ -98,7 +95,7 @@ class TransientCookieStore {
         if (requestCookies == null) {
             return null;
         }
-        
+
         Cookie foundCookie = null;
         for (Cookie c : requestCookies) {
             if (cookieName.equals(c.getName())) {
@@ -134,21 +131,5 @@ class TransientCookieStore {
         cookie.setMaxAge(0);
         cookie.setValue("");
         response.addCookie(cookie);
-    }
-
-    enum SameSite {
-        LAX("Lax"),
-        NONE("None"),
-        STRICT("Strict");
-
-        private String value;
-
-        public String getValue() {
-            return this.value;
-        }
-
-        SameSite(String value) {
-            this.value = value;
-        }
     }
 }
