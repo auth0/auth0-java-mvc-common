@@ -5,13 +5,14 @@ import org.apache.commons.lang3.Validate;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Allows storage and retrieval/removal of cookies.
  */
 class TransientCookieStore {
-
-    private static final int MAX_AGE_SECONDS = 600; // 10 minutes
 
     // Prevent instantiation
     private TransientCookieStore() {}
@@ -55,6 +56,7 @@ class TransientCookieStore {
 
     /**
      * Gets the value associated with the nonce cookie and removes it.
+     *
      * @param request the request object
      * @param response the response object
      * @param useLegacySameSiteCookie whether to use a fallback cookie or not
@@ -106,7 +108,7 @@ class TransientCookieStore {
 
         String foundCookieVal = null;
         if (foundCookie != null) {
-            foundCookieVal = foundCookie.getValue();
+            foundCookieVal = decode(foundCookie.getValue());
             delete(foundCookie, response);
         }
 
@@ -120,7 +122,7 @@ class TransientCookieStore {
 
         String foundLegacyCookieVal = null;
         if (foundLegacyCookie != null) {
-            foundLegacyCookieVal = foundLegacyCookie.getValue();
+            foundLegacyCookieVal = decode(foundLegacyCookie.getValue());
             delete(foundLegacyCookie, response);
         }
 
@@ -131,5 +133,13 @@ class TransientCookieStore {
         cookie.setMaxAge(0);
         cookie.setValue("");
         response.addCookie(cookie);
+    }
+
+    private static String decode(String valueToDecode) {
+        try {
+            return URLDecoder.decode(valueToDecode, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            throw new AssertionError("UTF-8 character set not supported", e.getCause());
+        }
     }
 }
