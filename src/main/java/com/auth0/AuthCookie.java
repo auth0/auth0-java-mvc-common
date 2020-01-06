@@ -2,6 +2,10 @@ package com.auth0;
 
 import org.apache.commons.lang3.Validate;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 /**
  * Represents a cookie to be used for transfer of authentiction-based data such as state and nonce.
  *
@@ -21,8 +25,6 @@ class AuthCookie {
 
     /**
      * Create a new instance.
-     *
-     * Note that keys and values are stored as-is. Clients should encode and decode values as needed.
      *
      * @param key The cookie key
      * @param value The cookie value
@@ -55,13 +57,15 @@ class AuthCookie {
 
     /**
      * Builds and returns a string representing this cookie instance, to be used as the value of a "Set-Cookie" header.
+     * The cookie key and value will be URL-encoded using the UTF-8 character set.
      *
+     * @throws AssertionError if the UTF-8 character set is not supported on the running JVM.
      * @return the value of this cookie as a string to be used as the value of a "Set-Cookie" header.
      */
     String buildHeaderString() {
-        String baseCookieString = String.format("%s=%s; HttpOnly; Max-Age=%d", key, value, MAX_AGE_SECONDS);
+        String baseCookieString = String.format("%s=%s; HttpOnly; Max-Age=%d", encode(key), encode(value), MAX_AGE_SECONDS);
         if (sameSite != null) {
-            baseCookieString = baseCookieString.concat(String.format("; SameSite=%s", sameSite.getValue()));
+            baseCookieString = baseCookieString.concat(String.format("; SameSite=%s", encode(sameSite.getValue())));
         }
         if (secure) {
             baseCookieString = baseCookieString.concat("; Secure");
@@ -69,4 +73,11 @@ class AuthCookie {
         return baseCookieString;
     }
 
+    private static String encode(String valueToEncode) {
+        try {
+            return URLEncoder.encode(valueToEncode, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            throw new AssertionError("UTF-8 character set not supported", e.getCause());
+        }
+    }
 }

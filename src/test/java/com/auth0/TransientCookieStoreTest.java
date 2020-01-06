@@ -1,16 +1,15 @@
 package com.auth0;
 
 import org.hamcrest.beans.HasPropertyWithValue;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import javax.servlet.http.Cookie;
+import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.assertThat;
@@ -40,6 +39,23 @@ public class TransientCookieStoreTest {
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(0));
+    }
+
+    @Test
+    public void shouldHandleSpecialCharsWhenStoringState() throws Exception {
+        String stateVal = ";state = ,va\\lu;e\"";
+        TransientCookieStore.storeState(response, stateVal, SameSite.NONE, true);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(2));
+
+        String expectedEncodedState = URLEncoder.encode(stateVal, "UTF-8");
+        assertThat(headers, hasItem(
+                String.format("com.auth0.state=%s; HttpOnly; Max-Age=600; SameSite=None; Secure", expectedEncodedState)));
+        assertThat(headers, hasItem(
+                String.format("_com.auth0.state=%s; HttpOnly; Max-Age=600", expectedEncodedState)));
+        System.out.println("headers size: " + headers.size());
+        System.out.println("header: " + headers.get(0));
     }
 
     @Test
