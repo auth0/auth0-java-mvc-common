@@ -171,8 +171,7 @@ public class AuthorizeUrl {
         }
 
         if (response != null) {
-            TransientCookieStore.SameSite sameSiteValue = containsFormPost() ?
-                    TransientCookieStore.SameSite.NONE : TransientCookieStore.SameSite.LAX;
+            SameSite sameSiteValue = containsFormPost() ? SameSite.NONE : SameSite.LAX;
 
             TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie);
             TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie);
