@@ -217,8 +217,11 @@ public class AuthenticationController {
     }
 
     /**
-     * Processes a request validating the received parameters and performs a Code Exchange or a Token's Signature Verification,
-     * depending on the chosen Response Type, to obtain a set of {@link Tokens}.
+     * Process a request to obtain a set of {@link Tokens} that represent successful authentication or authorization.
+     *
+     * This method should be called when processing the callback request to your application. It will validate
+     * authentication-related request parameters, handle performing a Code Exchange request if using
+     * the "code" response type, and verify the integrity of the ID token (if present).
      *
      * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
      * when building the {@link AuthorizeUrl} that the user will be redirected to to login. Failure to do so may result
@@ -238,8 +241,11 @@ public class AuthenticationController {
     }
 
     /**
-     * Processes a request validating the received parameters and performs a Code Exchange or a Token's Signature Verification,
-     * depending on the chosen Response Type, to obtain a set of {@link Tokens}.
+     * Process a request to obtain a set of {@link Tokens} that represent successful authentication or authorization.
+     *
+     * This method should be called when processing the callback request to your application. It will validate
+     * authentication-related request parameters, handle performing a Code Exchange request if using
+     * the "code" response type, and verify the integrity of the ID token (if present).
      *
      * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also use the {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, String)}
      * when building the {@link AuthorizeUrl} that the user will be redirected to to login. Failure to do so may result
