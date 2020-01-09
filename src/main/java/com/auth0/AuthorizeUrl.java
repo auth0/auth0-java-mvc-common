@@ -52,23 +52,6 @@ public class AuthorizeUrl {
     }
 
     /**
-     * Creates a new instance that can be used to build an Auth0 Authorization URL.
-     *
-     * Using this constructor will store the state and nonce in the {@link javax.servlet.http.HttpSession}, and will be
-     * deprecated and removed in the future, in favor of storing the state and nonce in Cookies.
-     *
-     * @param client       the Auth0 Authentication API client
-     * @param request      the request where the state and nonce will be stored in the {@link javax.servlet.http.HttpSession}
-     * @param redirectUrl  the url to redirect to after authentication
-     * @param responseType the response type to use
-     */
-    // TODO - deprecate in minor version, remove in next major
-    AuthorizeUrl(AuthAPI client, HttpServletRequest request, String redirectUrl, String responseType) {
-        this(client, request, null, redirectUrl, responseType);
-        this.useLegacySameSiteCookie = false;
-    }
-
-    /**
      * Sets the connection value.
      *
      * @param connection connection to set
