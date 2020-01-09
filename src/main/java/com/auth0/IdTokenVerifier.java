@@ -77,12 +77,6 @@ class IdTokenVerifier {
 
         cal.setTime(decoded.getIssuedAt());
         cal.add(Calendar.SECOND, -1 * clockSkew);
-        Date iatDate = cal.getTime();
-
-        if (now.before(iatDate)) {
-            throw new TokenValidationException(String.format("Issued At (iat) claim error in the ID token; current time (%d) is before issued at time (%d)", now.getTime() / 1000, iatDate.getTime() / 1000));
-        }
-
 
         if (verifyOptions.nonce != null) {
             String nonceClaim = decoded.getClaim(NONCE_CLAIM).asString();
