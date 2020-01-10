@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.2.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.2.0) (2020-01-10)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.1.0...1.2.0)
+
+**Added**
+- Add SameSite Support [\#49](https://github.com/auth0/auth0-java-mvc-common/pull/49) ([jimmyjames](https://github.com/jimmyjames))
+
+**Deprecated**
+- Deprecate request-only methods [\#50](https://github.com/auth0/auth0-java-mvc-common/pull/50) ([jimmyjames](https://github.com/jimmyjames))
+
+**Removed**
+- Remove check that IAT claim must be in the future [\#52](https://github.com/auth0/auth0-java-mvc-common/pull/52) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.1.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.1.0) (2019-10-29)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.0.11...1.1.0)
 
