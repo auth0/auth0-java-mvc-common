@@ -129,6 +129,19 @@ public class AuthorizeUrlTest {
     }
 
     @Test
+    public void shouldSetSecureCookieWhenConfigured() {
+        String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "code")
+                .withState("asdfghjkl")
+                .withSecureCookie(true)
+                .build();
+        assertThat(HttpUrl.parse(url).queryParameter("state"), is("asdfghjkl"));
+
+        Collection<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(1));
+        assertThat(headers, hasItem("com.auth0.state=asdfghjkl; HttpOnly; Max-Age=600; SameSite=Lax; Secure"));
+    }
+
+    @Test
     public void shouldSetNoCookiesWhenNonceAndStateNotSet() {
         String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .build();

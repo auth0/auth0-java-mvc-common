@@ -23,6 +23,7 @@ public class AuthorizeUrl {
     private final AuthorizeUrlBuilder builder;
     private final String responseType;
     private boolean useLegacySameSiteCookie = true;
+    private boolean setSecureCookie = false;
     private String nonce;
     private String state;
 
@@ -59,6 +60,23 @@ public class AuthorizeUrl {
      */
     public AuthorizeUrl withConnection(String connection) {
         builder.withConnection(connection);
+        return this;
+    }
+
+    /**
+     * Sets whether cookies used during the authentication flow have the {@code Secure} attribute set or not.
+     * By default, cookies will be set with the Secure attribute if the responseType includes {@code id_token} and thus requires
+     * the {@code SameSite=None} cookie attribute to set. Setting this to false will <strong>not</strong> override this behavior,
+     * as clients will reject cookies with {@code SameSite=None} unless the {@code Secure} attribute is set.
+     *
+     * While not guaranteed by all clients, generally a cookie with the {@code Secure} attribute will be rejected unless
+     * served over HTTPS.
+     *
+     * @param secureCookie whether to always set the Secure attribute on all cookies.
+     * @return the builder instance.
+     */
+    public AuthorizeUrl withSecureCookie(boolean secureCookie) {
+        this.setSecureCookie = secureCookie;
         return this;
     }
 
@@ -156,8 +174,8 @@ public class AuthorizeUrl {
         if (response != null) {
             SameSite sameSiteValue = containsFormPost() ? SameSite.NONE : SameSite.LAX;
 
-            TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie);
-            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie);
+            TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie, setSecureCookie);
+            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie, setSecureCookie);
         }
 
         // Also store in Session just in case developer uses deprecated
