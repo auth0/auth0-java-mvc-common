@@ -25,9 +25,10 @@ class TransientCookieStore {
      * @param state the value for the state cookie. If null, no cookie will be set.
      * @param sameSite the value for the SameSite attribute on the cookie
      * @param useLegacySameSiteCookie whether to set a fallback cookie or not
+     * @param isSecureCookie whether to always set the Secure cookie attribute or not
      */
-    static void storeState(HttpServletResponse response, String state, SameSite sameSite, boolean useLegacySameSiteCookie) {
-        store(response, StorageUtils.STATE_KEY, state, sameSite, useLegacySameSiteCookie);
+    static void storeState(HttpServletResponse response, String state, SameSite sameSite, boolean useLegacySameSiteCookie, boolean isSecureCookie) {
+        store(response, StorageUtils.STATE_KEY, state, sameSite, useLegacySameSiteCookie, isSecureCookie);
     }
 
     /**
@@ -37,9 +38,10 @@ class TransientCookieStore {
      * @param nonce the value for the nonce cookie. If null, no cookie will be set.
      * @param sameSite the value for the SameSite attribute on the cookie
      * @param useLegacySameSiteCookie whether to set a fallback cookie or not
+     * @param isSecureCookie whether to always set the Secure cookie attribute or not
      */
-    static void storeNonce(HttpServletResponse response, String nonce, SameSite sameSite, boolean useLegacySameSiteCookie) {
-        store(response, StorageUtils.NONCE_KEY, nonce, sameSite, useLegacySameSiteCookie);
+    static void storeNonce(HttpServletResponse response, String nonce, SameSite sameSite, boolean useLegacySameSiteCookie, boolean isSecureCookie) {
+        store(response, StorageUtils.NONCE_KEY, nonce, sameSite, useLegacySameSiteCookie, isSecureCookie);
     }
 
     /**
@@ -66,7 +68,7 @@ class TransientCookieStore {
         return getOnce(StorageUtils.NONCE_KEY, request, response, useLegacySameSiteCookie);
     }
 
-    private static void store(HttpServletResponse response, String key, String value, SameSite sameSite, boolean useLegacySameSiteCookie) {
+    private static void store(HttpServletResponse response, String key, String value, SameSite sameSite, boolean useLegacySameSiteCookie, boolean isSecureCookie) {
         Validate.notNull(response, "response must not be null");
         Validate.notNull(key, "key must not be null");
         Validate.notNull(sameSite, "sameSite must not be null");
@@ -79,7 +81,7 @@ class TransientCookieStore {
 
         AuthCookie sameSiteCookie = new AuthCookie(key, value);
         sameSiteCookie.setSameSite(sameSite);
-        sameSiteCookie.setSecure(isSameSiteNone);
+        sameSiteCookie.setSecure(isSameSiteNone || isSecureCookie);
 
         // Servlet Cookie API does not yet support setting the SameSite attribute, so just set cookie on header
         response.addHeader("Set-Cookie", sameSiteCookie.buildHeaderString());
@@ -87,6 +89,7 @@ class TransientCookieStore {
         // set legacy fallback cookie (if configured) for clients that won't accept SameSite=None
         if (isSameSiteNone && useLegacySameSiteCookie) {
             AuthCookie legacyCookie = new AuthCookie("_" + key, value);
+            legacyCookie.setSecure(isSecureCookie);
             response.addHeader("Set-Cookie", legacyCookie.buildHeaderString());
         }
 
