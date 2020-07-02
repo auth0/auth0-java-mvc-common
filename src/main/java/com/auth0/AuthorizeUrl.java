@@ -66,7 +66,7 @@ public class AuthorizeUrl {
     /**
      * Sets whether cookies used during the authentication flow have the {@code Secure} attribute set or not.
      * By default, cookies will be set with the Secure attribute if the responseType includes {@code id_token} and thus requires
-     * the {@code SameSite=None} cookie attribute to set. Setting this to false will <strong>not</strong> override this behavior,
+     * the {@code SameSite=None} cookie attribute set. Setting this to false will <strong>not</strong> override this behavior,
      * as clients will reject cookies with {@code SameSite=None} unless the {@code Secure} attribute is set.
      *
      * While not guaranteed by all clients, generally a cookie with the {@code Secure} attribute will be rejected unless
