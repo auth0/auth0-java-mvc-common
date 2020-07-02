@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.3.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.3.0) (2020-07-02)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.2.0...1.3.0)
+
+**Added**
+- Allow cookies to always have the Secure attribute if configured [\#59](https://github.com/auth0/auth0-java-mvc-common/pull/59) ([jimmyjames](https://github.com/jimmyjames))
+
+**Changed**
+- Update dependencies [\#60](https://github.com/auth0/auth0-java-mvc-common/pull/60) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.2.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.2.0) (2020-01-10)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.1.0...1.2.0)
 
