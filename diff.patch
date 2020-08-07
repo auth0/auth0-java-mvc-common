@@ -1,0 +1,205 @@
+diff --git a/src/main/java/com/auth0/AuthenticationController.java b/src/main/java/com/auth0/AuthenticationController.java
+index 6069c72..ce96702 100644
+--- a/src/main/java/com/auth0/AuthenticationController.java
++++ b/src/main/java/com/auth0/AuthenticationController.java
+@@ -46,6 +46,21 @@ public class AuthenticationController {
+         return new Builder(domain, clientId, clientSecret);
+     }
+ 
++    /**
++     * Create a new {@link Builder} instance to configure the {@link AuthenticationController} response type and algorithm used on the verification.
++     * By default it will request response type 'code' and later perform the Code Exchange, but if the response type is changed to 'token' it will handle
++     * the Implicit Grant using the HS256 algorithm with the Client Secret as secret.
++     *
++     * @param domain       the Auth0 domain
++     * @param clientId     the Auth0 application's client id
++     * @param clientSecret the Auth0 application's client secret
++     * @param redirectUri  redirectUri for code exchange
++     * @return a new Builder instance ready to configure
++     */
++    public static Builder newBuilder(String domain, String clientId, String clientSecret, String redirectUri) {
++        return new Builder(domain, clientId, clientSecret, redirectUri);
++    }
++
+ 
+     public static class Builder {
+         private static final String RESPONSE_TYPE_CODE = "code";
+@@ -53,6 +68,7 @@ public class AuthenticationController {
+         private final String domain;
+         private final String clientId;
+         private final String clientSecret;
++        private String redirectUri;
+         private String responseType;
+         private JwkProvider jwkProvider;
+         private Integer clockSkew;
+@@ -71,6 +87,12 @@ public class AuthenticationController {
+             this.useLegacySameSiteCookie = true;
+         }
+ 
++        Builder(String domain, String clientId, String clientSecret, String redirectUri) {
++            this(domain, clientId, clientSecret);
++            Validate.notNull(redirectUri);
++            this.redirectUri = redirectUri;
++        }
++
+         /**
+          * Change the response type to request in the Authorization step. Default value is 'code'.
+          *
+@@ -161,7 +183,7 @@ public class AuthenticationController {
+             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
+             verifyOptions.setClockSkew(clockSkew);
+             verifyOptions.setMaxAge(authenticationMaxAge);
+-            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, useLegacySameSiteCookie);
++            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, useLegacySameSiteCookie, redirectUri);
+             return new AuthenticationController(processor);
+         }
+ 
+diff --git a/src/main/java/com/auth0/RequestProcessor.java b/src/main/java/com/auth0/RequestProcessor.java
+index d36a4f4..3a3291f 100644
+--- a/src/main/java/com/auth0/RequestProcessor.java
++++ b/src/main/java/com/auth0/RequestProcessor.java
+@@ -38,9 +38,10 @@ class RequestProcessor {
+     private final AuthAPI client;
+     private final IdTokenVerifier tokenVerifier;
+     private final boolean useLegacySameSiteCookie;
++    private final String redirectUri;
+ 
+     @VisibleForTesting
+-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie) {
++    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String redirectUri) {
+         Validate.notNull(client);
+         Validate.notNull(responseType);
+         Validate.notNull(verifyOptions);
+@@ -49,15 +50,15 @@ class RequestProcessor {
+         this.verifyOptions = verifyOptions;
+         this.tokenVerifier = tokenVerifier;
+         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
++        this.redirectUri = redirectUri;
+     }
+ 
+-
+     RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
+-        this(client, responseType, verifyOptions, true);
++        this(client, responseType, verifyOptions, true, null);
+     }
+ 
+-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie) {
+-        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie);
++    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie, String redirectUri) {
++        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie, redirectUri);
+     }
+ 
+     /**
+@@ -163,8 +164,11 @@ class RequestProcessor {
+             }
+             if (responseTypeList.contains(KEY_CODE)) {
+                 // Code/Hybrid flow
+-                String redirectUri = request.getRequestURL().toString();
+-                codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
++                if (redirectUri == null) {
++                    codeExchangeTokens = exchangeCodeForTokens(authorizationCode, request.getRequestURL().toString());
++                } else {
++                    codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
++                }
+                 if (!responseTypeList.contains(KEY_ID_TOKEN)) {
+                     // If we already verified the front-channel token, don't verify it again.
+                     String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
+@@ -316,4 +320,4 @@ class RequestProcessor {
+         return new Tokens(accessToken, idToken, refreshToken, type, expiresIn);
+     }
+ 
+-}
+\ No newline at end of file
++}
+diff --git a/src/test/java/com/auth0/RequestProcessorTest.java b/src/test/java/com/auth0/RequestProcessorTest.java
+index 1d3dee9..d7f37a2 100644
+--- a/src/test/java/com/auth0/RequestProcessorTest.java
++++ b/src/test/java/com/auth0/RequestProcessorTest.java
+@@ -184,7 +184,7 @@ public class RequestProcessorTest {
+         MockHttpServletRequest request = getRequest(params);
+         request.setCookies(new Cookie("com.auth0.state", "1234"));
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true, null);
+         handler.process(request, response);
+     }
+ 
+@@ -198,7 +198,7 @@ public class RequestProcessorTest {
+         MockHttpServletRequest request = getRequest(params);
+         request.setCookies(new Cookie("com.auth0.state", "1234"), new Cookie("com.auth0.nonce", "5678"));
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true, null);
+         Tokens process = handler.process(request, response);
+         assertThat(process, is(notNullValue()));
+         assertThat(process.getIdToken(), is("frontIdToken"));
+@@ -219,7 +219,7 @@ public class RequestProcessorTest {
+         MockHttpServletRequest request = getRequest(params);
+         request.setCookies(new Cookie("com.auth0.state", "1234"));
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true, null);
+         handler.process(request, response);
+     }
+ 
+@@ -240,7 +240,7 @@ public class RequestProcessorTest {
+         when(codeExchangeRequest.execute()).thenThrow(Auth0Exception.class);
+         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
+         handler.process(request, response);
+     }
+ 
+@@ -264,7 +264,7 @@ public class RequestProcessorTest {
+         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
+         handler.process(request, response);
+     }
+ 
+@@ -289,7 +289,7 @@ public class RequestProcessorTest {
+         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true, null);
+         Tokens tokens = handler.process(request, response);
+ 
+         //Should not verify the ID Token twice
+@@ -327,7 +327,7 @@ public class RequestProcessorTest {
+         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "id_token token code", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "id_token token code", verifyOptions, tokenVerifier, true, null);
+         Tokens tokens = handler.process(request, response);
+ 
+         //Should not verify the ID Token twice
+@@ -361,7 +361,7 @@ public class RequestProcessorTest {
+         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
+         Tokens tokens = handler.process(request, response);
+ 
+         verify(tokenVerifier).verify("backIdToken", verifyOptions);
+@@ -386,7 +386,7 @@ public class RequestProcessorTest {
+         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+ 
+-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true);
++        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
+         Tokens tokens = handler.process(request, response);
+ 
+         verifyNoMoreInteractions(tokenVerifier);
+@@ -528,4 +528,4 @@ public class RequestProcessorTest {
+         request.setParameters(parameters);
+         return request;
+     }
+-}
+\ No newline at end of file
++}

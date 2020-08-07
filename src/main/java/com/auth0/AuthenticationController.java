@@ -46,6 +46,21 @@ public class AuthenticationController {
         return new Builder(domain, clientId, clientSecret);
     }
 
+    /**
+     * Create a new {@link Builder} instance to configure the {@link AuthenticationController} response type and algorithm used on the verification.
+     * By default it will request response type 'code' and later perform the Code Exchange, but if the response type is changed to 'token' it will handle
+     * the Implicit Grant using the HS256 algorithm with the Client Secret as secret.
+     *
+     * @param domain       the Auth0 domain
+     * @param clientId     the Auth0 application's client id
+     * @param clientSecret the Auth0 application's client secret
+     * @param redirectUri  redirectUri for code exchange
+     * @return a new Builder instance ready to configure
+     */
+    public static Builder newBuilder(String domain, String clientId, String clientSecret, String redirectUri) {
+        return new Builder(domain, clientId, clientSecret, redirectUri);
+    }
+
 
     public static class Builder {
         private static final String RESPONSE_TYPE_CODE = "code";
@@ -53,6 +68,7 @@ public class AuthenticationController {
         private final String domain;
         private final String clientId;
         private final String clientSecret;
+        private String redirectUri;
         private String responseType;
         private JwkProvider jwkProvider;
         private Integer clockSkew;
@@ -69,6 +85,12 @@ public class AuthenticationController {
             this.clientSecret = clientSecret;
             this.responseType = RESPONSE_TYPE_CODE;
             this.useLegacySameSiteCookie = true;
+        }
+
+        Builder(String domain, String clientId, String clientSecret, String redirectUri) {
+            this(domain, clientId, clientSecret);
+            Validate.notNull(redirectUri);
+            this.redirectUri = redirectUri;
         }
 
         /**
@@ -161,7 +183,7 @@ public class AuthenticationController {
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
             verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
-            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, useLegacySameSiteCookie);
+            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, useLegacySameSiteCookie, redirectUri);
             return new AuthenticationController(processor);
         }
 

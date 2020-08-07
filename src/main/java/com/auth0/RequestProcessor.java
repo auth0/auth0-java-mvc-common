@@ -38,9 +38,10 @@ class RequestProcessor {
     private final AuthAPI client;
     private final IdTokenVerifier tokenVerifier;
     private final boolean useLegacySameSiteCookie;
+    private final String redirectUri;
 
     @VisibleForTesting
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie) {
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String redirectUri) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
@@ -49,15 +50,15 @@ class RequestProcessor {
         this.verifyOptions = verifyOptions;
         this.tokenVerifier = tokenVerifier;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
+        this.redirectUri = redirectUri;
     }
-
 
     RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
-        this(client, responseType, verifyOptions, true);
+        this(client, responseType, verifyOptions, true, null);
     }
 
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie) {
-        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie);
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie, String redirectUri) {
+        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie, redirectUri);
     }
 
     /**
@@ -163,8 +164,11 @@ class RequestProcessor {
             }
             if (responseTypeList.contains(KEY_CODE)) {
                 // Code/Hybrid flow
-                String redirectUri = request.getRequestURL().toString();
-                codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
+                if (redirectUri == null) {
+                    codeExchangeTokens = exchangeCodeForTokens(authorizationCode, request.getRequestURL().toString());
+                } else {
+                    codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
+                }
                 if (!responseTypeList.contains(KEY_ID_TOKEN)) {
                     // If we already verified the front-channel token, don't verify it again.
                     String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
