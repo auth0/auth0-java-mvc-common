@@ -1,7 +1,15 @@
-group 'com.auth0'
+plugins {
+    id 'java'
+    id 'jacoco'
+    id 'com.auth0.gradle.oss-library.java'
+    id 'com.jfrog.bintray'
+}
 
-apply plugin: 'com.auth0.gradle.oss-library.java'
-apply plugin: 'jacoco'
+repositories {
+    jcenter()
+}
+
+group 'com.auth0'
 
 oss {
     name 'mvc-auth-commons'
@@ -29,8 +37,8 @@ jacocoTestReport {
 }
 
 compileJava {
-    sourceCompatibility '1.7'
-    targetCompatibility '1.7'
+    sourceCompatibility '1.8'
+    targetCompatibility '1.8'
 }
 
 test {
@@ -40,25 +48,12 @@ test {
     }
 }
 
-buildscript {
-    repositories {
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
-        classpath 'gradle.plugin.com.auth0.gradle:oss-library:0.10.0'
-    }
-}
-
-repositories {
-    jcenter()
-}
-
 dependencies {
     implementation 'javax.servlet:javax.servlet-api:3.1.0'
     implementation 'org.apache.commons:commons-lang3:3.10'
+    implementation 'com.google.guava:guava-annotations:r03'
+    implementation 'commons-codec:commons-codec:1.15'
+
     api 'com.auth0:auth0:1.19.0'
     api 'com.auth0:java-jwt:3.10.3'
     api 'com.auth0:jwks-rsa:0.12.0'
@@ -69,4 +64,5 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:2.8.9'
     testImplementation 'junit:junit:4.12'
     testImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
+    testImplementation 'com.squareup.okhttp3:okhttp:4.9.0'
 }
