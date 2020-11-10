@@ -1,2 +1,12 @@
-rootProject.name = 'mvc-auth-commons'
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        jcenter()
+    }
+    plugins {
+        id 'com.auth0.gradle.oss-library.java' version '0.12.1'
+        id 'com.jfrog.bintray' version '1.8.5'
+    }
+}
 
+rootProject.name = 'mvc-auth-commons'
