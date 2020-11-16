@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.4.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.4.0) (2020-11-16)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.3.0...1.4.0)
+
+**Added**
+- Target Java 8 [\#68](https://github.com/auth0/auth0-java-mvc-common/pull/68) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.3.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.3.0) (2020-07-02)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.2.0...1.3.0)
 
