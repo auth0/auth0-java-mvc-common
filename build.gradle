@@ -11,6 +11,8 @@ repositories {
 
 group 'com.auth0'
 
+logger.lifecycle("Using version ${version} for ${name} group $group")
+
 oss {
     name 'mvc-auth-commons'
     repository 'auth0-java-mvc-common'
