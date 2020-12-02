@@ -7,12 +7,9 @@
 
 A Java Jar library that makes easier to integrate Auth0 Authentication on MVC applications.
 
-A few samples are available demonstrating the usage with _Java Servlets_ and _Spring_:
+See the [Java Servlet Quickstart](https://auth0.com/docs/quickstart/webapp/java) to learn how to use this library in a Servlet application.
 
-[Java Servlets](https://auth0.com/docs/quickstart/webapp/java)
-
-[Spring](https://auth0.com/docs/quickstart/webapp/java-spring-mvc)
-
+> If you are using Spring Boot 2, it is recommended to use the OIDC support available in Spring, instead of using this library. See the [Spring Boot Quickstart](https://auth0.com/docs/quickstart/webapp/java-spring-boot) for more information.
 
 ## Download
 
