@@ -3,7 +3,7 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
-import com.auth0.net.AuthRequest;
+import com.auth0.net.TokenRequest;
 import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Rule;
@@ -236,7 +236,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
         when(codeExchangeRequest.execute()).thenThrow(Auth0Exception.class);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
@@ -258,7 +258,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
         when(tokenHolder.getIdToken()).thenReturn("backIdToken");
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
@@ -281,7 +281,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
         when(tokenHolder.getIdToken()).thenReturn("backIdToken");
         when(tokenHolder.getExpiresIn()).thenReturn(4800L);
@@ -317,7 +317,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
         when(tokenHolder.getIdToken()).thenReturn("backIdToken");
         when(tokenHolder.getAccessToken()).thenReturn("backAccessToken");
@@ -353,7 +353,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
         when(tokenHolder.getIdToken()).thenReturn("backIdToken");
         when(tokenHolder.getAccessToken()).thenReturn("backAccessToken");
@@ -381,7 +381,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
