@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.4.1](https://github.com/auth0/auth0-java-mvc-common/tree/1.4.1) (2021-02-09)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.4.0...1.4.1)
+
+**Changed**
+- Update dependency versions [\#74](https://github.com/auth0/auth0-java-mvc-common/pull/74) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.4.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.4.0) (2020-11-16)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.3.0...1.4.0)
 
