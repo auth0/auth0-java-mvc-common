@@ -4,8 +4,8 @@ import com.auth0.client.auth.AuthAPI;
 import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
-import com.auth0.net.AuthRequest;
 import com.auth0.net.Telemetry;
+import com.auth0.net.TokenRequest;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -437,7 +437,7 @@ public class AuthenticationControllerTest {
     public void shouldCheckSessionFallbackWhenHandleCalledWithRequestAndResponse() throws Exception {
         AuthenticationController controller = builderSpy.withResponseType("code").build();
 
-        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
@@ -473,7 +473,7 @@ public class AuthenticationControllerTest {
     public void shouldCheckSessionFallbackWhenHandleCalledWithRequest() throws Exception {
         AuthenticationController controller = builderSpy.withResponseType("code").build();
 
-        AuthRequest codeExchangeRequest = mock(AuthRequest.class);
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
