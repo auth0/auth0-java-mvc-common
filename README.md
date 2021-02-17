@@ -67,7 +67,7 @@ String authorizeUrl = authController.buildAuthorizeUrl(request, response, "https
 6. The user will be presented with the Auth0 Hosted Login page in which he'll prompt his credentials and authenticate. Your application must expect a call to the `redirectURL`. 
 7. Pass the received request to the `AuthenticationController#handle` method and expect a `Tokens` instance back if everything goes well. 
 
-**Keep in mind that this library will not store any value for you, but you can use the `SessionUtils` class as a helper to store key-value data in the request's Session Storage.**
+> Note that this library will not store any credentials for you. It does make use of the `HttpSession` to store the state and nonce in the case that the deprecated `AuthenticationController#handle(HttpServletRequest req)` is being used.  
 
 ```java
 try {
@@ -83,10 +83,7 @@ try {
 }
 ```
 
-
 That's it! You have authenticated the user using Auth0.
-
-
 
 ### Builder options
 
