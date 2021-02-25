@@ -18,7 +18,7 @@ oss {
     repository 'auth0-java-mvc-common'
     organization 'auth0'
     description 'Java library that simplifies the use of Auth0 for server-side MVC web apps'
-
+    baselineCompareVersion '1.5.0'
     developers {
         auth0 {
             displayName = 'Auth0'
