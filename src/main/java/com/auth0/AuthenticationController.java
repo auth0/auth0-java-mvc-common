@@ -161,7 +161,11 @@ public class AuthenticationController {
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
             verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
-            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, useLegacySameSiteCookie);
+
+            RequestProcessor processor = new RequestProcessor.Builder(apiClient, responseType, verifyOptions)
+                    .withLegacySameSiteCookie(useLegacySameSiteCookie)
+                    .build();
+
             return new AuthenticationController(processor);
         }
 
