@@ -505,4 +505,13 @@ public class AuthenticationControllerTest {
         controller.handle(request);
     }
 
+    @Test
+    public void TEMP_shouldAllowOrganizationParameter() throws Exception {
+        AuthenticationController controller = AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
+                .withOrganization("ORGANIZATION")
+                .build();
+
+        AuthorizeUrl authUrl = controller.buildAuthorizeUrl(new MockHttpServletRequest(), new MockHttpServletResponse(), "https://me.com/redirect");
+        System.out.println(authUrl.build());
+    }
 }

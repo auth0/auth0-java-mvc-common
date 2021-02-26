@@ -184,7 +184,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true, null);
         handler.process(request, response);
     }
 
@@ -198,7 +198,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"), new Cookie("com.auth0.nonce", "5678"));
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true, null);
         Tokens process = handler.process(request, response);
         assertThat(process, is(notNullValue()));
         assertThat(process.getIdToken(), is("frontIdToken"));
@@ -219,7 +219,7 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true, null);
         handler.process(request, response);
     }
 
@@ -240,7 +240,7 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenThrow(Auth0Exception.class);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
         handler.process(request, response);
     }
 
@@ -264,7 +264,7 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
         handler.process(request, response);
     }
 
@@ -289,7 +289,7 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true, null);
         Tokens tokens = handler.process(request, response);
 
         //Should not verify the ID Token twice
@@ -327,7 +327,7 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token token code", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "id_token token code", verifyOptions, tokenVerifier, true, null);
         Tokens tokens = handler.process(request, response);
 
         //Should not verify the ID Token twice
@@ -361,7 +361,7 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
         Tokens tokens = handler.process(request, response);
 
         verify(tokenVerifier).verify("backIdToken", verifyOptions);
@@ -386,7 +386,7 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true);
+        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
         Tokens tokens = handler.process(request, response);
 
         verifyNoMoreInteractions(tokenVerifier);

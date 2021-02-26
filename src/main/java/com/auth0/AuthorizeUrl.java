@@ -52,6 +52,11 @@ public class AuthorizeUrl {
                 .withScope(SCOPE_OPENID);
     }
 
+    public AuthorizeUrl withOrganization(String organization) {
+        builder.withOrganization(organization);
+        return this;
+    }
+
     /**
      * Sets the connection value.
      *

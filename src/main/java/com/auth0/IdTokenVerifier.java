@@ -55,6 +55,15 @@ class IdTokenVerifier {
             throw new TokenValidationException(String.format("Audience (aud) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.audience, decoded.getAudience()));
         }
 
+        // validate org if set
+        // TODO can't really try this for real until get client secret for test app on Steve's tenant
+        if (verifyOptions.organization != null) {
+            String org = decoded.getClaim("org_id").asString();
+            if (!verifyOptions.organization.equals(org)) {
+                throw new TokenValidationException(String.format("Organization (org) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.organization, decoded.getClaim("organization").asString()));
+            }
+        }
+
         final Calendar cal = Calendar.getInstance();
         final Date now = verifyOptions.clock != null ? verifyOptions.clock : cal.getTime();
         final int clockSkew = verifyOptions.clockSkew != null ? verifyOptions.clockSkew : DEFAULT_CLOCK_SKEW;
@@ -127,6 +136,7 @@ class IdTokenVerifier {
         private Integer maxAge;
         Integer clockSkew;
         Date clock;
+        String organization;
 
         public Options(String issuer, String audience, SignatureVerifier verifier) {
             Validate.notNull(issuer);
@@ -155,6 +165,10 @@ class IdTokenVerifier {
 
         Integer getMaxAge() {
             return maxAge;
+        }
+
+        void setOrganization(String organization) {
+            this.organization = organization;
         }
     }
 }

@@ -38,9 +38,10 @@ class RequestProcessor {
     private final AuthAPI client;
     private final IdTokenVerifier tokenVerifier;
     private final boolean useLegacySameSiteCookie;
+    private String organization;
 
     @VisibleForTesting
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie) {
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
@@ -49,16 +50,26 @@ class RequestProcessor {
         this.verifyOptions = verifyOptions;
         this.tokenVerifier = tokenVerifier;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
+        this.organization = organization;
     }
+
+//    @VisibleForTesting
+//    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization) {
+//        this(client, responseType, verifyOptions, tokenVerifier, useLegacySameSiteCookie, null);
+//    }
 
 
     RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
-        this(client, responseType, verifyOptions, true);
+        this(client, responseType, verifyOptions, true, null);
     }
 
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie) {
-        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie);
+    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie, String organization) {
+        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie, organization);
     }
+
+//    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie, String orgnaization) {
+//        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie);
+//    }
 
     /**
      * Getter for the AuthAPI client instance.
@@ -85,6 +96,10 @@ class RequestProcessor {
 
         AuthorizeUrl creator = new AuthorizeUrl(client, request, response, redirectUri, responseType)
                 .withState(state);
+
+        if (this.organization != null) {
+            creator.withOrganization(organization);
+        }
 
         // null response means state and nonce will be stored in session, so legacy cookie flag does not apply
         if (response != null) {

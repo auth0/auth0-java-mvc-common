@@ -58,6 +58,7 @@ public class AuthenticationController {
         private Integer clockSkew;
         private Integer authenticationMaxAge;
         private boolean useLegacySameSiteCookie;
+        private String organization;
 
         Builder(String domain, String clientId, String clientSecret) {
             Validate.notNull(domain);
@@ -134,6 +135,11 @@ public class AuthenticationController {
             return this;
         }
 
+        public Builder withOrganization(String organization) {
+            this.organization = organization;
+            return this;
+        }
+
         /**
          * Create a new {@link AuthenticationController} instance that will handle both Code Grant and Implicit Grant flows using either Code Exchange or Token Signature verification.
          *
@@ -161,7 +167,11 @@ public class AuthenticationController {
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
             verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
-            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, useLegacySameSiteCookie);
+            if (this.organization != null) {
+                verifyOptions.setOrganization(this.organization);
+            }
+
+            RequestProcessor processor = new RequestProcessor(apiClient, responseType, verifyOptions, useLegacySameSiteCookie, organization);
             return new AuthenticationController(processor);
         }
 
