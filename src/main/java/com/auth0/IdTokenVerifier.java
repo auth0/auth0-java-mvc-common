@@ -56,7 +56,6 @@ class IdTokenVerifier {
         }
 
         // validate org if set
-        // TODO can't really try this for real until get client secret for test app on Steve's tenant
         if (verifyOptions.organization != null) {
             String org = decoded.getClaim("org_id").asString();
             if (!verifyOptions.organization.equals(org)) {
