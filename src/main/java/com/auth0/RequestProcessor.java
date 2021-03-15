@@ -34,10 +34,11 @@ class RequestProcessor {
 
     // Visible for testing
     final IdTokenVerifier.Options verifyOptions;
+    final boolean useLegacySameSiteCookie;
+
     private final String responseType;
     private final AuthAPI client;
     private final IdTokenVerifier tokenVerifier;
-    private final boolean useLegacySameSiteCookie;
 
     @VisibleForTesting
     RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie) {

@@ -517,6 +517,12 @@ public class RequestProcessorTest {
         assertThat(handler.getClient(), is(client));
     }
 
+    @Test
+    public void legacySameSiteCookieShouldBeFalseByDefault() {
+        RequestProcessor processor = new RequestProcessor(client, "responseType", verifyOptions);
+        assertThat(processor.useLegacySameSiteCookie, is(true));
+    }
+
     // Utils
 
     private MockHttpServletRequest getRequest(Map<String, Object> parameters) {
