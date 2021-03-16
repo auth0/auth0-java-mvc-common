@@ -47,19 +47,19 @@ public class RequestProcessorTest {
     @Test
     public void shouldThrowOnMissingAuthAPI() {
         exception.expect(NullPointerException.class);
-        new RequestProcessor(null, "responseType", verifyOptions);
+        new RequestProcessor.Builder(null, "responseType", verifyOptions);
     }
 
     @Test
     public void shouldThrowOnMissingResponseType() {
         exception.expect(NullPointerException.class);
-        new RequestProcessor(client, null, verifyOptions);
+        new RequestProcessor.Builder(client, null, verifyOptions);
     }
 
     @Test
     public void shouldNotThrowOnMissingTokenVerifierOptions() {
         exception.expect(NullPointerException.class);
-        new RequestProcessor(client, "responseType", null);
+        new RequestProcessor.Builder(client, "responseType", null);
     }
 
     @Test
@@ -73,7 +73,8 @@ public class RequestProcessorTest {
         params.put("error", "something happened");
         HttpServletRequest request = getRequest(params);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
         handler.process(request, response);
     }
 
@@ -89,7 +90,8 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "9999"));;
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
         handler.process(request, response);
     }
 
@@ -105,7 +107,8 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.getSession().setAttribute("com.auth0.state", "9999");
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
         handler.process(request, null);
     }
 
@@ -119,7 +122,8 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(Collections.emptyMap());
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
         handler.process(request, response);
     }
 
@@ -134,7 +138,8 @@ public class RequestProcessorTest {
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
         handler.process(request, response);
     }
 
@@ -150,7 +155,8 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
+                .build();
         handler.process(request, response);
     }
 
@@ -166,7 +172,8 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor(client, "token", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "token", verifyOptions)
+                .build();
         handler.process(request, response);
     }
 
@@ -184,7 +191,9 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         handler.process(request, response);
     }
 
@@ -198,7 +207,9 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"), new Cookie("com.auth0.nonce", "5678"));
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         Tokens process = handler.process(request, response);
         assertThat(process, is(notNullValue()));
         assertThat(process.getIdToken(), is("frontIdToken"));
@@ -219,7 +230,9 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         handler.process(request, response);
     }
 
@@ -240,7 +253,9 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenThrow(Auth0Exception.class);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         handler.process(request, response);
     }
 
@@ -264,7 +279,9 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         handler.process(request, response);
     }
 
@@ -289,7 +306,9 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token code", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         Tokens tokens = handler.process(request, response);
 
         //Should not verify the ID Token twice
@@ -327,7 +346,9 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "id_token token code", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token token code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         Tokens tokens = handler.process(request, response);
 
         //Should not verify the ID Token twice
@@ -361,7 +382,9 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         Tokens tokens = handler.process(request, response);
 
         verify(tokenVerifier).verify("backIdToken", verifyOptions);
@@ -386,7 +409,9 @@ public class RequestProcessorTest {
         when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
         when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
 
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions, tokenVerifier, true, null);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
         Tokens tokens = handler.process(request, response);
 
         verifyNoMoreInteractions(tokenVerifier);
@@ -403,7 +428,8 @@ public class RequestProcessorTest {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         SignatureVerifier signatureVerifier = mock(SignatureVerifier.class);
         IdTokenVerifier.Options verifyOptions = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
         HttpServletRequest request = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -424,7 +450,8 @@ public class RequestProcessorTest {
     public void shouldSetMaxAgeIfProvided() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
         when(verifyOptions.getMaxAge()).thenReturn(906030);
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
         HttpServletRequest request = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -436,7 +463,8 @@ public class RequestProcessorTest {
     @Test
     public void shouldNotSetNonceIfRequestTypeIsNotIdToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "code", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
         HttpServletRequest request = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -448,7 +476,8 @@ public class RequestProcessorTest {
     @Test
     public void shouldSetNonceIfRequestTypeIsIdToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
+                .build();
         HttpServletRequest request = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -460,7 +489,8 @@ public class RequestProcessorTest {
     @Test
     public void shouldNotSetNullNonceIfRequestTypeIsIdToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
+                .build();
         HttpServletRequest request = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", null);
         String authorizeUrl = builder.build();
@@ -472,7 +502,8 @@ public class RequestProcessorTest {
     @Test
     public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeIsIdToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "id_token", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
+                .build();
         HttpServletRequest request = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -491,7 +522,8 @@ public class RequestProcessorTest {
     @Test
     public void shouldBuildAuthorizeUrlWithFormPostIfResponseTypeIsToken() {
         AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
-        RequestProcessor handler = new RequestProcessor(client, "token", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "token", verifyOptions)
+                .build();
         HttpServletRequest request = new MockHttpServletRequest();
         AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response, "https://redirect.uri/here", "state", "nonce");
         String authorizeUrl = builder.build();
@@ -513,8 +545,16 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldGetAuthAPIClient() {
-        RequestProcessor handler = new RequestProcessor(client, "responseType", verifyOptions);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "responseType", verifyOptions)
+                .build();
         assertThat(handler.getClient(), is(client));
+    }
+
+    @Test
+    public void legacySameSiteCookieShouldBeFalseByDefault() {
+        RequestProcessor processor = new RequestProcessor.Builder(client, "responseType", verifyOptions)
+                .build();
+        assertThat(processor.useLegacySameSiteCookie, is(true));
     }
 
     // Utils

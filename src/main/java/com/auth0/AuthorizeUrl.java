@@ -52,8 +52,23 @@ public class AuthorizeUrl {
                 .withScope(SCOPE_OPENID);
     }
 
+    /**
+     * Sets the organization parameter on the authorize URL
+     * @param organization The organization parameter value
+     * @return this builder instance
+     */
     public AuthorizeUrl withOrganization(String organization) {
         builder.withOrganization(organization);
+        return this;
+    }
+
+    /**
+     * Sets the invitation parameter on the authorize URL
+     * @param invitation The invitation parameter value
+     * @return this builder instance
+     */
+    public AuthorizeUrl withInvitation(String invitation) {
+        builder.withInvitation(invitation);
         return this;
     }
 

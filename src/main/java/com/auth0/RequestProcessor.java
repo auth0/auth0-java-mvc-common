@@ -34,14 +34,61 @@ class RequestProcessor {
 
     // Visible for testing
     final IdTokenVerifier.Options verifyOptions;
+    final boolean useLegacySameSiteCookie;
+
     private final String responseType;
     private final AuthAPI client;
     private final IdTokenVerifier tokenVerifier;
-    private final boolean useLegacySameSiteCookie;
-    private String organization;
+    private final String organization;
+    private final String invitation;
 
-    @VisibleForTesting
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization) {
+
+    static class Builder {
+        private final AuthAPI client;
+        private final String responseType;
+        private final IdTokenVerifier.Options verifyOptions;
+        private boolean useLegacySameSiteCookie = true;
+        private IdTokenVerifier tokenVerifier;
+        private String organization;
+        private String invitation;
+
+        Builder(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
+            Validate.notNull(client);
+            Validate.notNull(responseType);
+            Validate.notNull(verifyOptions);
+            this.client = client;
+            this.responseType = responseType;
+            this.verifyOptions = verifyOptions;
+        }
+
+        Builder withLegacySameSiteCookie(boolean useLegacySameSiteCookie) {
+            this.useLegacySameSiteCookie = useLegacySameSiteCookie;
+            return this;
+        }
+
+        Builder withIdTokenVerifier(IdTokenVerifier verifier) {
+            this.tokenVerifier = verifier;
+            return this;
+        }
+
+        Builder withOrganization(String organization) {
+            this.organization = organization;
+            return this;
+        }
+
+        Builder withInvitation(String invitation) {
+            this.invitation = invitation;
+            return this;
+        }
+
+        RequestProcessor build() {
+            return new RequestProcessor(client, responseType, verifyOptions,
+                    this.tokenVerifier == null ? new IdTokenVerifier() : this.tokenVerifier,
+                    useLegacySameSiteCookie, organization, invitation);
+        }
+    }
+
+    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization, String invitation) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
@@ -51,25 +98,8 @@ class RequestProcessor {
         this.tokenVerifier = tokenVerifier;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
         this.organization = organization;
+        this.invitation = invitation;
     }
-
-//    @VisibleForTesting
-//    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization) {
-//        this(client, responseType, verifyOptions, tokenVerifier, useLegacySameSiteCookie, null);
-//    }
-
-
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
-        this(client, responseType, verifyOptions, true, null);
-    }
-
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie, String organization) {
-        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie, organization);
-    }
-
-//    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie, String orgnaization) {
-//        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie);
-//    }
 
     /**
      * Getter for the AuthAPI client instance.
@@ -99,6 +129,9 @@ class RequestProcessor {
 
         if (this.organization != null) {
             creator.withOrganization(organization);
+        }
+        if (this.invitation != null) {
+            creator.withInvitation(invitation);
         }
 
         // null response means state and nonce will be stored in session, so legacy cookie flag does not apply
