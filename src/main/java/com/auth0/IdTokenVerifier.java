@@ -59,7 +59,7 @@ class IdTokenVerifier {
         if (verifyOptions.organization != null) {
             String org = decoded.getClaim("org_id").asString();
             if (!verifyOptions.organization.equals(org)) {
-                throw new TokenValidationException(String.format("Organization (org) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.organization, decoded.getClaim("organization").asString()));
+                throw new TokenValidationException(String.format("Organization (org) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.organization, org));
             }
         }
 
