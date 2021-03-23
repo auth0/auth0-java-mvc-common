@@ -34,13 +34,46 @@ class RequestProcessor {
 
     // Visible for testing
     final IdTokenVerifier.Options verifyOptions;
+    final boolean useLegacySameSiteCookie;
+
     private final String responseType;
     private final AuthAPI client;
     private final IdTokenVerifier tokenVerifier;
-    private final boolean useLegacySameSiteCookie;
 
-    @VisibleForTesting
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie) {
+    static class Builder {
+        final AuthAPI client;
+        final String responseType;
+        final IdTokenVerifier.Options verifyOptions;
+        boolean useLegacySameSiteCookie = true;
+        IdTokenVerifier tokenVerifier;
+
+        Builder(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
+            Validate.notNull(client);
+            Validate.notNull(responseType);
+            Validate.notNull(verifyOptions);
+            this.client = client;
+            this.responseType = responseType;
+            this.verifyOptions = verifyOptions;
+        }
+
+        Builder withLegacySameSiteCookie(boolean useLegacySameSiteCookie) {
+            this.useLegacySameSiteCookie = useLegacySameSiteCookie;
+            return this;
+        }
+
+        Builder withIdTokenVerifier(IdTokenVerifier verifier) {
+            this.tokenVerifier = verifier;
+            return this;
+        }
+
+        RequestProcessor build() {
+            return new RequestProcessor(client, responseType, verifyOptions,
+                    this.tokenVerifier == null ? new IdTokenVerifier() : this.tokenVerifier,
+                    useLegacySameSiteCookie);
+        }
+    }
+
+    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
@@ -49,15 +82,6 @@ class RequestProcessor {
         this.verifyOptions = verifyOptions;
         this.tokenVerifier = tokenVerifier;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
-    }
-
-
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
-        this(client, responseType, verifyOptions, true);
-    }
-
-    RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, boolean useLegacySameSiteCookie) {
-        this(client, responseType, verifyOptions, new IdTokenVerifier(), useLegacySameSiteCookie);
     }
 
     /**
