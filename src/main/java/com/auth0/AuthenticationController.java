@@ -58,6 +58,8 @@ public class AuthenticationController {
         private Integer clockSkew;
         private Integer authenticationMaxAge;
         private boolean useLegacySameSiteCookie;
+        private String organization;
+        private String invitation;
 
         Builder(String domain, String clientId, String clientSecret) {
             Validate.notNull(domain);
@@ -135,6 +137,31 @@ public class AuthenticationController {
         }
 
         /**
+         * Sets the organization query string parameter value used to login to an organization.
+         *
+         * @param organization The ID of the organization to log the user in to.
+         * @return the builder instance.
+         */
+        public Builder withOrganization(String organization) {
+            Validate.notNull(organization);
+            this.organization = organization;
+            return this;
+        }
+
+        /**
+         * Sets the invitation query string parameter to join an organization. If using this, you must also specify the
+         * organization using {@linkplain Builder#withOrganization(String)}.
+         *
+         * @param invitation The ID of the invitation to accept. This is available on the URL that is provided when accepting an invitation.
+         * @return the builder instance.
+         */
+        public Builder withInvitation(String invitation) {
+            Validate.notNull(invitation);
+            this.invitation = invitation;
+            return this;
+        }
+
+        /**
          * Create a new {@link AuthenticationController} instance that will handle both Code Grant and Implicit Grant flows using either Code Exchange or Token Signature verification.
          *
          * @return a new instance of {@link AuthenticationController}.
@@ -161,9 +188,12 @@ public class AuthenticationController {
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
             verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
+            verifyOptions.setOrganization(this.organization);
 
             RequestProcessor processor = new RequestProcessor.Builder(apiClient, responseType, verifyOptions)
                     .withLegacySameSiteCookie(useLegacySameSiteCookie)
+                    .withOrganization(organization)
+                    .withInvitation(invitation)
                     .build();
 
             return new AuthenticationController(processor);

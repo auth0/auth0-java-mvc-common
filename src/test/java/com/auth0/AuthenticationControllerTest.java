@@ -505,4 +505,39 @@ public class AuthenticationControllerTest {
         controller.handle(request);
     }
 
+    @Test
+    public void shouldAllowOrganizationParameter() {
+        AuthenticationController controller = AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
+                .withOrganization("orgId_abc123")
+                .build();
+
+        String authUrl = controller.buildAuthorizeUrl(new MockHttpServletRequest(), new MockHttpServletResponse(), "https://me.com/redirect")
+                .build();
+        assertThat(authUrl, containsString("organization=orgId_abc123"));
+    }
+
+    @Test
+    public void shouldThrowOnNullOrganizationParameter() {
+        exception.expect(NullPointerException.class);
+        AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
+                .withOrganization(null);
+    }
+
+    @Test
+    public void shouldAllowInvitationParameter() {
+        AuthenticationController controller = AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
+                .withInvitation("invitation_123")
+                .build();
+
+        String authUrl = controller.buildAuthorizeUrl(new MockHttpServletRequest(), new MockHttpServletResponse(), "https://me.com/redirect")
+                .build();
+        assertThat(authUrl, containsString("invitation=invitation_123"));
+    }
+
+    @Test
+    public void shouldThrowOnNullInvitationParameter() {
+        exception.expect(NullPointerException.class);
+        AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
+                .withInvitation(null);
+    }
 }

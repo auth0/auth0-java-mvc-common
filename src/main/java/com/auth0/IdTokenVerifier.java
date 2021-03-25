@@ -55,6 +55,17 @@ class IdTokenVerifier {
             throw new TokenValidationException(String.format("Audience (aud) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.audience, decoded.getAudience()));
         }
 
+        // validate org if set
+        if (verifyOptions.organization != null) {
+            String orgIdClaim = decoded.getClaim("org_id").asString();
+            if (isEmpty(orgIdClaim)) {
+                throw new TokenValidationException("Organization Id (org_id) claim must be a string present in the ID token");
+            }
+            if (!verifyOptions.organization.equals(orgIdClaim)) {
+                throw new TokenValidationException(String.format("Organization (org_id) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.organization, orgIdClaim));
+            }
+        }
+
         final Calendar cal = Calendar.getInstance();
         final Date now = verifyOptions.clock != null ? verifyOptions.clock : cal.getTime();
         final int clockSkew = verifyOptions.clockSkew != null ? verifyOptions.clockSkew : DEFAULT_CLOCK_SKEW;
@@ -127,6 +138,7 @@ class IdTokenVerifier {
         private Integer maxAge;
         Integer clockSkew;
         Date clock;
+        String organization;
 
         public Options(String issuer, String audience, SignatureVerifier verifier) {
             Validate.notNull(issuer);
@@ -155,6 +167,10 @@ class IdTokenVerifier {
 
         Integer getMaxAge() {
             return maxAge;
+        }
+
+        void setOrganization(String organization) {
+            this.organization = organization;
         }
     }
 }
