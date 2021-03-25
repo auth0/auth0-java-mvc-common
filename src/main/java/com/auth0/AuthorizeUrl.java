@@ -53,9 +53,10 @@ public class AuthorizeUrl {
     }
 
     /**
-     * Sets the organization parameter on the authorize URL
-     * @param organization The organization parameter value
-     * @return this builder instance
+     * Sets the organization query string parameter value used to login to an organization.
+     *
+     * @param organization The ID of the organization to log the user in to.
+     * @return the builder instance.
      */
     public AuthorizeUrl withOrganization(String organization) {
         builder.withOrganization(organization);
@@ -63,9 +64,11 @@ public class AuthorizeUrl {
     }
 
     /**
-     * Sets the invitation parameter on the authorize URL
-     * @param invitation The invitation parameter value
-     * @return this builder instance
+     * Sets the invitation query string parameter to join an organization. If using this, you must also specify the
+     * organization using {@linkplain AuthorizeUrl#withOrganization(String)}.
+     *
+     * @param invitation The ID of the invitation to accept. This is available on the URL that is provided when accepting an invitation.
+     * @return the builder instance.
      */
     public AuthorizeUrl withInvitation(String invitation) {
         builder.withInvitation(invitation);
