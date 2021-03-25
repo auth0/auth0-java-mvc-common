@@ -560,22 +560,6 @@ public class IdTokenVerifierTest {
         new IdTokenVerifier().verify(token, opts);
     }
 
-    @Test
-    public void getJWT() {
-        String token = JWT.create()
-                .withSubject("auth0|sdk458fks")
-                .withAudience("tokens-test-123")
-                .withIssuedAt(new Date(Long.parseLong("1587592561") * 1000))
-                .withExpiresAt(new Date(Long.parseLong("1587765361") * 1000))
-                .withIssuer("https://tokens-test.auth0.com/")
-                .withClaim("org_id", 42)
-                .sign(Algorithm.HMAC256("secret"));
-
-        String jwt = JWT.decode(token).getToken();
-        System.out.println(jwt);
-
-    }
-
     private IdTokenVerifier.Options configureOptions(String token) {
         DecodedJWT decodedJWT = JWT.decode(token);
         SignatureVerifier verifier = mock(SignatureVerifier.class);
