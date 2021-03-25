@@ -126,6 +126,45 @@ AuthenticationController authController = AuthenticationController.newBuilder("d
     .build();
 ```
 
+### Organizations (Closed Beta)
+
+Organizations is a set of features that provide better support for developers who build and maintain SaaS and Business-to-Business (B2B) applications.
+
+Using Organizations, you can:
+
+- Represent teams, business customers, partner companies, or any logical grouping of users that should have different ways of accessing your applications, as organizations.
+- Manage their membership in a variety of ways, including user invitation.
+- Configure branded, federated login flows for each organization.
+- Implement role-based access control, such that users can have different roles when authenticating in the context of different organizations.
+- Build administration capabilities into your products, using Organizations APIs, so that those businesses can manage their own organizations.
+
+Note that Organizations is currently only available to customers on our Enterprise and Startup subscription plans.
+
+#### Log in to an organization
+
+Log in to an organization by using `withOrganization()` when configuring the `AuthenticationController`:
+
+```java
+AuthenticationController controller = AuthenticationController.newBuilder("{DOMAIN}", "{CLIENT_ID}", "{CLIENT_SECRET}")
+        .withOrganization("{ORG_ID}")
+        .build();
+```
+
+> When logging into an organization, this library will validate that the `org_id` claim of the ID Token matches the value configured.
+
+#### Accept user invitations
+
+Accept a user invitation by using `withInvitation()` when configuring the `AuthenticationController` (you must also specify the organization):
+
+```java
+AuthenticationController controller = AuthenticationController.newBuilder("{DOMAIN}", "{CLIENT_ID}", "{CLIENT_SECRET}")
+        .withOrganization("{ORG_ID}")
+        .withInvitation("{INVITATION_ID}")
+        .build();
+```
+
+The ID of the invitation and organization are available as query parameters on the invitation URL, e.g., `https://your-domain.auth0.com/login?invitation={INVITATION_ID}&organization={ORG_ID}&organization_name={ORG_NAME}`
+
 ### Troubleshooting
 
 #### Allowing a clock skew
