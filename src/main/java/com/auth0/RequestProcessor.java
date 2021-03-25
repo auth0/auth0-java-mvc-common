@@ -39,13 +39,18 @@ class RequestProcessor {
     private final String responseType;
     private final AuthAPI client;
     private final IdTokenVerifier tokenVerifier;
+    private final String organization;
+    private final String invitation;
+
 
     static class Builder {
-        final AuthAPI client;
-        final String responseType;
-        final IdTokenVerifier.Options verifyOptions;
-        boolean useLegacySameSiteCookie = true;
-        IdTokenVerifier tokenVerifier;
+        private final AuthAPI client;
+        private final String responseType;
+        private final IdTokenVerifier.Options verifyOptions;
+        private boolean useLegacySameSiteCookie = true;
+        private IdTokenVerifier tokenVerifier;
+        private String organization;
+        private String invitation;
 
         Builder(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
             Validate.notNull(client);
@@ -66,14 +71,24 @@ class RequestProcessor {
             return this;
         }
 
+        Builder withOrganization(String organization) {
+            this.organization = organization;
+            return this;
+        }
+
+        Builder withInvitation(String invitation) {
+            this.invitation = invitation;
+            return this;
+        }
+
         RequestProcessor build() {
             return new RequestProcessor(client, responseType, verifyOptions,
                     this.tokenVerifier == null ? new IdTokenVerifier() : this.tokenVerifier,
-                    useLegacySameSiteCookie);
+                    useLegacySameSiteCookie, organization, invitation);
         }
     }
 
-    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie) {
+    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization, String invitation) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
@@ -82,6 +97,8 @@ class RequestProcessor {
         this.verifyOptions = verifyOptions;
         this.tokenVerifier = tokenVerifier;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
+        this.organization = organization;
+        this.invitation = invitation;
     }
 
     /**
@@ -109,6 +126,13 @@ class RequestProcessor {
 
         AuthorizeUrl creator = new AuthorizeUrl(client, request, response, redirectUri, responseType)
                 .withState(state);
+
+        if (this.organization != null) {
+            creator.withOrganization(organization);
+        }
+        if (this.invitation != null) {
+            creator.withInvitation(invitation);
+        }
 
         // null response means state and nonce will be stored in session, so legacy cookie flag does not apply
         if (response != null) {

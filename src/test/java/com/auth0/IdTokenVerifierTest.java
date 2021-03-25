@@ -459,6 +459,123 @@ public class IdTokenVerifierTest {
         new IdTokenVerifier().verify(token, opts);
     }
 
+    @Test
+    public void succeedsWhenOrganizationMatchesExpected() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_id", "org_123")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("org_123");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void failsWhenOrganizationDoesNotMatchExpected() {
+        exception.expect(TokenValidationException.class);
+        exception.expectMessage("Organization (org_id) claim mismatch in the ID token; expected \"org_abc\" but found \"org_123\"");
+
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_id", "org_123")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("org_abc");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void failsWhenOrganizationExpectedButNotPresent() {
+        exception.expect(TokenValidationException.class);
+        exception.expectMessage("Organization Id (org_id) claim must be a string present in the ID token");
+
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("org_123");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void failsWhenOrganizationExpectedButClaimIsNotString() {
+        exception.expect(TokenValidationException.class);
+        exception.expectMessage("Organization Id (org_id) claim must be a string present in the ID token");
+
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_id", 42)
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("org_123");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void succeedsWhenOrganizationNotSpecifiedButIsPresent() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_id", "org_123")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void getJWT() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience("tokens-test-123")
+                .withIssuedAt(new Date(Long.parseLong("1587592561") * 1000))
+                .withExpiresAt(new Date(Long.parseLong("1587765361") * 1000))
+                .withIssuer("https://tokens-test.auth0.com/")
+                .withClaim("org_id", 42)
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+        System.out.println(jwt);
+
+    }
+
     private IdTokenVerifier.Options configureOptions(String token) {
         DecodedJWT decodedJWT = JWT.decode(token);
         SignatureVerifier verifier = mock(SignatureVerifier.class);
