@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.6.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.6.0) (2021-03-26)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.5.0...1.6.0)
+
+**Added**
+- Add support for Organizations feature [\#81](https://github.com/auth0/auth0-java-mvc-common/pull/81) ([jimmyjames](https://github.com/jimmyjames))
+
+**Changed**
+- Request processor refactor to builder [\#80](https://github.com/auth0/auth0-java-mvc-common/pull/80) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.5.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.5.0) (2021-02-09)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.4.0...1.5.0)
 
