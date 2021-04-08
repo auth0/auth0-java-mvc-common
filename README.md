@@ -150,7 +150,31 @@ AuthenticationController controller = AuthenticationController.newBuilder("{DOMA
         .build();
 ```
 
-> When logging into an organization, this library will validate that the `org_id` claim of the ID Token matches the value configured.
+When logging into an organization, this library will validate that the `org_id` claim of the ID Token matches the value configured.
+
+If no organization parameter was given to the authorization endpoint, but an org_id claim is present in the ID Token, then the claim should be validated by the application to ensure that the value received is expected or known.
+
+Normally, validating the issuer would be enough to ensure that the token was issued by Auth0, and this check is performed by this SDK.
+In the case of organizations, additional checks may be required so that the organization within an Auth0 tenant is expected.
+
+In particular, the `org_id` claim should be checked to ensure it is a value that is already known to the application.
+This could be validated against a known list of organization IDs, or perhaps checked in conjunction with the current request URL (e.g., the sub-domain may hint at what organization should be used to validate the ID Token).
+
+If the claim cannot be validated, then the application should deem the token invalid.
+The following example demonstrates this, using the [java-jwt](https://github.com/auth0/java-jwt) library:
+```java
+// verify org_id using java-jwt, if needing to check against a list of valid organizations
+Tokens tokens = authenticationController.handle(req, res);
+String idToken = tokens.getIdToken();
+List<String> expectedOrgIds = Arrays.asList("{ORG_ID_1"}, "{ORG_ID_2"});
+DecodedJWT jwt = JWT.decode("{TOKEN}");
+String jwtOrgId = jwt.getClaim("org_id").asString();
+if (!expectedOrgIds.contains(jwtOrgId)) {
+    // token invalid, do not trust
+}
+```
+
+For more information, please read [Work with Tokens and Organizations](https://auth0.com/docs/organizations/using-tokens) on Auth0 Docs.
 
 #### Accept user invitations
 
