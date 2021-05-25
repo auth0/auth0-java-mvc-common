@@ -38,8 +38,6 @@ public class AuthenticationControllerTest {
     private IdTokenVerifier.Options verificationOptions;
     @Captor
     private ArgumentCaptor<SignatureVerifier> signatureVerifierCaptor;
-    @Captor
-    private ArgumentCaptor<HttpOptions>  httpOptionsCaptor;
 
     private AuthenticationController.Builder builderSpy;
 
@@ -50,7 +48,7 @@ public class AuthenticationControllerTest {
         AuthenticationController.Builder builder = AuthenticationController.newBuilder("domain", "clientId", "clientSecret");
         builderSpy = spy(builder);
 
-        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), httpOptionsCaptor.capture());
+        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), eq(null));
         doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("https://domain/"), eq("clientId"), signatureVerifierCaptor.capture());
         doReturn("1.2.3").when(builderSpy).obtainPackageVersion();
     }
@@ -74,9 +72,15 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldCreateAuthAPIClientWithoutCustomHttpOptions() {
-        builderSpy.build();
-        HttpOptions actual = httpOptionsCaptor.getValue();
+        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
+        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret"));
+
+        spy.build();
+        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
+
+        HttpOptions actual = captor.getValue();
         assertThat(actual, is(nullValue()));
+
     }
 
     @Test
@@ -85,11 +89,14 @@ public class AuthenticationControllerTest {
         options.setConnectTimeout(5);
         options.setReadTimeout(6);
 
-        AuthenticationController controller = builderSpy
-                .withHttpOptions(options)
-                .build();
+        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
+        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .withHttpOptions(options));
 
-        HttpOptions actual = httpOptionsCaptor.getValue();
+        spy.build();
+        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
+
+        HttpOptions actual = captor.getValue();
         assertThat(actual, is(notNullValue()));
         assertThat(actual.getConnectTimeout(), is(5));
         assertThat(actual.getReadTimeout(), is(6));
