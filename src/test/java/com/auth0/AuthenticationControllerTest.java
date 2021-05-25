@@ -1,5 +1,6 @@
 package com.auth0;
 
+import com.auth0.client.HttpOptions;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.json.auth.TokenHolder;
@@ -37,6 +38,8 @@ public class AuthenticationControllerTest {
     private IdTokenVerifier.Options verificationOptions;
     @Captor
     private ArgumentCaptor<SignatureVerifier> signatureVerifierCaptor;
+    @Captor
+    private ArgumentCaptor<HttpOptions>  httpOptionsCaptor;
 
     private AuthenticationController.Builder builderSpy;
 
@@ -47,7 +50,7 @@ public class AuthenticationControllerTest {
         AuthenticationController.Builder builder = AuthenticationController.newBuilder("domain", "clientId", "clientSecret");
         builderSpy = spy(builder);
 
-        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"));
+        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), httpOptionsCaptor.capture());
         doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("https://domain/"), eq("clientId"), signatureVerifierCaptor.capture());
         doReturn("1.2.3").when(builderSpy).obtainPackageVersion();
     }
@@ -67,6 +70,29 @@ public class AuthenticationControllerTest {
         assertThat(capturedTelemetry, is(notNullValue()));
         assertThat(capturedTelemetry.getName(), is("auth0-java-mvc-common"));
         assertThat(capturedTelemetry.getVersion(), is("1.2.3"));
+    }
+
+    @Test
+    public void shouldCreateAuthAPIClientWithoutCustomHttpOptions() {
+        builderSpy.build();
+        HttpOptions actual = httpOptionsCaptor.getValue();
+        assertThat(actual, is(nullValue()));
+    }
+
+    @Test
+    public void shouldCreateAuthAPIClientWithCustomHttpOptions() {
+        HttpOptions options = new HttpOptions();
+        options.setConnectTimeout(5);
+        options.setReadTimeout(6);
+
+        AuthenticationController controller = builderSpy
+                .withHttpOptions(options)
+                .build();
+
+        HttpOptions actual = httpOptionsCaptor.getValue();
+        assertThat(actual, is(notNullValue()));
+        assertThat(actual.getConnectTimeout(), is(5));
+        assertThat(actual.getReadTimeout(), is(6));
     }
 
     @Test
