@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.7.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.7.0) (2021-05-27)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.6.0...1.7.0)
+
+**Added**
+- [SDK-2565] Enable network client configuration [\#86](https://github.com/auth0/auth0-java-mvc-common/pull/86) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.6.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.6.0) (2021-03-26)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.5.0...1.6.0)
 
