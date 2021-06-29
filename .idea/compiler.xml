@@ -2,7 +2,7 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel>
-      <module name="mvc-auth-commons_main" target="1.7" />
+      <module name="mvc-auth-commons_main" target="1.8" />
       <module name="mvc-auth-commons_test" target="1.8" />
     </bytecodeTargetLevel>
   </component>
