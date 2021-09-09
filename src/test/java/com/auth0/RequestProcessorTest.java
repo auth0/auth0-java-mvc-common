@@ -88,7 +88,7 @@ public class RequestProcessorTest {
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
-        request.setCookies(new Cookie("com.auth0.state", "9999"));;
+        request.setCookies(new Cookie("com.auth0.state", "9999"));
 
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .build();
@@ -444,6 +444,30 @@ public class RequestProcessorTest {
         assertThat(authorizeUrl, not(containsString("max_age=")));
         assertThat(authorizeUrl, not(containsString("nonce=nonce")));
         assertThat(authorizeUrl, not(containsString("response_mode=form_post")));
+    }
+
+    @Test
+    public void shouldBuildRedirectUrlCorrectlyBehindReverseProxy() {
+        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        SignatureVerifier signatureVerifier = mock(SignatureVerifier.class);
+        IdTokenVerifier.Options verifyOptions = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
+        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+                .build();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("me.auth0.com");
+        request.addHeader("multi-value-header", "one,two,three");
+        request.addHeader("empty-header", "");
+        String redirectUrl = handler.buildRedirectUri(request);
+
+        assertThat(redirectUrl, is(notNullValue()));
+        assertThat(redirectUrl, CoreMatchers.equalTo("http://me.auth0.com"));
+
+        request.addHeader("X-Forwarded-Proto", "https");
+        redirectUrl = handler.buildRedirectUri(request);
+
+        assertThat(redirectUrl, is(notNullValue()));
+        assertThat(redirectUrl, CoreMatchers.equalTo("https://me.auth0.com"));
     }
 
     @Test
