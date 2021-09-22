@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.8.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.8.0) (2021-07-06)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.7.0...1.8.0)
+
+**Changed**
+- Update Auth0 libraries to latest [\#89](https://github.com/auth0/auth0-java-mvc-common/pull/89) ([lbalmaceda](https://github.com/lbalmaceda))
+- Update OSS release plugin version [\#88](https://github.com/auth0/auth0-java-mvc-common/pull/88) ([lbalmaceda](https://github.com/lbalmaceda))
+
 ## [1.7.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.7.0) (2021-05-27)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.6.0...1.7.0)
 
