@@ -10,6 +10,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Collections;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.auth0.InvalidRequestException.*;
 
@@ -191,6 +194,24 @@ class RequestProcessor {
     }
 
     /**
+     * Manage the case when we are behind a reverse proxy which manage SSL.
+     * reverse proxy should send X-Forwarded-Protocol header with https for value
+     * @param request the HTTP request
+     * @return a string redirectUri
+     */
+    String buildRedirectUri(HttpServletRequest request) {
+        String redirectUri = request.getRequestURL().toString();
+        Map<String, String> headers = Collections.list(request.getHeaderNames())
+                .stream()
+                .collect(Collectors.toMap(h -> h, request::getHeader));
+        final String protocol = headers.get("X-Forwarded-Proto");
+        if("https".equals(protocol)) {
+            redirectUri = redirectUri.replace("http://", "https://");
+        }
+        return redirectUri;
+    }
+
+    /**
      * Obtains code request tokens (if using Code flow) and validates the ID token.
      * @param request the HTTP request
      * @param frontChannelTokens the tokens obtained from the front channel
@@ -211,7 +232,7 @@ class RequestProcessor {
             }
             if (responseTypeList.contains(KEY_CODE)) {
                 // Code/Hybrid flow
-                String redirectUri = request.getRequestURL().toString();
+                String redirectUri = buildRedirectUri(request);
                 codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
                 if (!responseTypeList.contains(KEY_ID_TOKEN)) {
                     // If we already verified the front-channel token, don't verify it again.
