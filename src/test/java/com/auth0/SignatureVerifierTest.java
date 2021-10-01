@@ -135,9 +135,7 @@ public class SignatureVerifierTest {
         exception.expect(TokenValidationException.class);
         exception.expectMessage("Invalid token signature");
         SignatureVerifier verifier = new AsymmetricSignatureVerifier(getRSProvider(RS_PUBLIC_KEY_BAD));
-        DecodedJWT decodedJWT = verifier.verifySignature(RS_JWT);
-
-        assertThat(decodedJWT, notNullValue());
+        verifier.verifySignature(RS_JWT);
     }
 
     @Test
