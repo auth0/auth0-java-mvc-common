@@ -5,32 +5,22 @@ import org.hamcrest.TypeSafeMatcher;
 
 public class InvalidRequestExceptionMatcher extends TypeSafeMatcher<InvalidRequestException> {
 
-    private final String expectedDescription;
     private final String expectedCode;
 
     public static InvalidRequestExceptionMatcher hasCode(String code) {
-        return new InvalidRequestExceptionMatcher(code, null);
-    }
-
-    public static InvalidRequestExceptionMatcher hasDescription(String description) {
-        return new InvalidRequestExceptionMatcher(null, description);
+        return new InvalidRequestExceptionMatcher(code);
     }
 
     private String code;
 
-    private InvalidRequestExceptionMatcher(String expectedCode, String expectedDescription) {
+    private InvalidRequestExceptionMatcher(String expectedCode) {
         this.expectedCode = expectedCode;
-        this.expectedDescription = expectedDescription;
     }
 
     @Override
     protected boolean matchesSafely(InvalidRequestException exception) {
         code = exception.getCode();
-        String description = exception.getMessage();
 
-        if (expectedDescription != null) {
-            return expectedDescription.equals(description);
-        }
         if (expectedCode != null) {
             return expectedCode.equals(code);
         }

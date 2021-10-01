@@ -66,7 +66,6 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfRequestHasError() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("something happened"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The request contains an error"));
         exception.expectMessage("The request contains an error");
 
         Map<String, Object> params = new HashMap<>();
@@ -82,7 +81,6 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfRequestHasInvalidState() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The received state doesn't match the expected one."));
         exception.expectMessage("The received state doesn't match the expected one.");
 
         Map<String, Object> params = new HashMap<>();
@@ -99,7 +97,6 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfRequestHasInvalidStateInSession() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The received state doesn't match the expected one."));
         exception.expectMessage("The received state doesn't match the expected one.");
 
         Map<String, Object> params = new HashMap<>();
@@ -116,7 +113,6 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfRequestHasMissingStateParameter() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The received state doesn't match the expected one."));
         exception.expectMessage("The received state doesn't match the expected one.");
 
         MockHttpServletRequest request = getRequest(Collections.emptyMap());
@@ -131,7 +127,6 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfRequestHasMissingStateCookie() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("The received state doesn't match the expected one."));
         exception.expectMessage("The received state doesn't match the expected one.");
 
         Map<String, Object> params = new HashMap<>();
@@ -147,7 +142,6 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfIdTokenRequestIsMissingIdToken() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.missing_id_token"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("ID Token is missing from the response."));
         exception.expectMessage("ID Token is missing from the response.");
 
         Map<String, Object> params = new HashMap<>();
@@ -164,7 +158,6 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfTokenRequestIsMissingAccessToken() throws Exception {
         exception.expect(InvalidRequestException.class);
         exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.missing_access_token"));
-        exception.expect(InvalidRequestExceptionMatcher.hasDescription("Access Token is missing from the response."));
         exception.expectMessage("Access Token is missing from the response.");
 
         Map<String, Object> params = new HashMap<>();
