@@ -5,10 +5,8 @@ import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.net.TokenRequest;
 import org.hamcrest.CoreMatchers;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -23,12 +21,12 @@ import java.util.Map;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 public class RequestProcessorTest {
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
     @Mock
     private AuthAPI client;
     @Mock
@@ -38,7 +36,7 @@ public class RequestProcessorTest {
 
     private MockHttpServletResponse response;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         response = new MockHttpServletResponse();
@@ -46,43 +44,34 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldThrowOnMissingAuthAPI() {
-        exception.expect(NullPointerException.class);
-        new RequestProcessor.Builder(null, "responseType", verifyOptions);
+        assertThrows(NullPointerException.class, () -> new RequestProcessor.Builder(null, "responseType", verifyOptions));
     }
 
     @Test
     public void shouldThrowOnMissingResponseType() {
-        exception.expect(NullPointerException.class);
-        new RequestProcessor.Builder(client, null, verifyOptions);
+        assertThrows(NullPointerException.class, () -> new RequestProcessor.Builder(client, null, verifyOptions));
     }
 
     @Test
     public void shouldNotThrowOnMissingTokenVerifierOptions() {
-        exception.expect(NullPointerException.class);
-        new RequestProcessor.Builder(client, "responseType", null);
+        assertThrows(NullPointerException.class, () -> new RequestProcessor.Builder(client, "responseType", null));
     }
 
     @Test
     public void shouldThrowOnProcessIfRequestHasError() throws Exception {
-        exception.expect(InvalidRequestException.class);
-        exception.expect(InvalidRequestExceptionMatcher.hasCode("something happened"));
-        exception.expectMessage("The request contains an error");
-
         Map<String, Object> params = new HashMap<>();
         params.put("error", "something happened");
         HttpServletRequest request = getRequest(params);
 
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .build();
-        handler.process(request, response);
+        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
+        assertThat(e, InvalidRequestExceptionMatcher.hasCode("something happened"));
+        assertEquals("The request contains an error", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfRequestHasInvalidState() throws Exception {
-        exception.expect(InvalidRequestException.class);
-        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        exception.expectMessage("The received state doesn't match the expected one.");
-
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
@@ -90,15 +79,13 @@ public class RequestProcessorTest {
 
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .build();
-        handler.process(request, response);
+        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
+        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
+        assertEquals("The received state doesn't match the expected one.", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfRequestHasInvalidStateInSession() throws Exception {
-        exception.expect(InvalidRequestException.class);
-        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        exception.expectMessage("The received state doesn't match the expected one.");
-
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
@@ -106,44 +93,38 @@ public class RequestProcessorTest {
 
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .build();
-        handler.process(request, null);
+        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
+        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
+        assertEquals("The received state doesn't match the expected one.", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfRequestHasMissingStateParameter() throws Exception {
-        exception.expect(InvalidRequestException.class);
-        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        exception.expectMessage("The received state doesn't match the expected one.");
-
         MockHttpServletRequest request = getRequest(Collections.emptyMap());
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .build();
-        handler.process(request, response);
+        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
+        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
+        assertEquals("The received state doesn't match the expected one.", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfRequestHasMissingStateCookie() throws Exception {
-        exception.expect(InvalidRequestException.class);
-        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        exception.expectMessage("The received state doesn't match the expected one.");
-
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
 
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .build();
-        handler.process(request, response);
+        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
+        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
+        assertEquals("The received state doesn't match the expected one.", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfIdTokenRequestIsMissingIdToken() throws Exception {
-        exception.expect(InvalidRequestException.class);
-        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.missing_id_token"));
-        exception.expectMessage("ID Token is missing from the response.");
-
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
@@ -151,15 +132,13 @@ public class RequestProcessorTest {
 
         RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
                 .build();
-        handler.process(request, response);
+        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
+        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.missing_id_token"));
+        assertEquals("ID Token is missing from the response.", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfTokenRequestIsMissingAccessToken() throws Exception {
-        exception.expect(InvalidRequestException.class);
-        exception.expect(InvalidRequestExceptionMatcher.hasCode("a0.missing_access_token"));
-        exception.expectMessage("Access Token is missing from the response.");
-
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
@@ -167,15 +146,13 @@ public class RequestProcessorTest {
 
         RequestProcessor handler = new RequestProcessor.Builder(client, "token", verifyOptions)
                 .build();
-        handler.process(request, response);
+        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
+        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.missing_access_token"));
+        assertEquals("Access Token is missing from the response.", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfIdTokenRequestDoesNotPassIdTokenVerification() throws Exception {
-        exception.expect(IdentityVerificationException.class);
-        exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        exception.expectMessage("An error occurred while trying to verify the ID Token.");
-
         doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
 
         Map<String, Object> params = new HashMap<>();
@@ -187,7 +164,9 @@ public class RequestProcessorTest {
         RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
                 .withIdTokenVerifier(tokenVerifier)
                 .build();
-        handler.process(request, response);
+        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
+        assertThat(e, IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
+        assertEquals("An error occurred while trying to verify the ID Token.", e.getMessage());
     }
 
     @Test
@@ -210,10 +189,6 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldThrowOnProcessIfIdTokenCodeRequestDoesNotPassIdTokenVerification() throws Exception {
-        exception.expect(IdentityVerificationException.class);
-        exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        exception.expectMessage("An error occurred while trying to verify the ID Token.");
-
         doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
 
         Map<String, Object> params = new HashMap<>();
@@ -226,16 +201,13 @@ public class RequestProcessorTest {
         RequestProcessor handler = new RequestProcessor.Builder(client, "id_token code", verifyOptions)
                 .withIdTokenVerifier(tokenVerifier)
                 .build();
-        handler.process(request, response);
+        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
+        assertThat(e, IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
+        assertEquals("An error occurred while trying to verify the ID Token.", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfCodeRequestFailsToExecuteCodeExchange() throws Exception {
-        exception.expect(IdentityVerificationException.class);
-        exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.api_error"));
-        exception.expectMessage("An error occurred while exchanging the authorization code.");
-
-
         Map<String, Object> params = new HashMap<>();
         params.put("code", "abc123");
         params.put("state", "1234");
@@ -249,15 +221,13 @@ public class RequestProcessorTest {
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .withIdTokenVerifier(tokenVerifier)
                 .build();
-        handler.process(request, response);
+        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
+        assertThat(e, IdentityVerificationExceptionMatcher.hasCode("a0.api_error"));
+        assertEquals("An error occurred while exchanging the authorization code.", e.getMessage());
     }
 
     @Test
     public void shouldThrowOnProcessIfCodeRequestSucceedsButDoesNotPassIdTokenVerification() throws Exception {
-        exception.expect(IdentityVerificationException.class);
-        exception.expect(IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        exception.expectMessage("An error occurred while trying to verify the ID Token.");
-
         doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("backIdToken"), eq(verifyOptions));
 
         Map<String, Object> params = new HashMap<>();
@@ -275,7 +245,10 @@ public class RequestProcessorTest {
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .withIdTokenVerifier(tokenVerifier)
                 .build();
-        handler.process(request, response);
+        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
+        assertThat(e, IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
+        assertEquals("An error occurred while trying to verify the ID Token.", e.getMessage());
+
     }
 
     @Test

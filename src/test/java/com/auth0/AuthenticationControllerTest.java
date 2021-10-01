@@ -7,10 +7,8 @@ import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.net.Telemetry;
 import com.auth0.net.TokenRequest;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -25,13 +23,12 @@ import java.util.List;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 @SuppressWarnings("deprecated")
 public class AuthenticationControllerTest {
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
     @Mock
     private AuthAPI client;
     @Mock
@@ -41,7 +38,7 @@ public class AuthenticationControllerTest {
 
     private AuthenticationController.Builder builderSpy;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
@@ -252,39 +249,34 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldThrowOnMissingDomain() {
-        exception.expect(NullPointerException.class);
-
-        AuthenticationController.newBuilder(null, "clientId", "clientSecret");
+        assertThrows(NullPointerException.class,
+                () -> AuthenticationController.newBuilder(null, "clientId", "clientSecret"));
     }
 
     @Test
     public void shouldThrowOnMissingClientId() {
-        exception.expect(NullPointerException.class);
-
-        AuthenticationController.newBuilder("domain", null, "clientSecret");
+        assertThrows(NullPointerException.class,
+                () -> AuthenticationController.newBuilder("domain", null, "clientSecret"));
     }
 
     @Test
     public void shouldThrowOnMissingClientSecret() {
-        exception.expect(NullPointerException.class);
-
-        AuthenticationController.newBuilder("domain", "clientId", null);
+        assertThrows(NullPointerException.class,
+                () -> AuthenticationController.newBuilder("domain", "clientId", null));
     }
 
     @Test
     public void shouldThrowOnMissingJwkProvider() {
-        exception.expect(NullPointerException.class);
-
-        AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withJwkProvider(null);
+        assertThrows(NullPointerException.class,
+                () -> AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                        .withJwkProvider(null));
     }
 
     @Test
     public void shouldThrowOnMissingResponseType() {
-        exception.expect(NullPointerException.class);
-
-        AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withResponseType(null);
+        assertThrows(NullPointerException.class,
+                () -> AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                        .withResponseType(null));
     }
 
     @Test
@@ -551,9 +543,9 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldThrowOnNullOrganizationParameter() {
-        exception.expect(NullPointerException.class);
-        AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
-                .withOrganization(null);
+        assertThrows(NullPointerException.class,
+                () -> AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
+                        .withOrganization(null));
     }
 
     @Test
@@ -569,8 +561,8 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldThrowOnNullInvitationParameter() {
-        exception.expect(NullPointerException.class);
-        AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
-                .withInvitation(null);
+        assertThrows(NullPointerException.class,
+                () -> AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
+                        .withInvitation(null));
     }
 }

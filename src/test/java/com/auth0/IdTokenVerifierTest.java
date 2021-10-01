@@ -3,14 +3,14 @@ package com.auth0;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Calendar;
 import java.util.Date;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -23,59 +23,50 @@ public class IdTokenVerifierTest {
     private final static Date DEFAULT_CLOCK = new Date(1567400400000L);
     private final static Integer DEFAULT_CLOCK_SKEW = 60;
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
-
     private SignatureVerifier signatureVerifier;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         signatureVerifier = mock(SignatureVerifier.class);
     }
 
     @Test
     public void failsToCreateOptionsWhenIssuerIsNull() {
-        exception.expect(NullPointerException.class);
-        new IdTokenVerifier.Options(null, "audience", signatureVerifier);
+        assertThrows(NullPointerException.class,
+                () -> new IdTokenVerifier.Options(null, "audience", signatureVerifier));
     }
 
     @Test
     public void failsToCreateOptionsWhenAudienceIsNull() {
-        exception.expect(NullPointerException.class);
-        new IdTokenVerifier.Options("issuer", null, signatureVerifier);
+        assertThrows(NullPointerException.class,
+                () -> new IdTokenVerifier.Options("issuer", null, signatureVerifier));
     }
 
     @Test
     public void failsToCreateOptionsWhenVerifierIsNull() {
-        exception.expect(NullPointerException.class);
-        new IdTokenVerifier.Options("issuer", "audience", null);
+        assertThrows(NullPointerException.class,
+                () -> new IdTokenVerifier.Options("issuer", "audience", null));
     }
 
     @Test
     public void failsWhenIDTokenMissing() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("ID token is required but missing");
-
         IdTokenVerifier.Options opts = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
         IdTokenVerifier verifier = new IdTokenVerifier();
-        verifier.verify(null, opts);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verify(null, opts));
+        assertEquals("ID token is required but missing", e.getMessage());
     }
 
     @Test
     public void failsWhenIDTokenEmpty() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("ID token is required but missing");
-
         IdTokenVerifier.Options opts = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
         IdTokenVerifier verifier = new IdTokenVerifier();
-        verifier.verify("", opts);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verify("", opts));
+        assertEquals("ID token is required but missing", e.getMessage());
     }
 
     @Test
     public void failsWhenOptionsIsNull() {
-        exception.expect(NullPointerException.class);
-
-        new IdTokenVerifier().verify("token", null);
+        assertThrows(NullPointerException.class, () -> new IdTokenVerifier().verify("token", null));
     }
 
     @Test
@@ -85,10 +76,8 @@ public class IdTokenVerifierTest {
         SignatureVerifier signatureVerifier = new SymmetricSignatureVerifier("secret");
         IdTokenVerifier.Options opts = new IdTokenVerifier.Options(DOMAIN, AUDIENCE, signatureVerifier);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("ID token could not be decoded");
-
-        new IdTokenVerifier().verify(token, opts);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("ID token could not be decoded", e.getMessage());
     }
 
     @Test
@@ -98,10 +87,8 @@ public class IdTokenVerifierTest {
         SignatureVerifier verifier = new SymmetricSignatureVerifier("asdlk59ckvkr");
         IdTokenVerifier.Options opts = new IdTokenVerifier.Options(DOMAIN, AUDIENCE, verifier);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Invalid token signature");
-
-        new IdTokenVerifier().verify(token, opts);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("Invalid token signature", e.getMessage());
     }
 
     @Test
@@ -109,10 +96,8 @@ public class IdTokenVerifierTest {
         String token = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhdXRoMHwxMjM0NTY3ODkiLCJhdWQiOlsidG9rZW5zLXRlc3QtMTIzIiwiZXh0ZXJuYWwtdGVzdC0xMjMiXSwiZXhwIjoxNTY3NDg2ODAwLCJpYXQiOjE1NjczMTQwMDAsIm5vbmNlIjoiYTU5dms1OTIiLCJhenAiOiJ0b2tlbnMtdGVzdC0xMjMiLCJhdXRoX3RpbWUiOjE1NjczMTQwMDB9.B4PGlucyy-fJ4v5NNK2hntvjAf5m8dJf84WttwVnzV0ZlfPbYUSJm7Vc1ys7iMqXAQzAl2I8bDf2qhtLjaLpDKAH9JUvowUpCL7Bgjd7AEc1Te_IUwwxlpCupgseOEL2nrY8enP6On7BO7BBpngmVwnD1DvuA4lNoaaFyWUopha5Dxd5jw64wMqP4lz13C6Kqs8mINZkkw-NgE8DvWszaXeyPaowy-QpfXmPBnw75YLZlGcjr-WQsWQV7rUezq4Tl_11uPivR-fNcEWdG1mAtsnQnB_zJJKaHYlE0g4fey_6H9FKmCvcNkpBGo9ylbitb7jIuExbFEvEd2r_4wKl0g";
         IdTokenVerifier.Options options = configureOptions(token);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Issuer (iss) claim must be a string present in the ID token");
-
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals("Issuer (iss) claim must be a string present in the ID token", e.getMessage());
     }
 
     @Test
@@ -120,11 +105,10 @@ public class IdTokenVerifierTest {
         String token = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJzb21ldGhpbmctZWxzZSIsInN1YiI6ImF1dGgwfDEyMzQ1Njc4OSIsImF1ZCI6WyJ0b2tlbnMtdGVzdC0xMjMiLCJleHRlcm5hbC10ZXN0LTEyMyJdLCJleHAiOjE1Njc0ODY4MDAsImlhdCI6MTU2NzMxNDAwMCwibm9uY2UiOiJhNTl2azU5MiIsImF6cCI6InRva2Vucy10ZXN0LTEyMyIsImF1dGhfdGltZSI6MTU2NzMxNDAwMH0.lHFHyg1ei3hK2vB7X1xB9nqksAEnxtv2KKpE_Gih6RezTruF9uZu1PAZTEwxhfj2UrQxwLqCb-t6wyVnxVpCsymSCq9JIiCVgg_cYV38siMs38N9y26BrVeyifj_VOP9Om_vI_hHjOzhi8WmysK2KKAQnn0skKAkq8epY4axCX3NkRaEIMhhTaITYia3GbJ5Qki8WDD9UVucUVOhgSZBV5p1dL39FKgc9k1MOVZJG-zAd_r5GsUIRk-xUwNX0WYwCR9sC2G-FjJTvlFph_4vksponoUWJ-LPTLM0RwGgmEUPhhnIG23UjsNwpnElY4gWfIL0hsO98-5DpGjn8Ejr0w";
         IdTokenVerifier.Options options = configureOptions(token);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Issuer (iss) claim mismatch in the ID token, expected \"%s\", found \"%s\"",
-                "https://" + DOMAIN + "/", "something-else"));
-
-        new IdTokenVerifier().verify(token, options);
+        String errorMessage = String.format("Issuer (iss) claim mismatch in the ID token, expected \"%s\", found \"%s\"",
+                "https://" + DOMAIN + "/", "something-else");
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals(errorMessage, e.getMessage());
     }
 
     @Test
@@ -132,10 +116,8 @@ public class IdTokenVerifierTest {
         String token = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3Rva2Vucy10ZXN0LmF1dGgwLmNvbS8iLCJhdWQiOlsidG9rZW5zLXRlc3QtMTIzIiwiZXh0ZXJuYWwtdGVzdC0xMjMiXSwiZXhwIjoxNTY3NDg2ODAwLCJpYXQiOjE1NjczMTQwMDAsIm5vbmNlIjoiYTU5dms1OTIiLCJhenAiOiJ0b2tlbnMtdGVzdC0xMjMiLCJhdXRoX3RpbWUiOjE1NjczMTQwMDB9.fDR9NSbbt75w9nzhL-eBfGjOp16HP2vfnO6m_Oav0xrmmgyYsBZSLOPd2C0O46bp6_2hKjeOUhnwYwjocsdXI4hvfQkyACERtneCkwHwSZPZK-1h6vgGF7b_7ILUywEcgo7F6e1qgFTM93Prqk63cCP53KgOBPyx02y0rqkhUOApCWRVBFrfP92tXvFN7E2phmpf9G68PPjwnEvvQtYOGjvFkaWSja7MKT98f7OxgbenBI_mAZy9LmOqUl3SKJOBe5Fibs1snI0l4nzrgQ1GNxVwyfHOdyq-srdGe8rlFx5kdhWh313EOzWxxGTg4RhGY7Tiz1QWago0VQ5yOt0w8A";
         IdTokenVerifier.Options options = configureOptions(token);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Subject (sub) claim must be a string present in the ID token");
-
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals("Subject (sub) claim must be a string present in the ID token", e.getMessage());
     }
 
     @Test
@@ -143,10 +125,8 @@ public class IdTokenVerifierTest {
         String token = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3Rva2Vucy10ZXN0LmF1dGgwLmNvbS8iLCJzdWIiOiJhdXRoMHwxMjM0NTY3ODkiLCJleHAiOjE1Njc0ODY4MDAsImlhdCI6MTU2NzMxNDAwMCwibm9uY2UiOiJhNTl2azU5MiIsImF6cCI6InRva2Vucy10ZXN0LTEyMyIsImF1dGhfdGltZSI6MTU2NzMxNDAwMH0.XM-IM9CIZ2cJpZZaKooMSmNgvwHPTse6kcIOPATgewRZxrDdCEjtPHmzmSuyDGy84vSR__DJS_kM2jWWwbkjB_PahXes210dpUqitRW3is9xV0-k0LkVwxmhHCM-e9sClbTbcs4zLv6WWFRq4UEU5DU6HhuHLQeeH0eO2Nv_tkvu-JdpmoepHPjW3ecMs0lhzXRT6_2o-ErTPdYt4W6yqpBG57HRIMzs9F72AWcPC6vhLY0IhMqXaq68Ma3jnEPIXUmv52bll0PuQVBqKd-eDH_jD0ZHFUCkwbfWPrkhJz5Q5qLzSzUjnrWKA3KgP4_Z1KfHY2-nQA2ynMgNFSn_eA";
         IdTokenVerifier.Options options = configureOptions(token);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Audience (aud) claim must be a string or array of strings present in the ID token");
-
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals("Audience (aud) claim must be a string or array of strings present in the ID token", e.getMessage());
     }
 
     @Test
@@ -154,10 +134,8 @@ public class IdTokenVerifierTest {
         String token = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3Rva2Vucy10ZXN0LmF1dGgwLmNvbS8iLCJzdWIiOiJhdXRoMHwxMjM0NTY3ODkiLCJhdWQiOiJleHRlcm5hbC10ZXN0LTEyMyIsImV4cCI6MTU2NzQ4NjgwMCwiaWF0IjoxNTY3MzE0MDAwLCJub25jZSI6ImE1OXZrNTkyIiwiYXpwIjoidG9rZW5zLXRlc3QtMTIzIiwiYXV0aF90aW1lIjoxNTY3MzE0MDAwfQ.SxeNIhm8reywgtSSkZ6jCpbZ8KyC09couFjpcrJFktAYKmJZnGQkv0gQLNUuGejORvysznOlhfO2nkF10yT6pKBiye9xZ8TstWQBorDKHL-74n6ZAxjPg1F0vHNokZq0zpPkwV-gKIFY6aPw3vyZTxzR6CMyoJdwc19A0RXPzPt6T7csQeqX0lzGEqqeIbU4VI5XM5RG1VvN82CgTlOQXlFZrKhyJx_xwslyWWDzx7tpPNid1wusvfznTGxoWO2wUBCyW6EhmyHp2euFi1gdJqHQVbrydutPtQ-FGQEwyWACNN8kBWqQ7UEbqimg6C0NTGrRkkKkJ79DmiW7aULHZQ";
         IdTokenVerifier.Options options = configureOptions(token);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Audience (aud) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", AUDIENCE, "[external-test-123]"));
-
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals(String.format("Audience (aud) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", AUDIENCE, "[external-test-123]"), e.getMessage());
     }
 
     @Test
@@ -165,10 +143,8 @@ public class IdTokenVerifierTest {
         String token = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3Rva2Vucy10ZXN0LmF1dGgwLmNvbS8iLCJzdWIiOiJhdXRoMHwxMjM0NTY3ODkiLCJhdWQiOlsidG9rZW5zLXRlc3QtMTIzIiwiZXh0ZXJuYWwtdGVzdC0xMjMiXSwiaWF0IjoxNTY3MzE0MDAwLCJub25jZSI6ImE1OXZrNTkyIiwiYXpwIjoidG9rZW5zLXRlc3QtMTIzIiwiYXV0aF90aW1lIjoxNTY3MzE0MDAwfQ.b6saYAZCnCSzpVO0nrAUKVSC1n3GoqUfwrjOXG5gVxda0oFohpYJe68QwzsTmS4fOm7JtbN1FqjVRN6S4i-BnH-XGnciGOMFF4EfaOzsgo7DCrrLrjfx6rmqW8UPYalbfJTQL8mXYnLOxzMGP3DEXNlk-41GSZoFujwTAIqYjrV_Y3MUGYmzcVxdL_h2psLm_p07knMLCm7Cuo8znzKrU4PtuaLflvzorg57S4BD79oLv4uv0_dmhwPUgJDvqWeicR5Qry4aX2L5BT6V-nBWAcu3qVZDymSKcjtTebxszxY1siyA7BQe88ZmgP1bW1KXtMk_fOGsgWHFdu_AH77yow";
         IdTokenVerifier.Options options = configureOptions(token);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Expiration Time (exp) claim must be a number present in the ID token");
-
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals("Expiration Time (exp) claim must be a number present in the ID token", e.getMessage());
     }
 
     @Test
@@ -184,11 +160,10 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options options = configureOptions(token);
         options.setClock(clock);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Expiration Time (exp) claim error in the ID token; current time (%d) is after expiration time (%d)",
-                clock.getTime() / 1000, actualExpTime + DEFAULT_CLOCK_SKEW));
-
-        new IdTokenVerifier().verify(token, options);
+        String errorMessage = String.format("Expiration Time (exp) claim error in the ID token; current time (%d) is after expiration time (%d)",
+                clock.getTime() / 1000, actualExpTime + DEFAULT_CLOCK_SKEW);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals(errorMessage, e.getMessage());
     }
 
     @Test
@@ -220,10 +195,10 @@ public class IdTokenVerifierTest {
         options.setClockSkew(leeway);
         options.setClock(clock);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Expiration Time (exp) claim error in the ID token; current time (%d) is after expiration time (%d)",
-                clock.getTime() / 1000, ((actualExp.getTime() / 1000) + leeway)));
-        new IdTokenVerifier().verify(token, options);
+        String errorMessage = String.format("Expiration Time (exp) claim error in the ID token; current time (%d) is after expiration time (%d)",
+                clock.getTime() / 1000, ((actualExp.getTime() / 1000) + leeway));
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals(errorMessage, e.getMessage());
     }
 
     @Test
@@ -243,13 +218,11 @@ public class IdTokenVerifierTest {
 
     @Test
     public void failsWhenIatClaimMissing() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Issued At (iat) claim must be a number present in the ID token");
-
         String token = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3Rva2Vucy10ZXN0LmF1dGgwLmNvbS8iLCJzdWIiOiJhdXRoMHwxMjM0NTY3ODkiLCJhdWQiOlsidG9rZW5zLXRlc3QtMTIzIiwiZXh0ZXJuYWwtdGVzdC0xMjMiXSwiZXhwIjoxNTY3NDg2ODAwLCJub25jZSI6ImE1OXZrNTkyIiwiYXpwIjoidG9rZW5zLXRlc3QtMTIzIiwiYXV0aF90aW1lIjoxNTY3MzE0MDAwfQ.SJDgK8W9Y8stMtE9LG2OzHzXzbIDCXg8lRhKyOim4rRXbkg3k0on7gCzN-sy2d5z5TQ-lQzbY3V4z-so3ltVDUYd_8RjmUiKgNK_95UsxfTDM2BlBEQ6USMVl3ojC5jcTBhg5MF16ZBEn94IjIGC9Uks9GPseM-JrtUPx4Uj5VvsBtmeKxLc3rSGt7rYC4JU65Oa-O5pFYRSCbNzRFNHRlmnb5b2uPHxoVLjrJAT0FhlXcsNgfz65MlbXBgAyz7xjCEhw_tTpvptaCwPTeG0mgBYlGQ7Sl3xHJzgG4jLbA7Pvvfcx0MpBPHUZxADh1FFQnf2nHB0ppddiDfOq2mHNA";
 
         IdTokenVerifier.Options options = configureOptions(token);
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals("Issued At (iat) claim must be a number present in the ID token", e.getMessage());
     }
 
     @Test
@@ -258,10 +231,8 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options options = configureOptions(token);
         options.setNonce("kssllk59akth");
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Nonce (nonce) claim must be a string present in the ID token");
-
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals("Nonce (nonce) claim must be a string present in the ID token", e.getMessage());
     }
 
     @Test
@@ -274,9 +245,8 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options options = configureOptions(token);
         options.setNonce("nonce");
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Nonce (nonce) claim mismatch in the ID token; expected \"%s\", found \"%s\"", expectedNonce, actualNonce));
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals(String.format("Nonce (nonce) claim mismatch in the ID token; expected \"%s\", found \"%s\"", expectedNonce, actualNonce), e.getMessage());
     }
 
     @Test
@@ -285,10 +255,8 @@ public class IdTokenVerifierTest {
 
         IdTokenVerifier.Options options = configureOptions(token);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Authorized Party (azp) claim must be a string present in the ID token when Audience (aud) claim has multiple values");
-        new IdTokenVerifier().verify(token, options);
-
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals("Authorized Party (azp) claim must be a string present in the ID token when Audience (aud) claim has multiple values", e.getMessage());
     }
 
     @Test
@@ -299,9 +267,8 @@ public class IdTokenVerifierTest {
 
         IdTokenVerifier.Options options = configureOptions(token);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Authorized Party (azp) claim mismatch in the ID token; expected \"%s\", found \"%s\"", AUDIENCE, actualAzp));
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals(String.format("Authorized Party (azp) claim mismatch in the ID token; expected \"%s\", found \"%s\"", AUDIENCE, actualAzp), e.getMessage());
     }
 
     @Test
@@ -311,9 +278,8 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options options = configureOptions(token);
         options.setMaxAge(200);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Authentication Time (auth_time) claim must be a number present in the ID token when Max Age (max_age) is specified");
-        new IdTokenVerifier().verify(token, options);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals("Authentication Time (auth_time) claim must be a number present in the ID token when Max Age (max_age) is specified", e.getMessage());
     }
 
     @Test
@@ -331,10 +297,10 @@ public class IdTokenVerifierTest {
         options.setClock(clock);
         options.setMaxAge(maxAge);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time (%d) is after last auth at (%d)",
-                clock.getTime() / 1000, actualAuthTime + maxAge + DEFAULT_CLOCK_SKEW));
-        new IdTokenVerifier().verify(token, options);
+        String errorMessage = String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time (%d) is after last auth at (%d)",
+                clock.getTime() / 1000, actualAuthTime + maxAge + DEFAULT_CLOCK_SKEW);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals(errorMessage, e.getMessage());
     }
 
     @Test
@@ -371,10 +337,10 @@ public class IdTokenVerifierTest {
         options.setMaxAge(maxAge);
         options.setClockSkew(customLeeway);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage(String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time (%d) is after last auth at (%d)",
-                clock.getTime() / 1000, actualAuthTime + maxAge + customLeeway));
-        new IdTokenVerifier().verify(token, options);
+        String errorMessage = String.format("Authentication Time (auth_time) claim in the ID token indicates that too much time has passed since the last end-user authentication. Current time (%d) is after last auth at (%d)",
+                clock.getTime() / 1000, actualAuthTime + maxAge + customLeeway);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, options));
+        assertEquals(errorMessage, e.getMessage());
     }
 
     @Test
@@ -480,9 +446,6 @@ public class IdTokenVerifierTest {
 
     @Test
     public void failsWhenOrganizationDoesNotMatchExpected() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Organization (org_id) claim mismatch in the ID token; expected \"org_abc\" but found \"org_123\"");
-
         String token = JWT.create()
                 .withSubject("auth0|sdk458fks")
                 .withAudience(AUDIENCE)
@@ -497,14 +460,12 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options opts = configureOptions(jwt);
         opts.setOrganization("org_abc");
 
-        new IdTokenVerifier().verify(token, opts);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("Organization (org_id) claim mismatch in the ID token; expected \"org_abc\" but found \"org_123\"", e.getMessage());
     }
 
     @Test
     public void failsWhenOrganizationExpectedButNotPresent() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Organization Id (org_id) claim must be a string present in the ID token");
-
         String token = JWT.create()
                 .withSubject("auth0|sdk458fks")
                 .withAudience(AUDIENCE)
@@ -518,14 +479,12 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options opts = configureOptions(jwt);
         opts.setOrganization("org_123");
 
-        new IdTokenVerifier().verify(token, opts);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("Organization Id (org_id) claim must be a string present in the ID token", e.getMessage());
     }
 
     @Test
     public void failsWhenOrganizationExpectedButClaimIsNotString() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Organization Id (org_id) claim must be a string present in the ID token");
-
         String token = JWT.create()
                 .withSubject("auth0|sdk458fks")
                 .withAudience(AUDIENCE)
@@ -540,7 +499,8 @@ public class IdTokenVerifierTest {
         IdTokenVerifier.Options opts = configureOptions(jwt);
         opts.setOrganization("org_123");
 
-        new IdTokenVerifier().verify(token, opts);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("Organization Id (org_id) claim must be a string present in the ID token", e.getMessage());
     }
 
     @Test

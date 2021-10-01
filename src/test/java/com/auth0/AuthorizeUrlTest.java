@@ -2,10 +2,8 @@ package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
 import okhttp3.HttpUrl;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -14,17 +12,17 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.Collection;
 
 import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class AuthorizeUrlTest {
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
     private AuthAPI client;
     private HttpServletResponse response;
     private HttpServletRequest request;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         client = new AuthAPI("domain.auth0.com", "clientId", "clientSecret");
         request = new MockHttpServletRequest();
@@ -195,48 +193,46 @@ public class AuthorizeUrlTest {
 
     @Test
     public void shouldThrowWhenReusingTheInstance() {
-        exception.expect(IllegalStateException.class);
-        exception.expectMessage("The AuthorizeUrl instance must not be reused.");
-
         AuthorizeUrl builder = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token");
         String firstCall = builder.build();
         assertThat(firstCall, is(notNullValue()));
-        builder.build();
+        IllegalStateException e = assertThrows(IllegalStateException.class, builder::build);
+        assertEquals("The AuthorizeUrl instance must not be reused.", e.getMessage());
     }
 
     @Test
     public void shouldThrowWhenChangingTheRedirectURI() {
-        exception.expect(IllegalArgumentException.class);
-        exception.expectMessage("Redirect URI cannot be changed once set.");
-
-        new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
-                .withParameter("redirect_uri", "new_value");
+        IllegalArgumentException e = assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
+                        .withParameter("redirect_uri", "new_value"));
+        assertEquals("Redirect URI cannot be changed once set.", e.getMessage());
     }
 
     @Test
     public void shouldThrowWhenChangingTheResponseType() {
-        exception.expect(IllegalArgumentException.class);
-        exception.expectMessage("Response type cannot be changed once set.");
-
-        new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
-                .withParameter("response_type", "new_value");
+        IllegalArgumentException e = assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
+                        .withParameter("response_type", "new_value"));
+        assertEquals("Response type cannot be changed once set.", e.getMessage());
     }
 
     @Test
     public void shouldThrowWhenChangingTheStateUsingCustomParameterSetter() {
-        exception.expect(IllegalArgumentException.class);
-        exception.expectMessage("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.");
-
-        new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
-                .withParameter("state", "new_value");
+        IllegalArgumentException e = assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
+                        .withParameter("state", "new_value"));
+        assertEquals("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.", e.getMessage());
     }
 
     @Test
     public void shouldThrowWhenChangingTheNonceUsingCustomParameterSetter() {
-        exception.expect(IllegalArgumentException.class);
-        exception.expectMessage("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.");
-
-        new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
-                .withParameter("nonce", "new_value");
+        IllegalArgumentException e = assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
+                        .withParameter("nonce", "new_value"));
+        assertEquals("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.", e.getMessage());
     }
 }
