@@ -1,8 +1,8 @@
 package com.auth0;
 
 import org.hamcrest.beans.HasPropertyWithValue;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -12,14 +12,14 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TransientCookieStoreTest {
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
-    @Before
+    @BeforeEach
     public void setup() {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();

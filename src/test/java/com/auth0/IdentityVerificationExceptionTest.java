@@ -1,17 +1,17 @@
 package com.auth0;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 public class IdentityVerificationExceptionTest {
     private Throwable cause;
     private IdentityVerificationException exception;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         cause = mock(Throwable.class);
         exception = new IdentityVerificationException("error", "description", cause);

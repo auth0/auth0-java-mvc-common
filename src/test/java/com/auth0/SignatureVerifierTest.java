@@ -5,9 +5,7 @@ import com.auth0.jwk.JwkException;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import org.bouncycastle.util.io.pem.PemReader;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileInputStream;
 import java.io.FileReader;
@@ -23,7 +21,9 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Scanner;
 
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -38,43 +38,32 @@ public class SignatureVerifierTest {
     private static final String RS_JWT_INVALID_SIGNATURE = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFiYzEyMyJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.PkPWdoZNfXz8EB0SBPH83lNSOhyhdhdqYIgIwgY2nHozUnFOaUjVewlAXxP_3LBGibQ_ng4s5fEEOCJjaKBy04McryvOuL6nqb1dPQseeyxuv2zQitfrs-7kEtfeS3umywM-tV6guw9_W3nmIgaXOiYiF4WJM23ItbdCmvwdXLaf9-xHkQbRY_zEwEFbprFttKUXFbkPt6XjZ3zZwZbNZn64bx2PBiSJ2KMZAE3Lghmci-RXdhi7hXpmN30Tzze1ZsjvVeRRKNzShByKK9ZGZPmQ5yggJOXFy32ehjGkYwFMCqgMQomcGbcYhsd97huKHMHl3HOE5GDYjIq9o9oABC";
     private static final String HS_JWT_INVALID_SIGNATURE = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjEyMzQiLCJpc3MiOiJodHRwczovL21lLmF1dGgwLmNvbS8iLCJhdWQiOiJkYU9nbkdzUlloa3d1NjIxdmYiLCJzdWIiOiJhdXRoMHx1c2VyMTIzIn0.eTxhYFIHNii1zjxGr9QZvPcqofOd_4bHcjxGq7CQluY";
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
-
     @Test
     public void failsWhenAlgorithmIsNotExpected() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Signature algorithm of \"none\" is not supported. Expected the ID token to be signed with \"[HS256, RS256]\".");
-
         SignatureVerifier verifier = new AlgorithmNameVerifier();
-        verifier.verifySignature(NONE_JWT);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verifySignature(NONE_JWT));
+        assertEquals("Signature algorithm of \"none\" is not supported. Expected the ID token to be signed with \"[HS256, RS256]\".", e.getMessage());
     }
 
     @Test
     public void failsWhenTokenCannotBeDecoded() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("ID token could not be decoded");
-
         SignatureVerifier verifier = new SymmetricSignatureVerifier("secret");
-        verifier.verifySignature("boom");
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verifySignature("boom"));
+        assertEquals("ID token could not be decoded", e.getMessage());
     }
 
     @Test
     public void failsWhenAlgorithmRS256IsNotExpected() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Signature algorithm of \"RS256\" is not supported. Expected the ID token to be signed with \"[HS256]\".");
-
         SignatureVerifier verifier = new SymmetricSignatureVerifier("secret");
-        verifier.verifySignature(RS_JWT);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verifySignature(RS_JWT));
+        assertEquals("Signature algorithm of \"RS256\" is not supported. Expected the ID token to be signed with \"[HS256]\".", e.getMessage());
     }
 
     @Test
     public void failsWhenAlgorithmHS256IsNotExpected() throws Exception {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Signature algorithm of \"HS256\" is not supported. Expected the ID token to be signed with \"[RS256]\".");
-
         SignatureVerifier verifier = new AsymmetricSignatureVerifier(getRSProvider(RS_PUBLIC_KEY));
-        verifier.verifySignature(HS_JWT);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verifySignature(HS_JWT));
+        assertEquals("Signature algorithm of \"HS256\" is not supported. Expected the ID token to be signed with \"[RS256]\".", e.getMessage());
     }
 
     @Test
@@ -115,11 +104,9 @@ public class SignatureVerifierTest {
 
     @Test
     public void failsWithInvalidSignatureHS256Token() {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Invalid token signature");
-
         SignatureVerifier verifier = new SymmetricSignatureVerifier("badsecret");
-        verifier.verifySignature(HS_JWT);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verifySignature(HS_JWT));
+        assertEquals("Invalid token signature", e.getMessage());
     }
 
     @Test
@@ -132,12 +119,10 @@ public class SignatureVerifierTest {
 
     @Test
     public void failsWithInvalidSignatureRS256Token() throws Exception {
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Invalid token signature");
         SignatureVerifier verifier = new AsymmetricSignatureVerifier(getRSProvider(RS_PUBLIC_KEY_BAD));
-        DecodedJWT decodedJWT = verifier.verifySignature(RS_JWT);
 
-        assertThat(decodedJWT, notNullValue());
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verifySignature(RS_JWT));
+        assertEquals("Invalid token signature", e.getMessage());
     }
 
     @Test
@@ -145,10 +130,9 @@ public class SignatureVerifierTest {
         JwkProvider  jwkProvider = mock(JwkProvider.class);
         when(jwkProvider.get("abc123")).thenThrow(JwkException.class);
 
-        exception.expect(TokenValidationException.class);
-        exception.expectMessage("Invalid token signature");
         SignatureVerifier verifier = new AsymmetricSignatureVerifier(jwkProvider);
-        verifier.verifySignature(RS_JWT);
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> verifier.verifySignature(RS_JWT));
+        assertEquals("Invalid token signature", e.getMessage());
     }
 
     private JwkProvider getRSProvider(String rsaPath) throws Exception {
