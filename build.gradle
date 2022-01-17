@@ -63,8 +63,8 @@ dependencies {
     implementation 'commons-codec:commons-codec:1.15'
 
     api 'com.auth0:auth0:1.32.0'
-    api 'com.auth0:java-jwt:3.18.1'
-    api 'com.auth0:jwks-rsa:0.19.0'
+    api 'com.auth0:java-jwt:3.18.3'
+    api 'com.auth0:jwks-rsa:0.20.1'
 
     testImplementation 'org.bouncycastle:bcprov-jdk15on:1.64'
     testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
