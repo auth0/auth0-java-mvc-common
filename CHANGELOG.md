@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.8.1](https://github.com/auth0/auth0-java-mvc-common/tree/1.8.1) (2022-01-17)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.8.0...1.8.1)
+
+**Security**
+- Update java jwt and jwks lib [\#98](https://github.com/auth0/auth0-java-mvc-common/pull/98) ([poovamraj](https://github.com/poovamraj))
+
 ## [1.8.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.8.0) (2021-07-06)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.7.0...1.8.0)
 
