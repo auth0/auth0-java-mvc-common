@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.8.2](https://github.com/auth0/auth0-java-mvc-common/tree/1.8.2) (2022-01-19)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.8.1...1.8.2)
+
+**Security**
+- Update auth0-java dependency [\#100](https://github.com/auth0/auth0-java-mvc-common/pull/100) ([poovamraj](https://github.com/poovamraj))
+
 ## [1.8.1](https://github.com/auth0/auth0-java-mvc-common/tree/1.8.1) (2022-01-17)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.8.0...1.8.1)
 
