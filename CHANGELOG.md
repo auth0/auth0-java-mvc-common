@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.9.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.0) (2022-03-14)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.8.2...1.9.0)
+
+**Changed**
+- Update auth0 dependencies and address CVE-2020-36518 [\#102](https://github.com/auth0/auth0-java-mvc-common/pull/102) ([jimmyjames](https://github.com/jimmyjames))
+
+**Security**
+- Update auth0 dependencies and address CVE-2020-36518 [\#102](https://github.com/auth0/auth0-java-mvc-common/pull/102) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.8.2](https://github.com/auth0/auth0-java-mvc-common/tree/1.8.2) (2022-01-19)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.8.1...1.8.2)
 
