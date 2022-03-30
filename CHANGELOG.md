@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.9.1](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.1) (2022-03-30)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.0...1.9.1)
+
+**Security**
+- Bump transitive jackson dependencies in auth0 libraries [\#104](https://github.com/auth0/auth0-java-mvc-common/pull/104) ([poovamraj](https://github.com/poovamraj))
+
 ## [1.9.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.0) (2022-03-14)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.8.2...1.9.0)
 
