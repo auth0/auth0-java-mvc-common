@@ -72,5 +72,5 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:2.8.9'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
     testImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
-    testImplementation 'com.squareup.okhttp3:okhttp:4.9.0'
+    testImplementation 'com.squareup.okhttp3:okhttp:4.9.3'
 }
