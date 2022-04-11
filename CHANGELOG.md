@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.9.2](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.2) (2022-04-11)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.1...1.9.2)
+
+**Security**
+- Update auth0-java dependency [\#107](https://github.com/auth0/auth0-java-mvc-common/pull/107) ([jimmyjames](https://github.com/jimmyjames))
+- Update OkHttp version [\#106](https://github.com/auth0/auth0-java-mvc-common/pull/106) ([lbalmaceda](https://github.com/lbalmaceda))
+
 ## [1.9.1](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.1) (2022-03-30)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.0...1.9.1)
 
