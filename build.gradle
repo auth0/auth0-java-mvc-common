@@ -1,7 +1,18 @@
+buildscript {
+    version = "1.9.2"
+}
+
 plugins {
     id 'java'
     id 'jacoco'
     id 'com.auth0.gradle.oss-library.java'
+}
+
+def signingKey = findProperty('signingKey')
+def signingKeyPwd = findProperty('signingPassword')
+
+signing {
+    useInMemoryPgpKeys(signingKey, signingKeyPwd)
 }
 
 repositories {
@@ -18,6 +29,7 @@ oss {
     organization 'auth0'
     description 'Java library that simplifies the use of Auth0 for server-side MVC web apps'
     baselineCompareVersion '1.5.0'
+    skipAssertSigningConfiguration true
     developers {
         auth0 {
             displayName = 'Auth0'
@@ -73,4 +85,12 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
     testImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
     testImplementation 'com.squareup.okhttp3:okhttp:4.9.3'
+}
+
+// Creates a version.txt file containing the current version of the SDK.
+// This file is picked up and parsed by our Ship Orb to determine the version.
+task exportVersion()  {
+    doLast {
+        new File(rootDir, "version.txt").text = "$version"
+    }
 }
