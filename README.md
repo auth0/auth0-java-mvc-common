@@ -1,6 +1,6 @@
 # Auth0 Java MVC Commons
 
-Easily add authentication with Auth0 to your Java Servlet applications.
+Auth0 SDK to add authentication to your Java Servlet applications.
 
 [![CircleCI](https://img.shields.io/circleci/project/github/auth0/auth0-java-mvc-common.svg?style=flat-square)](https://circleci.com/gh/auth0/auth0-java-mvc-common/tree/master)
 [![Coverage Status](https://img.shields.io/codecov/c/github/auth0/auth0-java-mvc-common.svg?style=flat-square)](https://codecov.io/github/auth0/auth0-java-mvc-common)
@@ -148,8 +148,8 @@ Please do not report security vulnerabilities on the public Github issue tracker
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="./assets/auth0_light_mode.png"   width="150">
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/auth0_dark_mode.png" width="150">
+    <source media="(prefers-color-scheme: light)" srcset="https://cdn.auth0.com/website/sdks/logos/auth0_light_mode.png"   width="150">
+    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.auth0.com/website/sdks/logos/auth0_dark_mode.png" width="150">
     <img alt="Auth0 Logo" src="./auth0_light_mode.png" width="150">
   </picture>
 </p>
