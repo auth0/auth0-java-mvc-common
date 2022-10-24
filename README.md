@@ -127,7 +127,7 @@ That's it! You have authenticated the user using Auth0.
 
 ## API Reference
 
-- [JavaDocs](https://javadoc.io/doc/com.auth0/auth0-java-mvc-common/latest)
+- [JavaDocs](https://javadoc.io/doc/com.auth0/mvc-auth-commons)
 
 ## Feedback
 
