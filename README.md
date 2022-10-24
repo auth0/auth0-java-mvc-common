@@ -5,8 +5,8 @@ Auth0 SDK to add authentication to your Java Servlet applications.
 [![CircleCI](https://img.shields.io/circleci/project/github/auth0/auth0-java-mvc-common.svg?style=flat-square)](https://circleci.com/gh/auth0/auth0-java-mvc-common/tree/master)
 [![Coverage Status](https://img.shields.io/codecov/c/github/auth0/auth0-java-mvc-common.svg?style=flat-square)](https://codecov.io/github/auth0/auth0-java-mvc-common)
 [![License](http://img.shields.io/:license-mit-blue.svg?style=flat)](https://doge.mit-license.org/)
-[![Maven Central](https://img.shields.io/maven-central/v/com.auth0/auth0-java-mvc-common.svg?style=flat-square)](https://mvnrepository.com/artifact/com.auth0/auth0-java-mvc-common)
-[![javadoc](https://javadoc.io/badge2/com.auth0/auth0-java-mvc-common/javadoc.svg)](https://javadoc.io/doc/com.auth0/auth0-java-mvc-common)
+[![Maven Central](https://img.shields.io/maven-central/v/com.auth0/mvc-auth-commons.svg?style=flat-square)](https://mvnrepository.com/artifact/com.auth0/mvc-auth-commons)
+[![javadoc](https://javadoc.io/badge2/com.auth0/auth0-java-mvc-common/javadoc.svg)](https://javadoc.io/doc/com.auth0/mvc-auth-commons)
 
 :books: [Documentation](#documentation) - :rocket: [Getting Started](#getting-started) - :computer: [API Reference](#api-reference) :speech_balloon: [Feedback](#feedback)
 
