@@ -3,7 +3,7 @@
 - [Including additional authorization parameters](#including-additional-authorization-parameters)
 - [Organizations](#organizations)
 - [Allowing clock skew for token validation](#allow-a-clock-skew-for-token-validation)
-- [Chaning the OAuth response_type](#changing-the-oauth-response_type)
+- [Changing the OAuth response_type](#changing-the-oauth-response_type)
 - [HTTP logging](#http-logging)
 
 ## Including additional authorization parameters

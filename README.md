@@ -30,7 +30,7 @@ Add the dependency via Maven:
 ```xml
 <dependency>
   <groupId>com.auth0</groupId>
-  <artifactId>auth0-java-mvc-common</artifactId>
+  <artifactId>mvc-auth-commons</artifactId>
   <version>1.9.2</version>
 </dependency>
 ```
@@ -38,7 +38,7 @@ Add the dependency via Maven:
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:auth0-java-mvc-common:1.9.2'
+implementation 'com.auth0:mvc-auth-commons:1.9.2'
 ```
 
 ### Configure Auth0
@@ -148,7 +148,7 @@ Please do not report security vulnerabilities on the public Github issue tracker
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="https://cdn.auth0.com/website/sdks/logos/auth0_light_mode.png"   width="150">
     <source media="(prefers-color-scheme: dark)" srcset="https://cdn.auth0.com/website/sdks/logos/auth0_dark_mode.png" width="150">
-    <img alt="Auth0 Logo" src="./auth0_light_mode.png" width="150">
+    <img alt="Auth0 Logo" src="https://cdn.auth0.com/website/sdks/logos/auth0_light_mode.png" width="150">
   </picture>
 </p>
 <p align="center">Auth0 is an easy to implement, adaptable authentication and authorization platform. To learn more checkout <a href="https://auth0.com/why-auth0">Why Auth0?</a></p>
