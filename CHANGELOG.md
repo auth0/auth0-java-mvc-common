@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.9.3](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.3) (2022-10-26)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.2...1.9.3)
+
+**Changed**
+- Update to Gradle 6.9.2 and bump OSS plugin version [\#113](https://github.com/auth0/auth0-java-mvc-common/pull/113) ([jimmyjames](https://github.com/jimmyjames))
+
+**Security**
+- Update dependencies [\#119](https://github.com/auth0/auth0-java-mvc-common/pull/119) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.9.2](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.2) (2022-04-11)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.1...1.9.2)
 
