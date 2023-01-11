@@ -63,9 +63,9 @@ dependencies {
     implementation 'com.google.guava:guava-annotations:r03'
     implementation 'commons-codec:commons-codec:1.15'
 
-    api 'com.auth0:auth0:1.44.1'
-    api 'com.auth0:java-jwt:3.19.3'
-    api 'com.auth0:jwks-rsa:0.21.2'
+    api 'com.auth0:auth0:1.44.2'
+    api 'com.auth0:java-jwt:3.19.4'
+    api 'com.auth0:jwks-rsa:0.21.3'
 
     testImplementation 'org.bouncycastle:bcprov-jdk15on:1.64'
     testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
