@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.9.4](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.4) (2023-01-11)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.3...1.9.4)
+
+This patch release does not contain any functional changes, but is being released using an updated signing key for verification as part of our commitment to best security practices. 
+Please review [the README note for additional details.](https://github.com/auth0/auth0-java-mvc-common/blob/master/README.md)
+
+**Security**
+- Update dependencies [\#124](https://github.com/auth0/auth0-java-mvc-common/pull/124) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.9.3](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.3) (2022-10-26)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.2...1.9.3)
 

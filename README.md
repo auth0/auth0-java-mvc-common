@@ -6,6 +6,11 @@
 [![Maven Central](https://img.shields.io/maven-central/v/com.auth0/mvc-auth-commons.svg?style=flat-square)](https://mvnrepository.com/artifact/com.auth0/mvc-auth-commons)
 [![javadoc](https://javadoc.io/badge2/com.auth0/auth0-java-mvc-common/javadoc.svg)](https://javadoc.io/doc/com.auth0/mvc-auth-commons)
 
+> **Note**
+> As part of our ongoing commitment to best security practices, we have rotated the signing keys used to sign previous releases of this SDK. As a result, new patch builds have been released using the new signing key. Please upgrade at your earliest convenience.
+> 
+> While this change won't affect most developers, if you have implemented a dependency signature validation step in your build process, you may notice a warning that past releases can't be verified. This is expected, and a result of the key rotation process. Updating to the latest version will resolve this for you.
+
 :books: [Documentation](#documentation) - :rocket: [Getting Started](#getting-started) - :computer: [API Reference](#api-reference) :speech_balloon: [Feedback](#feedback)
 
 ## Documentation
@@ -31,14 +36,14 @@ Add the dependency via Maven:
 <dependency>
   <groupId>com.auth0</groupId>
   <artifactId>mvc-auth-commons</artifactId>
-  <version>1.9.3</version>
+  <version>1.9.4</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:mvc-auth-commons:1.9.3'
+implementation 'com.auth0:mvc-auth-commons:1.9.4'
 ```
 
 ### Configure Auth0
