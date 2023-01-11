@@ -1,18 +1,7 @@
-buildscript {
-    version = "1.9.3"
-}
-
 plugins {
     id 'java'
     id 'jacoco'
     id 'com.auth0.gradle.oss-library.java'
-}
-
-def signingKey = findProperty('signingKey')
-def signingKeyPwd = findProperty('signingPassword')
-
-signing {
-    useInMemoryPgpKeys(signingKey, signingKeyPwd)
 }
 
 repositories {
@@ -29,7 +18,7 @@ oss {
     organization 'auth0'
     description 'Java library that simplifies the use of Auth0 for server-side MVC web apps'
     baselineCompareVersion '1.5.0'
-    skipAssertSigningConfiguration true
+
     developers {
         auth0 {
             displayName = 'Auth0'
