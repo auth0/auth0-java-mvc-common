@@ -1,18 +1,7 @@
-buildscript {
-    version = "1.9.3"
-}
-
 plugins {
     id 'java'
     id 'jacoco'
     id 'com.auth0.gradle.oss-library.java'
-}
-
-def signingKey = findProperty('signingKey')
-def signingKeyPwd = findProperty('signingPassword')
-
-signing {
-    useInMemoryPgpKeys(signingKey, signingKeyPwd)
 }
 
 repositories {
@@ -29,7 +18,7 @@ oss {
     organization 'auth0'
     description 'Java library that simplifies the use of Auth0 for server-side MVC web apps'
     baselineCompareVersion '1.5.0'
-    skipAssertSigningConfiguration true
+
     developers {
         auth0 {
             displayName = 'Auth0'
@@ -74,9 +63,9 @@ dependencies {
     implementation 'com.google.guava:guava-annotations:r03'
     implementation 'commons-codec:commons-codec:1.15'
 
-    api 'com.auth0:auth0:1.44.1'
-    api 'com.auth0:java-jwt:3.19.3'
-    api 'com.auth0:jwks-rsa:0.21.2'
+    api 'com.auth0:auth0:1.44.2'
+    api 'com.auth0:java-jwt:3.19.4'
+    api 'com.auth0:jwks-rsa:0.21.3'
 
     testImplementation 'org.bouncycastle:bcprov-jdk15on:1.64'
     testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
