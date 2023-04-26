@@ -368,15 +368,4 @@ public class AuthenticationController {
 
         return requestProcessor.buildAuthorizeUrl(request, response, redirectUri, state, nonce);
     }
-
-    public PushedAuthorizationRequest authorizeUrlFromPushedAuthorizationRequest(HttpServletRequest request, HttpServletResponse response, String redirectUri) {
-        Validate.notNull(request, "request must not be null");
-        Validate.notNull(response, "response must not be null");
-        Validate.notNull(redirectUri, "redirectUri must not be null");
-
-        String state = StorageUtils.secureRandomString();
-        String nonce = StorageUtils.secureRandomString();
-
-        return requestProcessor.authorizeUrlFromPushedAuthorizationRequest(request, response, redirectUri, state, nonce);
-    }
 }

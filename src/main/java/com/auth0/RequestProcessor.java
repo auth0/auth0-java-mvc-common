@@ -141,37 +141,6 @@ class RequestProcessor {
         return getAuthorizeUrl(nonce, creator);
     }
 
-    // We don't have access to the client ID or secret here, just a configured AuthAPI
-    PushedAuthorizationRequest authorizeUrlFromPushedAuthorizationRequest(HttpServletRequest request, HttpServletResponse response, String redirectUri,
-                                                                          String state, String nonce) {
-        PushedAuthorizationRequest parRequest = new PushedAuthorizationRequest(client, request, response, redirectUri, responseType)
-                .withState(state);
-
-        if (this.organization != null) {
-            parRequest.withOrganization(organization);
-        }
-        if (this.invitation != null) {
-            parRequest.withInvitation(invitation);
-        }
-
-        // null response means state and nonce will be stored in session, so legacy cookie flag does not apply
-        if (response != null) {
-            parRequest.withLegacySameSiteCookie(useLegacySameSiteCookie);
-        }
-
-        List<String> responseTypeList = getResponseType();
-        if (responseTypeList.contains(KEY_ID_TOKEN) && nonce != null) {
-            parRequest.withNonce(nonce);
-        }
-        if (requiresFormPostResponseMode(responseTypeList)) {
-            parRequest.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);
-        }
-        if (verifyOptions.getMaxAge() != null) {
-            parRequest.withParameter(KEY_MAX_AGE, verifyOptions.getMaxAge().toString());
-        }
-        return parRequest;
-    }
-
     /**
      * Entrypoint for HTTP request
      * <p>

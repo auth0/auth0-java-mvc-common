@@ -2,12 +2,14 @@ package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.client.auth.AuthorizeUrlBuilder;
+import com.auth0.exception.Auth0Exception;
+import com.auth0.json.auth.PushedAuthorizationResponse;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+
+import static com.auth0.IdentityVerificationException.API_ERROR;
 
 /**
  * Class to create and customize an Auth0 Authorize URL.
@@ -20,14 +22,15 @@ public class AuthorizeUrl {
 
     private HttpServletResponse response;
     private HttpServletRequest request;
-    private final AuthorizeUrlBuilder builder;
     private final String responseType;
     private boolean useLegacySameSiteCookie = true;
     private boolean setSecureCookie = false;
     private String nonce;
     private String state;
-
+    private final AuthAPI authAPI;
     private boolean used;
+    private Map<String, String> params;
+    private final String redirectUri;
 
     /**
      * Creates a new instance that can be used to build an Auth0 Authorization URL.
@@ -40,16 +43,17 @@ public class AuthorizeUrl {
      * @param client       the Auth0 Authentication API client
      * @parem request      the HTTP request. Used to store state and nonce as a fallback if cookies not set.
      * @param response     the response where the state and nonce will be stored as cookies
-     * @param redirectUrl  the url to redirect to after authentication
+     * @param redirectUri  the url to redirect to after authentication
      * @param responseType the response type to use
      */
-    AuthorizeUrl(AuthAPI client, HttpServletRequest request, HttpServletResponse response, String redirectUrl, String responseType) {
+    AuthorizeUrl(AuthAPI client, HttpServletRequest request, HttpServletResponse response, String redirectUri, String responseType) {
         this.request = request;
         this.response = response;
         this.responseType = responseType;
-        this.builder = client.authorizeUrl(redirectUrl)
-                .withResponseType(responseType)
-                .withScope(SCOPE_OPENID);
+        this.authAPI = client;
+        this.redirectUri = redirectUri;
+        this.params = new HashMap<>();
+        this.params.put("scope", SCOPE_OPENID);
     }
 
     /**
@@ -59,7 +63,7 @@ public class AuthorizeUrl {
      * @return the builder instance.
      */
     public AuthorizeUrl withOrganization(String organization) {
-        builder.withOrganization(organization);
+        params.put("organization", organization);
         return this;
     }
 
@@ -71,7 +75,7 @@ public class AuthorizeUrl {
      * @return the builder instance.
      */
     public AuthorizeUrl withInvitation(String invitation) {
-        builder.withInvitation(invitation);
+        params.put("invitation", invitation);
         return this;
     }
 
@@ -82,7 +86,7 @@ public class AuthorizeUrl {
      * @return the builder instance
      */
     public AuthorizeUrl withConnection(String connection) {
-        builder.withConnection(connection);
+        params.put("connection", connection);
         return this;
     }
 
@@ -122,7 +126,7 @@ public class AuthorizeUrl {
      * @return the builder instance
      */
     public AuthorizeUrl withAudience(String audience) {
-        builder.withAudience(audience);
+        params.put("audience", audience);
         return this;
     }
 
@@ -134,7 +138,7 @@ public class AuthorizeUrl {
      */
     public AuthorizeUrl withState(String state) {
         this.state = state;
-        builder.withState(state);
+        params.put("state", state);
         return this;
     }
 
@@ -146,7 +150,7 @@ public class AuthorizeUrl {
      */
     public AuthorizeUrl withNonce(String nonce) {
         this.nonce = nonce;
-        builder.withParameter("nonce", nonce);
+        params.put("nonce", nonce);
         return this;
     }
 
@@ -157,7 +161,7 @@ public class AuthorizeUrl {
      * @return the builder instance
      */
     public AuthorizeUrl withScope(String scope) {
-        builder.withScope(scope);
+        params.put("scope", scope);
         return this;
     }
 
@@ -178,7 +182,7 @@ public class AuthorizeUrl {
         if ("redirect_uri".equals(name)) {
             throw new IllegalArgumentException("Redirect URI cannot be changed once set.");
         }
-        builder.withParameter(name, value);
+        params.put(name, value);
         return this;
     }
 
@@ -190,6 +194,31 @@ public class AuthorizeUrl {
      * @throws IllegalStateException if it's called more than once
      */
     public String build() throws IllegalStateException {
+        storeTransient();
+        AuthorizeUrlBuilder builder = authAPI.authorizeUrl(redirectUri).withResponseType(responseType);
+        params.forEach(builder::withParameter);
+        return builder.build();
+    }
+
+    public String fromPushedAuthorizationRequest() throws InvalidRequestException {
+        storeTransient();
+
+        try {
+            PushedAuthorizationResponse pushedAuthResponse = authAPI.pushedAuthorizationRequest(redirectUri, responseType, params).execute();
+            String requestUri = pushedAuthResponse.getRequestURI();
+            if (requestUri == null || requestUri.isEmpty()) {
+                throw new InvalidRequestException(API_ERROR, "The PAR request returned a missing or empty request_uri value");
+            }
+            if (pushedAuthResponse.getExpiresIn() == null) {
+                throw new InvalidRequestException(API_ERROR, "The PAR request returned a missing expires_in value");
+            }
+            return authAPI.pushedAuthorizationUrl(pushedAuthResponse.getRequestURI());
+        } catch (Auth0Exception | InvalidRequestException e) {
+            throw new InvalidRequestException(API_ERROR, e.getMessage(), e);
+        }
+    }
+
+    private void storeTransient() {
         if (used) {
             throw new IllegalStateException("The AuthorizeUrl instance must not be reused.");
         }
@@ -207,7 +236,6 @@ public class AuthorizeUrl {
         RandomStorage.setSessionNonce(request, nonce);
 
         used = true;
-        return builder.build();
     }
 
     private boolean containsFormPost() {
