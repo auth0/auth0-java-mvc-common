@@ -11,7 +11,11 @@ public class InvalidRequestException extends IdentityVerificationException {
     static final String DEFAULT_DESCRIPTION = "The request contains an error";
 
     InvalidRequestException(String code, String description) {
-        super(code, description != null ? description : DEFAULT_DESCRIPTION, null);
+        this(code, description, null);
+    }
+
+    InvalidRequestException(String code, String description, Throwable cause) {
+        super(code, description != null ? description : DEFAULT_DESCRIPTION, cause);
     }
 
     /**
