@@ -27,7 +27,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldNotSetCookieIfStateIsNull() {
-        TransientCookieStore.storeState(response, null, SameSite.NONE, true, false);
+        TransientCookieStore.storeState(response, null, SameSite.NONE, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(0));
@@ -35,7 +35,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldNotSetCookieIfNonceIsNull() {
-        TransientCookieStore.storeNonce(response, null, SameSite.NONE, true, false);
+        TransientCookieStore.storeNonce(response, null, SameSite.NONE, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(0));
@@ -44,7 +44,7 @@ public class TransientCookieStoreTest {
     @Test
     public void shouldHandleSpecialCharsWhenStoringState() throws Exception {
         String stateVal = ";state = ,va\\lu;e\"";
-        TransientCookieStore.storeState(response, stateVal, SameSite.NONE, true, false);
+        TransientCookieStore.storeState(response, stateVal, SameSite.NONE, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
@@ -54,13 +54,11 @@ public class TransientCookieStoreTest {
                 String.format("com.auth0.state=%s; HttpOnly; Max-Age=600; SameSite=None; Secure", expectedEncodedState)));
         assertThat(headers, hasItem(
                 String.format("_com.auth0.state=%s; HttpOnly; Max-Age=600", expectedEncodedState)));
-        System.out.println("headers size: " + headers.size());
-        System.out.println("header: " + headers.get(0));
     }
 
     @Test
     public void shouldSetStateSameSiteCookieAndFallbackCookie() {
-        TransientCookieStore.storeState(response, "123456", SameSite.NONE, true, false);
+        TransientCookieStore.storeState(response, "123456", SameSite.NONE, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
@@ -71,7 +69,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldSetStateSameSiteCookieAndNoFallbackCookie() {
-        TransientCookieStore.storeState(response, "123456", SameSite.NONE, false, false);
+        TransientCookieStore.storeState(response, "123456", SameSite.NONE, false, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
@@ -81,7 +79,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldSetSecureCookieWhenSameSiteLaxAndConfigured() {
-        TransientCookieStore.storeState(response, "123456", SameSite.LAX, true, true);
+        TransientCookieStore.storeState(response, "123456", SameSite.LAX, true, true, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
@@ -91,7 +89,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldSetSecureFallbackCookieWhenSameSiteNoneAndConfigured() {
-        TransientCookieStore.storeState(response, "123456", SameSite.NONE, true, true);
+        TransientCookieStore.storeState(response, "123456", SameSite.NONE, true, true, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
@@ -102,7 +100,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldNotSetSecureCookieWhenSameSiteLaxAndConfigured() {
-        TransientCookieStore.storeState(response, "123456", SameSite.LAX, true, false);
+        TransientCookieStore.storeState(response, "123456", SameSite.LAX, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
@@ -112,7 +110,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldSetNonceSameSiteCookieAndFallbackCookie() {
-        TransientCookieStore.storeNonce(response, "123456", SameSite.NONE, true, false);
+        TransientCookieStore.storeNonce(response, "123456", SameSite.NONE, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
@@ -123,7 +121,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldSetNonceSameSiteCookieAndNoFallbackCookie() {
-        TransientCookieStore.storeNonce(response, "123456", SameSite.NONE, false, false);
+        TransientCookieStore.storeNonce(response, "123456", SameSite.NONE, false, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
@@ -138,7 +136,7 @@ public class TransientCookieStoreTest {
 
         request.setCookies(cookie1, cookie2);
 
-        String state = TransientCookieStore.getState(request, response, true);
+        String state = TransientCookieStore.getState(request, response);
         assertThat(state, is("123456"));
 
         Cookie[] cookies = response.getCookies();
@@ -157,7 +155,7 @@ public class TransientCookieStoreTest {
 
         request.setCookies(cookie1);
 
-        String state = TransientCookieStore.getState(request, response, false);
+        String state = TransientCookieStore.getState(request, response);
         assertThat(state, is("123456"));
 
         Cookie[] cookies = response.getCookies();
@@ -175,7 +173,7 @@ public class TransientCookieStoreTest {
 
         request.setCookies(cookie1);
 
-        String state = TransientCookieStore.getState(request, response, true);
+        String state = TransientCookieStore.getState(request, response);
         assertThat(state, is("123456"));
 
         Cookie[] cookies = response.getCookies();
@@ -194,7 +192,7 @@ public class TransientCookieStoreTest {
 
         request.setCookies(cookie1, cookie2);
 
-        String state = TransientCookieStore.getNonce(request, response, true);
+        String state = TransientCookieStore.getNonce(request, response);
         assertThat(state, is("123456"));
 
         Cookie[] cookies = response.getCookies();
@@ -212,7 +210,7 @@ public class TransientCookieStoreTest {
 
         request.setCookies(cookie1);
 
-        String state = TransientCookieStore.getNonce(request, response, true);
+        String state = TransientCookieStore.getNonce(request, response);
         assertThat(state, is("123456"));
 
         Cookie[] cookies = response.getCookies();
@@ -230,7 +228,7 @@ public class TransientCookieStoreTest {
 
         request.setCookies(cookie1);
 
-        String state = TransientCookieStore.getNonce(request, response, true);
+        String state = TransientCookieStore.getNonce(request, response);
         assertThat(state, is("123456"));
 
         Cookie[] cookies = response.getCookies();
@@ -244,13 +242,13 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldReturnEmptyStateWhenNoCookies() {
-        String state = TransientCookieStore.getState(request, response, true);
+        String state = TransientCookieStore.getState(request, response);
         assertThat(state, is(nullValue()));
     }
 
     @Test
     public void shouldReturnEmptyNonceWhenNoCookies() {
-        String nonce = TransientCookieStore.getNonce(request, response, true);
+        String nonce = TransientCookieStore.getNonce(request, response);
         assertThat(nonce, is(nullValue()));
     }
 
@@ -259,7 +257,7 @@ public class TransientCookieStoreTest {
         Cookie cookie1 = new Cookie("someCookie", "123456");
         request.setCookies(cookie1);
 
-        String state = TransientCookieStore.getState(request, response, true);
+        String state = TransientCookieStore.getState(request, response);
         assertThat(state, is(nullValue()));
     }
 
@@ -268,7 +266,7 @@ public class TransientCookieStoreTest {
         Cookie cookie1 = new Cookie("someCookie", "123456");
         request.setCookies(cookie1);
 
-        String nonce = TransientCookieStore.getNonce(request, response, true);
+        String nonce = TransientCookieStore.getNonce(request, response);
         assertThat(nonce, is(nullValue()));
         assertThat(nonce, is(nullValue()));
     }

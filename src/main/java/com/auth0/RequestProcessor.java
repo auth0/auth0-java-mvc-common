@@ -40,6 +40,7 @@ class RequestProcessor {
     private final IdTokenVerifier tokenVerifier;
     private final String organization;
     private final String invitation;
+    private final String cookiePath;
 
 
     static class Builder {
@@ -50,6 +51,7 @@ class RequestProcessor {
         private IdTokenVerifier tokenVerifier;
         private String organization;
         private String invitation;
+        private String cookiePath;
 
         Builder(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
             Validate.notNull(client);
@@ -58,6 +60,11 @@ class RequestProcessor {
             this.client = client;
             this.responseType = responseType;
             this.verifyOptions = verifyOptions;
+        }
+
+        Builder withCookiePath(String cookiePath) {
+            this.cookiePath = cookiePath;
+            return this;
         }
 
         Builder withLegacySameSiteCookie(boolean useLegacySameSiteCookie) {
@@ -83,11 +90,11 @@ class RequestProcessor {
         RequestProcessor build() {
             return new RequestProcessor(client, responseType, verifyOptions,
                     this.tokenVerifier == null ? new IdTokenVerifier() : this.tokenVerifier,
-                    useLegacySameSiteCookie, organization, invitation);
+                    useLegacySameSiteCookie, organization, invitation, cookiePath);
         }
     }
 
-    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization, String invitation) {
+    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization, String invitation, String cookiePath) {
         Validate.notNull(client);
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
@@ -98,6 +105,7 @@ class RequestProcessor {
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
         this.organization = organization;
         this.invitation = invitation;
+        this.cookiePath = cookiePath;
     }
 
     /**
@@ -132,11 +140,15 @@ class RequestProcessor {
         if (this.invitation != null) {
             creator.withInvitation(invitation);
         }
+        if (this.cookiePath != null) {
+            creator.withCookiePath(this.cookiePath);
+        }
 
         // null response means state and nonce will be stored in session, so legacy cookie flag does not apply
         if (response != null) {
             creator.withLegacySameSiteCookie(useLegacySameSiteCookie);
         }
+
 
         return getAuthorizeUrl(nonce, creator);
     }
@@ -169,7 +181,7 @@ class RequestProcessor {
         String nonce;
         if (response != null) {
             // Nonce dynamically set and changes on every request.
-            nonce = TransientCookieStore.getNonce(request, response, useLegacySameSiteCookie);
+            nonce = TransientCookieStore.getNonce(request, response);
 
             // Just in case the developer created the authorizeUrl that stores state/nonce in the session
             if (nonce == null) {
@@ -289,7 +301,7 @@ class RequestProcessor {
             return;
         }
 
-        String cookieState = TransientCookieStore.getState(request, response, useLegacySameSiteCookie);
+        String cookieState = TransientCookieStore.getState(request, response);
 
         // Just in case state was stored in Session by building auth URL with deprecated method, but then called the
         // supported handle method with the request and response

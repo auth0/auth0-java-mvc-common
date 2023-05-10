@@ -62,6 +62,7 @@ public class AuthenticationController {
         private String organization;
         private String invitation;
         private HttpOptions httpOptions;
+        private String cookiePath;
 
         Builder(String domain, String clientId, String clientSecret) {
             Validate.notNull(domain);
@@ -84,6 +85,19 @@ public class AuthenticationController {
         public Builder withHttpOptions(HttpOptions httpOptions) {
             Validate.notNull(httpOptions);
             this.httpOptions = httpOptions;
+            return this;
+        }
+
+        /**
+         * Specify that transient authentication-based cookies such as state and nonce are created with the specified
+         * {@code Path} cookie attribute.
+         *
+         * @param cookiePath the path to set on the cookie.
+         * @return this builder instance.
+         */
+        public Builder withCookiePath(String cookiePath) {
+            Validate.notNull(cookiePath);
+            this.cookiePath = cookiePath;
             return this;
         }
 
@@ -208,6 +222,7 @@ public class AuthenticationController {
                     .withLegacySameSiteCookie(useLegacySameSiteCookie)
                     .withOrganization(organization)
                     .withInvitation(invitation)
+                    .withCookiePath(cookiePath)
                     .build();
 
             return new AuthenticationController(processor);
