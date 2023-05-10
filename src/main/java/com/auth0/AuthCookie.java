@@ -22,6 +22,7 @@ class AuthCookie {
     private final String value;
     private boolean secure;
     private SameSite sameSite;
+    private String cookiePath;
 
     /**
      * Create a new instance.
@@ -35,6 +36,10 @@ class AuthCookie {
 
         this.key = key;
         this.value = value;
+    }
+
+    void setPath(String path) {
+        this.cookiePath = path;
     }
 
     /**
@@ -64,6 +69,9 @@ class AuthCookie {
      */
     String buildHeaderString() {
         String baseCookieString = String.format("%s=%s; HttpOnly; Max-Age=%d", encode(key), encode(value), MAX_AGE_SECONDS);
+        if (cookiePath != null) {
+            baseCookieString = baseCookieString.concat(String.format("; Path=%s", cookiePath));
+        }
         if (sameSite != null) {
             baseCookieString = baseCookieString.concat(String.format("; SameSite=%s", encode(sameSite.getValue())));
         }

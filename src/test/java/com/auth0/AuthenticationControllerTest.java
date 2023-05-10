@@ -565,4 +565,22 @@ public class AuthenticationControllerTest {
                 () -> AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
                         .withInvitation(null));
     }
+
+    @Test
+    public void shouldConfigureCookiePath() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+                .withCookiePath("/Path")
+                .build();
+
+        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
+                .withState("state")
+                .build();
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+
+        assertThat(headers.size(), is(1));
+        assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; Path=/Path; SameSite=Lax")));
+    }
 }

@@ -28,6 +28,8 @@ public class AuthorizeUrl {
     private String nonce;
     private String state;
     private final AuthAPI authAPI;
+    private String cookiePath;
+
     private boolean used;
     private Map<String, String> params;
     private final String redirectUri;
@@ -127,6 +129,16 @@ public class AuthorizeUrl {
      */
     public AuthorizeUrl withAudience(String audience) {
         params.put("audience", audience);
+        return this;
+    }
+
+    /**
+     * Sets the value of the Path cookie attribute
+     * @param cookiePath the cookie path to set
+     * @return
+     */
+    AuthorizeUrl withCookiePath(String cookiePath) {
+        this.cookiePath = cookiePath;
         return this;
     }
 
@@ -234,8 +246,8 @@ public class AuthorizeUrl {
         if (response != null) {
             SameSite sameSiteValue = containsFormPost() ? SameSite.NONE : SameSite.LAX;
 
-            TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie, setSecureCookie);
-            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie, setSecureCookie);
+            TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
+            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
         }
 
         // Also store in Session just in case developer uses deprecated
