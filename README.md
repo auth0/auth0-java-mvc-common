@@ -36,14 +36,14 @@ Add the dependency via Maven:
 <dependency>
   <groupId>com.auth0</groupId>
   <artifactId>mvc-auth-commons</artifactId>
-  <version>1.9.4</version>
+  <version>1.9.5</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:mvc-auth-commons:1.9.4'
+implementation 'com.auth0:mvc-auth-commons:1.9.5'
 ```
 
 ### Configure Auth0
