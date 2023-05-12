@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.9.5](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.5) (2023-03-11)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.4...1.9.5)
+
+**Added**
+- Support Pushed Authorization Requests [\#128](https://github.com/auth0/auth0-java-mvc-common/pull/128) ([jimmyjames](https://github.com/jimmyjames))
+- Support configurable cookie path [\#129](https://github.com/auth0/auth0-java-mvc-common/pull/129) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.9.4](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.4) (2023-01-11)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.3...1.9.4)
 
