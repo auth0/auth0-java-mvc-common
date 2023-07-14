@@ -426,7 +426,121 @@ public class IdTokenVerifierTest {
     }
 
     @Test
-    public void succeedsWhenOrganizationMatchesExpected() {
+    public void succeedsWhenOrganizationNameMatchesExpected() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_name", "my org")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("my org");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void failsWhenOrganizationNameDoesNotMatchExpected() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_name", "my org")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("other org");
+
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("Organization (org_name) claim mismatch in the ID token; expected \"other org\" but found \"my org\"", e.getMessage());
+    }
+
+    @Test
+    public void succeedsWhenOrganizationNameDoesNotMatchExpected_caseInsensitive() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_name", "my org")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("My org");
+
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void failsWhenOrganizationNameExpectedButNotPresent() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("my org");
+
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("Organization name (org_name) claim must be a string present in the ID token", e.getMessage());
+    }
+
+    @Test
+    public void failsWhenOrganizationNameExpectedButClaimIsNotString() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_name", 42)
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("my org");
+
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("Organization name (org_name) claim must be a string present in the ID token", e.getMessage());
+    }
+
+    @Test
+    public void succeedsWhenOrganizationNameNotSpecifiedButIsPresent() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_name", "my org")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        new IdTokenVerifier().verify(token, opts);
+    }
+
+    @Test
+    public void succeedsWhenOrganizationIdMatchesExpected() {
         String token = JWT.create()
                 .withSubject("auth0|sdk458fks")
                 .withAudience(AUDIENCE)
@@ -445,7 +559,7 @@ public class IdTokenVerifierTest {
     }
 
     @Test
-    public void failsWhenOrganizationDoesNotMatchExpected() {
+    public void failsWhenOrganizationIdDoesNotMatchExpected() {
         String token = JWT.create()
                 .withSubject("auth0|sdk458fks")
                 .withAudience(AUDIENCE)
@@ -465,7 +579,27 @@ public class IdTokenVerifierTest {
     }
 
     @Test
-    public void failsWhenOrganizationExpectedButNotPresent() {
+    public void failsWhenOrganizationIdDoesNotMatchExpected_caseSensitive() {
+        String token = JWT.create()
+                .withSubject("auth0|sdk458fks")
+                .withAudience(AUDIENCE)
+                .withIssuedAt(getYesterday())
+                .withExpiresAt(getTomorrow())
+                .withIssuer("https://" + DOMAIN + "/")
+                .withClaim("org_id", "org_123")
+                .sign(Algorithm.HMAC256("secret"));
+
+        String jwt = JWT.decode(token).getToken();
+
+        IdTokenVerifier.Options opts = configureOptions(jwt);
+        opts.setOrganization("org_aBc");
+
+        TokenValidationException e = assertThrows(TokenValidationException.class, () -> new IdTokenVerifier().verify(token, opts));
+        assertEquals("Organization (org_id) claim mismatch in the ID token; expected \"org_aBc\" but found \"org_123\"", e.getMessage());
+    }
+
+    @Test
+    public void failsWhenOrganizationIdExpectedButNotPresent() {
         String token = JWT.create()
                 .withSubject("auth0|sdk458fks")
                 .withAudience(AUDIENCE)
@@ -484,7 +618,7 @@ public class IdTokenVerifierTest {
     }
 
     @Test
-    public void failsWhenOrganizationExpectedButClaimIsNotString() {
+    public void failsWhenOrganizationIdExpectedButClaimIsNotString() {
         String token = JWT.create()
                 .withSubject("auth0|sdk458fks")
                 .withAudience(AUDIENCE)
@@ -504,7 +638,7 @@ public class IdTokenVerifierTest {
     }
 
     @Test
-    public void succeedsWhenOrganizationNotSpecifiedButIsPresent() {
+    public void succeedsWhenOrganizationIdNotSpecifiedButIsPresent() {
         String token = JWT.create()
                 .withSubject("auth0|sdk458fks")
                 .withAudience(AUDIENCE)
