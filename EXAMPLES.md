@@ -26,7 +26,7 @@ Note that Organizations is currently only available to customers on our Enterpri
 
 ### Log in to an organization
 
-Log in to an organization by using `withOrganization()` when configuring the `AuthenticationController`:
+Log in to an organization by using `withOrganization()` when configuring the `AuthenticationController`, passing either the organization ID or organization name:
 
 ```java
 AuthenticationController controller = AuthenticationController.newBuilder("YOUR-AUTH0-DOMAIN", "YOUR-CLIENT-ID", "YOUR-CLIENT-SECRET")
@@ -34,15 +34,15 @@ AuthenticationController controller = AuthenticationController.newBuilder("YOUR-
         .build();
 ```
 
-When logging into an organization, this library will validate that the `org_id` claim of the ID Token matches the value configured.
+When logging into an organization, this library will validate that the `org_id` or `org_name` claim of the ID Token matches the value configured.
 
-If no organization parameter was given to the authorization endpoint, but an `org_id` claim is present in the ID Token, then the claim should be validated by the application to ensure that the value received is expected or known.
+If no organization parameter was given to the authorization endpoint, but an `org_id` or `org_name` claim is present in the ID Token, then the claim should be validated by the application to ensure that the value received is expected or known.
 
 Normally, validating the issuer would be enough to ensure that the token was issued by Auth0, and this check is performed by this SDK.
 In the case of organizations, additional checks may be required so that the organization within an Auth0 tenant is expected.
 
-In particular, the `org_id` claim should be checked to ensure it is a value that is already known to the application.
-This could be validated against a known list of organization IDs, or perhaps checked in conjunction with the current request URL (e.g., the sub-domain may hint at what organization should be used to validate the ID Token).
+In particular, the `org_id` or `org_name` claim should be checked to ensure it is a value that is already known to the application.
+This could be validated against a known list of organizations, or perhaps checked in conjunction with the current request URL (e.g., the sub-domain may hint at what organization should be used to validate the ID Token).
 
 If the claim cannot be validated, then the application should deem the token invalid.
 The following example demonstrates this, using the [java-jwt](https://github.com/auth0/java-jwt) library:

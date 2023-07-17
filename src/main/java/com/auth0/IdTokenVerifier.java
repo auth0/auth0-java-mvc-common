@@ -21,7 +21,7 @@ class IdTokenVerifier {
 
     /**
      * Verifies a provided ID Token follows the OIDC specification.
-     * See https://openid.net/specs/openid-connect-core-1_0-final.html#IDTokenValidation
+     * @see <a href="https://openid.net/specs/openid-connect-core-1_0-final.html#IDTokenValidation">Open ID Connect Specification</a>
      *
      * @param token         the ID Token to verify.
      * @param verifyOptions the verification options, like audience, issuer, algorithm.
@@ -57,15 +57,30 @@ class IdTokenVerifier {
 
         // validate org if set
         if (verifyOptions.organization != null) {
-            String orgIdClaim = decoded.getClaim("org_id").asString();
-            if (isEmpty(orgIdClaim)) {
-                throw new TokenValidationException("Organization Id (org_id) claim must be a string present in the ID token");
+            String org = verifyOptions.organization.trim();
+            if (org.startsWith("org_")) {
+                // org ID
+                String orgIdClaim = decoded.getClaim("org_id").asString();
+                if (isEmpty(orgIdClaim)) {
+                    throw new TokenValidationException("Organization Id (org_id) claim must be a string present in the ID token");
+                }
+                if (!org.equals(orgIdClaim)) {
+                    throw new TokenValidationException(String.format("Organization (org_id) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.organization, orgIdClaim));
+                }
             }
-            if (!verifyOptions.organization.equals(orgIdClaim)) {
-                throw new TokenValidationException(String.format("Organization (org_id) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.organization, orgIdClaim));
+            else {
+                // org name
+                String orgNameClaim = decoded.getClaim("org_name").asString();
+                if (isEmpty(orgNameClaim)) {
+                    throw new TokenValidationException("Organization name (org_name) claim must be a string present in the ID token");
+                }
+                if (!org.equalsIgnoreCase(orgNameClaim)) {
+                    throw new TokenValidationException(String.format("Organization (org_name) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.organization, orgNameClaim));
+                }
             }
         }
 
+        // TODO refactor to modern date/time APIs
         final Calendar cal = Calendar.getInstance();
         final Date now = verifyOptions.clock != null ? verifyOptions.clock : cal.getTime();
         final int clockSkew = verifyOptions.clockSkew != null ? verifyOptions.clockSkew : DEFAULT_CLOCK_SKEW;
