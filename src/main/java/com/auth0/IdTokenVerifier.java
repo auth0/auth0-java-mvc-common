@@ -74,7 +74,7 @@ class IdTokenVerifier {
                 if (isEmpty(orgNameClaim)) {
                     throw new TokenValidationException("Organization name (org_name) claim must be a string present in the ID token");
                 }
-                if (!org.equalsIgnoreCase(orgNameClaim)) {
+                if (!org.toLowerCase().equals(orgNameClaim)) {
                     throw new TokenValidationException(String.format("Organization (org_name) claim mismatch in the ID token; expected \"%s\" but found \"%s\"", verifyOptions.organization, orgNameClaim));
                 }
             }
