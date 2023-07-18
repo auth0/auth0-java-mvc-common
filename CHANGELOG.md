@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.10.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.10.0) (2023-07-18)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.5...1.10.0)
+
+** Added**
+- Support using organization name [\#132](https://github.com/auth0/auth0-java-mvc-common/pull/132) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.9.5](https://github.com/auth0/auth0-java-mvc-common/tree/1.9.5) (2023-03-11)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.4...1.9.5)
 
