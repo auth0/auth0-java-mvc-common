@@ -1,6 +1,6 @@
 ![Auth0 SDK to add authentication to your Java Servlet applications.](https://cdn.auth0.com/website/sdks/banners/auth0-java-mvc-common-banner.png)
 
-[![CircleCI](https://img.shields.io/circleci/project/github/auth0/auth0-java-mvc-common.svg?style=flat-square)](https://circleci.com/gh/auth0/auth0-java-mvc-common/tree/master)
+![Build Status](https://img.shields.io/github/checks-status/auth0/auth0-java-mvc-common/master)
 [![Coverage Status](https://img.shields.io/codecov/c/github/auth0/auth0-java-mvc-common.svg?style=flat-square)](https://codecov.io/github/auth0/auth0-java-mvc-common)
 [![License](http://img.shields.io/:license-mit-blue.svg?style=flat)](https://doge.mit-license.org/)
 [![Maven Central](https://img.shields.io/maven-central/v/com.auth0/mvc-auth-commons.svg?style=flat-square)](https://mvnrepository.com/artifact/com.auth0/mvc-auth-commons)
