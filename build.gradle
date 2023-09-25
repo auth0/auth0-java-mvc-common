@@ -42,6 +42,15 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(8)
     }
+    // Needed because of broken gradle metadata, see https://github.com/google/guava/issues/6612#issuecomment-1614992368
+    sourceSets.all {
+        configurations.getByName(runtimeClasspathConfigurationName) {
+            attributes.attribute(Attribute.of("org.gradle.jvm.environment", String), "standard-jvm")
+        }
+        configurations.getByName(compileClasspathConfigurationName) {
+            attributes.attribute(Attribute.of("org.gradle.jvm.environment", String), "standard-jvm")
+        }
+    }
 }
 
 compileJava {
@@ -63,9 +72,9 @@ dependencies {
     implementation 'com.google.guava:guava-annotations:r03'
     implementation 'commons-codec:commons-codec:1.15'
 
-    api 'com.auth0:auth0:1.45.0'
+    api 'com.auth0:auth0:1.45.1'
     api 'com.auth0:java-jwt:3.19.4'
-    api 'com.auth0:jwks-rsa:0.21.3'
+    api 'com.auth0:jwks-rsa:0.22.1'
 
     testImplementation 'org.bouncycastle:bcprov-jdk15on:1.64'
     testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
@@ -73,7 +82,7 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:2.8.9'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
     testImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
-    testImplementation 'com.squareup.okhttp3:okhttp:4.9.3'
+    testImplementation 'com.squareup.okhttp3:okhttp:4.11.0'
 }
 
 // Creates a version.txt file containing the current version of the SDK.
