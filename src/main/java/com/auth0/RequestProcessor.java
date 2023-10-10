@@ -292,6 +292,8 @@ class RequestProcessor {
      * @throws InvalidRequestException if the request contains a different state from the expected one
      */
     private void assertValidState(HttpServletRequest request, HttpServletResponse response) throws InvalidRequestException {
+        System.out.println("Request URL -"+request.hashCode()+" - "+request.getRequestURL());
+        System.out.println("State Parameter - "+request.hashCode()+" - "+request.getParameter(KEY_STATE));
         String stateFromRequest = request.getParameter(KEY_STATE);
 
         // If response is null, check the Session.
@@ -302,6 +304,7 @@ class RequestProcessor {
         }
 
         String cookieState = TransientCookieStore.getState(request, response);
+        System.out.println("State Cookie - "+request.hashCode()+" - "+cookieState);
 
         // Just in case state was stored in Session by building auth URL with deprecated method, but then called the
         // supported handle method with the request and response

@@ -302,6 +302,7 @@ public class AuthenticationController {
     public Tokens handle(HttpServletRequest request, HttpServletResponse response) throws IdentityVerificationException {
         Validate.notNull(request, "request must not be null");
         Validate.notNull(response, "response must not be null");
+        System.out.println("Request Starts - "+request.hashCode());
 
         return requestProcessor.process(request, response);
     }
