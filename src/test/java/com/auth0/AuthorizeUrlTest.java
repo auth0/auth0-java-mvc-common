@@ -92,8 +92,8 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem(matchesPattern("com.auth0.nonce=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
-        assertThat(headers, hasItem(matchesPattern("_com.auth0.nonce=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
     }
 
     @Test
@@ -106,7 +106,7 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem(matchesPattern("com.auth0.nonce=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
     }
 
     @Test
@@ -118,8 +118,8 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem(matchesPattern("com.auth0.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
-        assertThat(headers, hasItem(matchesPattern("_com.auth0.state=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
     }
 
     @Test
@@ -132,7 +132,7 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem(matchesPattern("com.auth0.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
     }
 
     @Test
@@ -145,7 +145,7 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem(matchesPattern("com.auth0.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=Lax")));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=Lax")));
     }
 
     @Test
@@ -158,8 +158,8 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem(matchesPattern("com.auth0.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
-        assertThat(headers, hasItem(matchesPattern("_com.auth0.state=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
     }
 
     @Test
