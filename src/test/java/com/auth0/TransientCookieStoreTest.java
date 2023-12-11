@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import javax.servlet.http.Cookie;
+import jakarta.servlet.http.Cookie;
 import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.List;
