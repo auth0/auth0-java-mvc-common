@@ -4,12 +4,14 @@ plugins {
     id 'com.auth0.gradle.oss-library.java'
 }
 
+
+
 repositories {
     mavenCentral()
 }
 
-group 'com.auth0'
-
+group = 'com.github.equiptal'
+version = '2.0'
 logger.lifecycle("Using version ${version} for ${name} group $group")
 
 oss {
@@ -45,6 +47,17 @@ jacocoTestReport {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
+    }
+
+	withSourcesJar()
+	withJavadocJar()
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+		from components.java
+        }
     }
 }
 
