@@ -25,6 +25,13 @@ public class RandomStorageTest {
     }
 
     @Test
+    public void shouldFailIfSessionStateIsNullButCurrentStateNotNull() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        boolean validState = RandomStorage.checkSessionState(req, "12345");
+        assertThat(validState, is(false));
+    }
+
+    @Test
     public void shouldCheckAndRemoveInvalidState() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.getSession().setAttribute("com.auth0.state", "123456");
