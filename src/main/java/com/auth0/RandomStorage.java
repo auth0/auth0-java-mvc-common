@@ -15,11 +15,7 @@ class RandomStorage extends SessionUtils {
      */
     static boolean checkSessionState(HttpServletRequest req, String state) {
         String currentState = (String) remove(req, StorageUtils.STATE_KEY);
-        if (currentState == null) {
-            return state == null;
-        } else {
-            return currentState.equals(state);
-        }
+        return (currentState == null && state == null) || currentState != null && currentState.equals(state);
     }
 
     /**
