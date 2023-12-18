@@ -107,7 +107,7 @@ public class RequestProcessorTest {
                 .build();
         InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
         assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        assertEquals("The received state doesn't match the expected one.", e.getMessage());
+        assertEquals("The received state doesn't match the expected one. No state parameter was found on the authorization response.", e.getMessage());
     }
 
     @Test
@@ -120,7 +120,7 @@ public class RequestProcessorTest {
                 .build();
         InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
         assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        assertEquals("The received state doesn't match the expected one.", e.getMessage());
+        assertEquals("The received state doesn't match the expected one. No state cookie or state session attribute found. Check that you are using non-deprecated methods and that cookies are not being removed on the server.", e.getMessage());
     }
 
     @Test
@@ -276,6 +276,80 @@ public class RequestProcessorTest {
                 .withIdTokenVerifier(tokenVerifier)
                 .build();
         Tokens tokens = handler.process(request, response);
+
+        //Should not verify the ID Token twice
+        verify(tokenVerifier).verify("frontIdToken", verifyOptions);
+        verify(tokenVerifier, never()).verify("backIdToken", verifyOptions);
+        verifyNoMoreInteractions(tokenVerifier);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getIdToken(), is("frontIdToken"));
+        assertThat(tokens.getType(), is("frontTokenType"));
+        assertThat(tokens.getExpiresIn(), is(8400L));
+    }
+
+    @Test
+    public void shouldReturnTokensOnProcessIfIdTokenCodeRequestPassesIdTokenVerificationWhenUsingSessionStorage() throws Exception {
+        doNothing().when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        params.put("id_token", "frontIdToken");
+        params.put("expires_in", "8400");
+        params.put("token_type", "frontTokenType");
+        MockHttpServletRequest request = getRequest(params);
+        request.getSession().setAttribute("com.auth0.state", "1234");
+
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
+        TokenHolder tokenHolder = mock(TokenHolder.class);
+        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
+        when(tokenHolder.getExpiresIn()).thenReturn(4800L);
+        when(tokenHolder.getTokenType()).thenReturn("backTokenType");
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
+        Tokens tokens = handler.process(request, response);
+
+        //Should not verify the ID Token twice
+        verify(tokenVerifier).verify("frontIdToken", verifyOptions);
+        verify(tokenVerifier, never()).verify("backIdToken", verifyOptions);
+        verifyNoMoreInteractions(tokenVerifier);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getIdToken(), is("frontIdToken"));
+        assertThat(tokens.getType(), is("frontTokenType"));
+        assertThat(tokens.getExpiresIn(), is(8400L));
+    }
+
+    @Test
+    public void shouldReturnTokensOnProcessIfIdTokenCodeRequestPassesIdTokenVerificationWhenUsingSessionStorageWithNullSession() throws Exception {
+        doNothing().when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        params.put("id_token", "frontIdToken");
+        params.put("expires_in", "8400");
+        params.put("token_type", "frontTokenType");
+        MockHttpServletRequest request = getRequest(params);
+        request.getSession().setAttribute("com.auth0.state", "1234");
+
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
+        TokenHolder tokenHolder = mock(TokenHolder.class);
+        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
+        when(tokenHolder.getExpiresIn()).thenReturn(4800L);
+        when(tokenHolder.getTokenType()).thenReturn("backTokenType");
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+
+        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token code", verifyOptions)
+                .withIdTokenVerifier(tokenVerifier)
+                .build();
+        Tokens tokens = handler.process(request, null);
 
         //Should not verify the ID Token twice
         verify(tokenVerifier).verify("frontIdToken", verifyOptions);

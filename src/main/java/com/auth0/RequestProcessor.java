@@ -292,7 +292,16 @@ class RequestProcessor {
      * @throws InvalidRequestException if the request contains a different state from the expected one
      */
     private void assertValidState(HttpServletRequest request, HttpServletResponse response) throws InvalidRequestException {
+        // TODO in v2:
+        //  - only store state/nonce in cookies, remove session storage
+        //  - create specific exception classes for various state validation failures (missing from auth response, missing
+        //    state cookie, mismatch)
+
         String stateFromRequest = request.getParameter(KEY_STATE);
+
+        if (stateFromRequest == null) {
+            throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one. No state parameter was found on the authorization response.");
+        }
 
         // If response is null, check the Session.
         // This can happen when the deprecated handle method that only takes the request parameter is called
@@ -306,6 +315,9 @@ class RequestProcessor {
         // Just in case state was stored in Session by building auth URL with deprecated method, but then called the
         // supported handle method with the request and response
         if (cookieState == null) {
+            if (SessionUtils.get(request, StorageUtils.STATE_KEY) == null) {
+                throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one. No state cookie or state session attribute found. Check that you are using non-deprecated methods and that cookies are not being removed on the server.");
+            }
             checkSessionState(request, stateFromRequest);
             return;
         }
