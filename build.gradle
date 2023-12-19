@@ -92,11 +92,3 @@ dependencies {
     testImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
     testImplementation 'com.squareup.okhttp3:okhttp:4.11.0'
 }
-
-
-jar {
-    // Will include dependencies to create fat jar
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-}
