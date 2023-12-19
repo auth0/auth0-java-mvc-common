@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.11.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.11.0) (2023-12-19)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.10.0...1.11.0)
+
+**Changed**
+- [SDK-4670] Improved state handling errors [\#140](https://github.com/auth0/auth0-java-mvc-common/pull/140) ([jimmyjames](https://github.com/jimmyjames))
+
+**Security**
+- Update dependencies for CVE-2023-3635 [\#137](https://github.com/auth0/auth0-java-mvc-common/pull/137) ([jimmyjames](https://github.com/jimmyjames))
+
 ## [1.10.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.10.0) (2023-07-18)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.9.5...1.10.0)
 
