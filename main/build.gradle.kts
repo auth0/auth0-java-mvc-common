@@ -10,9 +10,9 @@ dependencies {
     implementation("com.google.guava:guava-annotations:r03")
     implementation("commons-codec:commons-codec:1.15")
 
-    api("com.auth0:auth0:2.11.0")
-    api("com.auth0:java-jwt:3.19.4")
-    api("com.auth0:jwks-rsa:0.22.1")
+    implementation("com.auth0:auth0:1.45.1")
+    implementation("com.auth0:java-jwt:3.19.4")
+    implementation("com.auth0:jwks-rsa:0.22.1")
 
     testImplementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
     testImplementation("org.hamcrest:hamcrest:2.2")

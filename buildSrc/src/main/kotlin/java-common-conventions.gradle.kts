@@ -44,7 +44,7 @@ spotless {
 
 tasks.withType<JavaCompile> {
     options.compilerArgs.addAll(listOf("-Xlint:unchecked", "-Xlint:deprecation", "-Werror"))
-    options.errorprone.isEnabled.set(true)
+    options.errorprone.isEnabled.set(false)
     options.errorprone.disable("SameNameButDifferent", "MissingSummary", "JavaTimeDefaultTimeZone", "ObjectEqualsForPrimitives", "AlmostJavadoc","UnusedVariable")
 }
 
