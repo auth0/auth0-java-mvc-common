@@ -5,6 +5,7 @@ import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.PushedAuthorizationResponse;
 
+import com.auth0.net.Response;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.*;
@@ -224,15 +225,18 @@ public class AuthorizeUrl {
         storeTransient();
 
         try {
-            PushedAuthorizationResponse pushedAuthResponse = authAPI.pushedAuthorizationRequest(redirectUri, responseType, params).execute();
-            String requestUri = pushedAuthResponse.getRequestURI();
+            Response<PushedAuthorizationResponse> pushedAuthResponse = authAPI.pushedAuthorizationRequest(redirectUri, responseType, params).execute();
+            if (pushedAuthResponse == null || pushedAuthResponse.getBody() == null) {
+                throw new InvalidRequestException(API_ERROR, "The PAR request returned a missing or empty response");
+            }
+            String requestUri = pushedAuthResponse.getBody().getRequestURI();
             if (requestUri == null || requestUri.isEmpty()) {
                 throw new InvalidRequestException(API_ERROR, "The PAR request returned a missing or empty request_uri value");
             }
-            if (pushedAuthResponse.getExpiresIn() == null) {
+            if (pushedAuthResponse.getBody().getExpiresIn() == null) {
                 throw new InvalidRequestException(API_ERROR, "The PAR request returned a missing expires_in value");
             }
-            return authAPI.authorizeUrlWithPAR(pushedAuthResponse.getRequestURI());
+            return authAPI.authorizeUrlWithPAR(pushedAuthResponse.getBody().getRequestURI());
         } catch (Auth0Exception e) {
             throw new InvalidRequestException(API_ERROR, e.getMessage(), e);
         }

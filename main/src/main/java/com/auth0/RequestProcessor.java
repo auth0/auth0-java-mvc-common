@@ -3,6 +3,7 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
+import com.auth0.net.Response;
 import org.apache.commons.lang3.Validate;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -344,9 +345,10 @@ class RequestProcessor {
      * @see AuthAPI#exchangeCode(String, String)
      */
     private Tokens exchangeCodeForTokens(String authorizationCode, String redirectUri) throws Auth0Exception {
-        TokenHolder holder = client
+        Response<TokenHolder> tokenHolderResponse = client
                 .exchangeCode(authorizationCode, redirectUri)
                 .execute();
+        TokenHolder holder = tokenHolderResponse.getBody();
         return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn());
     }
 

@@ -96,11 +96,3 @@ AuthenticationController authController = AuthenticationController.newBuilder("Y
     .build();
 ```
 
-## HTTP logging
-
-Once you have created the instance of the `AuthenticationController`, you can enable HTTP logging for all Requests and Responses to debug a specific endpoint.
-**This will log everything including sensitive information** - do not use it in a production environment.
-
-```java
-authController.setLoggingEnabled(true);
-```

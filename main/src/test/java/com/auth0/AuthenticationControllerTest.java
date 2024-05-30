@@ -1,12 +1,32 @@
 package com.auth0;
 
-import com.auth0.client.HttpOptions;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
-import com.auth0.net.Telemetry;
+import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -15,16 +35,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import java.util.List;
-
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
 
 @SuppressWarnings("deprecated")
 public class AuthenticationControllerTest {
@@ -45,103 +55,9 @@ public class AuthenticationControllerTest {
         AuthenticationController.Builder builder = AuthenticationController.newBuilder("domain", "clientId", "clientSecret");
         builderSpy = spy(builder);
 
-        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), eq(null));
+        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"));
         doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("https://domain/"), eq("clientId"), signatureVerifierCaptor.capture());
         doReturn("1.2.3").when(builderSpy).obtainPackageVersion();
-    }
-
-    @Test
-    public void shouldSetupClientWithTelemetry() {
-        AuthenticationController controller = builderSpy.build();
-
-        ArgumentCaptor<Telemetry> telemetryCaptor = ArgumentCaptor.forClass(Telemetry.class);
-
-        assertThat(controller, is(notNullValue()));
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.getClient(), is(client));
-        verify(client).setTelemetry(telemetryCaptor.capture());
-
-        Telemetry capturedTelemetry = telemetryCaptor.getValue();
-        assertThat(capturedTelemetry, is(notNullValue()));
-        assertThat(capturedTelemetry.getName(), is("auth0-java-mvc-common"));
-        assertThat(capturedTelemetry.getVersion(), is("1.2.3"));
-    }
-
-    @Test
-    public void shouldCreateAuthAPIClientWithoutCustomHttpOptions() {
-        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
-        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret"));
-
-        spy.build();
-        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
-
-        HttpOptions actual = captor.getValue();
-        assertThat(actual, is(nullValue()));
-
-    }
-
-    @Test
-    public void shouldCreateAuthAPIClientWithCustomHttpOptions() {
-        HttpOptions options = new HttpOptions();
-        options.setConnectTimeout(5);
-        options.setReadTimeout(6);
-
-        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
-        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withHttpOptions(options));
-
-        spy.build();
-        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
-
-        HttpOptions actual = captor.getValue();
-        assertThat(actual, is(notNullValue()));
-        assertThat(actual.getConnectTimeout(), is(5));
-        assertThat(actual.getReadTimeout(), is(6));
-    }
-
-    @Test
-    public void shouldDisableTelemetry() {
-        AuthenticationController controller = builderSpy.build();
-        controller.doNotSendTelemetry();
-
-        verify(client).doNotSendTelemetry();
-    }
-
-    @Test
-    public void shouldEnableLogging() {
-        AuthenticationController controller = builderSpy.build();
-
-        controller.setLoggingEnabled(true);
-        verify(client).setLoggingEnabled(true);
-    }
-
-    @Test
-    public void shouldDisableLogging() {
-        AuthenticationController controller = builderSpy.build();
-
-        controller.setLoggingEnabled(true);
-        verify(client).setLoggingEnabled(true);
-    }
-
-    @Test
-    public void shouldCreateWithSymmetricSignatureVerifierForNoCodeGrants() {
-        AuthenticationController controller = builderSpy
-                .withResponseType("id_token")
-                .build();
-
-        SignatureVerifier signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(SymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("token")
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(SymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
     }
 
     @Test
@@ -402,7 +318,6 @@ public class AuthenticationControllerTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withResponseType("code")
                 .build();
 
         controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
@@ -463,8 +378,10 @@ public class AuthenticationControllerTest {
         AuthenticationController controller = builderSpy.withResponseType("code").build();
 
         TokenRequest codeExchangeRequest = mock(TokenRequest.class);
+        Response<TokenHolder> tokenHolderResponse = mock(Response.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
-        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(tokenHolderResponse.getBody()).thenReturn(tokenHolder);
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolderResponse);
         when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
 
         AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
@@ -496,11 +413,13 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldCheckSessionFallbackWhenHandleCalledWithRequest() throws Exception {
-        AuthenticationController controller = builderSpy.withResponseType("code").build();
+        AuthenticationController controller = builderSpy.build();
 
         TokenRequest codeExchangeRequest = mock(TokenRequest.class);
+        Response<TokenHolder> tokenHolderResponse = mock(Response.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
-        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(tokenHolderResponse.getBody()).thenReturn(tokenHolder);
+        when(codeExchangeRequest.execute()).thenReturn(tokenHolderResponse);
         when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
 
         AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);

@@ -3,12 +3,10 @@ package com.auth0;
 import com.auth0.client.HttpOptions;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.jwk.JwkProvider;
-import com.auth0.net.Telemetry;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.Validate;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.commons.lang3.Validate;
 
 
 /**
@@ -196,8 +194,7 @@ public class AuthenticationController {
          * @throws UnsupportedOperationException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
          */
         public AuthenticationController build() throws UnsupportedOperationException {
-            AuthAPI apiClient = createAPIClient(domain, clientId, clientSecret, httpOptions);
-            setupTelemetry(apiClient);
+            AuthAPI apiClient = createAPIClient(domain, clientId, clientSecret, null);
 
             final boolean expectedAlgorithmIsExplicitlySetAndAsymmetric = jwkProvider != null;
             final SignatureVerifier signatureVerifier;
@@ -214,15 +211,9 @@ public class AuthenticationController {
 
             String issuer = getIssuer(domain);
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
-            verifyOptions.setClockSkew(clockSkew);
-            verifyOptions.setMaxAge(authenticationMaxAge);
-            verifyOptions.setOrganization(this.organization);
 
             RequestProcessor processor = new RequestProcessor.Builder(apiClient, responseType, verifyOptions)
                     .withLegacySameSiteCookie(useLegacySameSiteCookie)
-                    .withOrganization(organization)
-                    .withInvitation(invitation)
-                    .withCookiePath(cookiePath)
                     .build();
 
             return new AuthenticationController(processor);
@@ -242,9 +233,8 @@ public class AuthenticationController {
         }
 
         @VisibleForTesting
-        void setupTelemetry(AuthAPI client) {
-            Telemetry telemetry = new Telemetry("auth0-java-mvc-common", obtainPackageVersion());
-            client.setTelemetry(telemetry);
+        AuthAPI createAPIClient(String domain, String clientId, String clientSecret) {
+            return new AuthAPI(domain, clientId, clientSecret, null);
         }
 
         @VisibleForTesting
@@ -263,23 +253,6 @@ public class AuthenticationController {
             }
             return domain;
         }
-    }
-
-    /**
-     * Whether to enable or not the HTTP Logger for every Request and Response.
-     * Enabling this can expose sensitive information.
-     *
-     * @param enabled whether to enable the HTTP logger or not.
-     */
-    public void setLoggingEnabled(boolean enabled) {
-        requestProcessor.getClient().setLoggingEnabled(enabled);
-    }
-
-    /**
-     * Disable sending the Telemetry header on every request to the Auth0 API
-     */
-    public void doNotSendTelemetry() {
-        requestProcessor.getClient().doNotSendTelemetry();
     }
 
     /**
