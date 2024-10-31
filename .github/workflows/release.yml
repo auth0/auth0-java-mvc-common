@@ -5,7 +5,9 @@ on:
     types:
       - closed
   workflow_dispatch:
-
+  push:
+  branches:
+    - add-reversing-lab-scanner
 permissions:
   contents: write
   id-token: write # This is required for requesting the JWT
@@ -19,7 +21,7 @@ jobs:
     uses: ./.github/workflows/rl-secure.yml
     with:
       java-version: 8
-      artifact-name: 'mvc-auth-commons.jar'
+      artifact-name: "mvc-auth-commons.jar"
     secrets:
       RLSECURE_LICENSE: ${{ secrets.RLSECURE_LICENSE }}
       RLSECURE_SITE_KEY: ${{ secrets.RLSECURE_SITE_KEY }}
@@ -40,5 +42,3 @@ jobs:
       signing-key: ${{ secrets.SIGNING_KEY }}
       signing-password: ${{ secrets.SIGNING_PASSWORD }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
-
-
