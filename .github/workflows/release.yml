@@ -19,7 +19,7 @@ jobs:
     uses: ./.github/workflows/rl-secure.yml
     with:
       java-version: 8
-      artifact-name: "mvc-auth-commons.jar"
+      artifact-name: "auth0-java-mvc-common.tgz"
     secrets:
       RLSECURE_LICENSE: ${{ secrets.RLSECURE_LICENSE }}
       RLSECURE_SITE_KEY: ${{ secrets.RLSECURE_SITE_KEY }}
