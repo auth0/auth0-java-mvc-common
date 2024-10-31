@@ -5,9 +5,7 @@ on:
     types:
       - closed
   workflow_dispatch:
-  push:
-    branches:
-      - add-reversing-lab-scanner
+
 permissions:
   contents: write
   id-token: write # This is required for requesting the JWT
