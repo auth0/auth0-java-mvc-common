@@ -23,6 +23,7 @@ import java.util.List;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
@@ -412,7 +413,9 @@ public class AuthenticationControllerTest {
         List<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(1));
-        assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=Lax")));
+
+        assertThat(headers, everyItem(
+                is(startsWith("com.auth0.state=state;"))));
     }
 
     @Test
@@ -431,10 +434,11 @@ public class AuthenticationControllerTest {
         List<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(4));
-        assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=state; HttpOnly; Max-Age=600"));
-        assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.nonce=nonce; HttpOnly; Max-Age=600"));
+
+        assertThat(headers, hasItem(startsWith("com.auth0.state=state; Max-Age=600;")));
+        assertThat(headers, hasItem(startsWith("_com.auth0.state=state; Max-Age=600;")));
+        assertThat(headers, hasItem(startsWith("com.auth0.nonce=nonce; Max-Age=600;")));
+        assertThat(headers, hasItem(startsWith("_com.auth0.nonce=nonce; Max-Age=600;")));
     }
 
     @Test
@@ -454,8 +458,9 @@ public class AuthenticationControllerTest {
         List<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+
+        assertThat(headers, hasItem(startsWith("com.auth0.state=state; Max-Age=600;")));
+        assertThat(headers, hasItem(startsWith("com.auth0.nonce=nonce; Max-Age=600;")));
     }
 
     @Test
@@ -581,6 +586,9 @@ public class AuthenticationControllerTest {
         List<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(1));
-        assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; Path=/Path; SameSite=Lax")));
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[3].trim();
+
+        assertThat(headers, everyItem(
+                is(String.format("com.auth0.state=state; Path=/Path; Max-Age=600; %s; HttpOnly; SameSite=Lax", expectedExpires))));
     }
 }

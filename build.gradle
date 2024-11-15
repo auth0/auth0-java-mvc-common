@@ -79,16 +79,18 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:3.12.0'
     implementation 'com.google.guava:guava-annotations:r03'
     implementation 'commons-codec:commons-codec:1.15'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
 
     api 'com.auth0:auth0:1.45.1'
     api 'com.auth0:java-jwt:3.19.4'
     api 'com.auth0:jwks-rsa:0.22.1'
 
-    testImplementation "org.bouncycastle:bcprov-jdk15on:1.70"
+    testImplementation "org.bouncycastle:bcprov-jdk18on:1.78.1"
     testImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
     testImplementation 'org.hamcrest:hamcrest-core:1.3'
-    testImplementation 'org.mockito:mockito-core:2.8.9'
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+    testImplementation 'org.mockito:mockito-core:3.12.4'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testImplementation 'org.springframework:spring-web:5.2.19.RELEASE'
     testImplementation 'org.springframework:spring-test:5.2.19.RELEASE'
     testImplementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
