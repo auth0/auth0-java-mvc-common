@@ -50,10 +50,12 @@ public class TransientCookieStoreTest {
         assertThat(headers.size(), is(2));
 
         String expectedEncodedState = URLEncoder.encode(stateVal, "UTF-8");
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[2].trim();
+
         assertThat(headers, hasItem(
-                String.format("com.auth0.state=%s; HttpOnly; Max-Age=600; SameSite=None; Secure", expectedEncodedState)));
+                String.format("com.auth0.state=%s; Max-Age=600; %s; Secure; HttpOnly; SameSite=None", expectedEncodedState, expectedExpires)));
         assertThat(headers, hasItem(
-                String.format("_com.auth0.state=%s; HttpOnly; Max-Age=600", expectedEncodedState)));
+                String.format("_com.auth0.state=%s; Max-Age=600; %s; HttpOnly", expectedEncodedState, expectedExpires)));
     }
 
     @Test
@@ -62,9 +64,12 @@ public class TransientCookieStoreTest {
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[2].trim();
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=123456; HttpOnly; Max-Age=600"));
+        assertThat(headers, hasItem(
+                String.format("com.auth0.state=123456; Max-Age=600; %s; Secure; HttpOnly; SameSite=None", expectedExpires)));
+        assertThat(headers, hasItem(
+                String.format("_com.auth0.state=123456; Max-Age=600; %s; HttpOnly", expectedExpires)));
     }
 
     @Test
@@ -73,8 +78,10 @@ public class TransientCookieStoreTest {
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[2].trim();
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers, hasItem(
+                String.format("com.auth0.state=123456; Max-Age=600; %s; Secure; HttpOnly; SameSite=None", expectedExpires)));
     }
 
     @Test
@@ -83,8 +90,10 @@ public class TransientCookieStoreTest {
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[2].trim();
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=Lax; Secure"));
+        assertThat(headers, hasItem(
+                String.format("com.auth0.state=123456; Max-Age=600; %s; Secure; HttpOnly; SameSite=Lax", expectedExpires)));
     }
 
     @Test
@@ -93,9 +102,12 @@ public class TransientCookieStoreTest {
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[2].trim();
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=123456; HttpOnly; Max-Age=600; Secure"));
+        assertThat(headers, hasItem(
+                String.format("com.auth0.state=123456; Max-Age=600; %s; Secure; HttpOnly; SameSite=None", expectedExpires)));
+        assertThat(headers, hasItem(
+                String.format("_com.auth0.state=123456; Max-Age=600; %s; Secure; HttpOnly", expectedExpires)));
     }
 
     @Test
@@ -105,7 +117,10 @@ public class TransientCookieStoreTest {
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=Lax"));
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[2].trim();
+
+        assertThat(headers, hasItem(
+                String.format("com.auth0.state=123456; Max-Age=600; %s; HttpOnly; SameSite=Lax", expectedExpires)));
     }
 
     @Test
@@ -115,8 +130,13 @@ public class TransientCookieStoreTest {
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
 
-        assertThat(headers, hasItem("com.auth0.nonce=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.nonce=123456; HttpOnly; Max-Age=600"));
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[2].trim();
+
+        assertThat(headers, hasItem(
+                String.format("com.auth0.nonce=123456; Max-Age=600; %s; Secure; HttpOnly; SameSite=None", expectedExpires)));
+        assertThat(headers, hasItem(
+                String.format("_com.auth0.nonce=123456; Max-Age=600; %s; HttpOnly", expectedExpires)));
+
     }
 
     @Test
@@ -125,8 +145,10 @@ public class TransientCookieStoreTest {
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
+        String expectedExpires = response.getHeaders("Set-Cookie").get(0).split(";")[2].trim();
 
-        assertThat(headers, hasItem("com.auth0.nonce=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers, hasItem(
+                String.format("com.auth0.nonce=123456; Max-Age=600; %s; Secure; HttpOnly; SameSite=None", expectedExpires)));
     }
 
     @Test
