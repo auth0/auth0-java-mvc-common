@@ -80,7 +80,7 @@ dependencies {
     implementation 'com.google.guava:guava-annotations:r03'
     implementation 'commons-codec:commons-codec:1.15'
 
-    api 'com.auth0:auth0:1.45.1'
+    api 'com.auth0:auth0:2.16.0'
     api 'com.auth0:java-jwt:3.19.4'
     api 'com.auth0:jwks-rsa:0.22.1'
 
