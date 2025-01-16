@@ -1,12 +1,7 @@
 package com.auth0;
 
-import com.auth0.client.HttpOptions;
 import com.auth0.client.auth.AuthAPI;
-import com.auth0.client.auth.AuthorizeUrlBuilder;
-import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
-import com.auth0.net.Telemetry;
-import com.auth0.net.TokenRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -80,25 +75,6 @@ public class AuthenticationControllerTest {
 //
 //    }
 //
-//    @Test
-//    public void shouldCreateAuthAPIClientWithCustomHttpOptions() {
-//        HttpOptions options = new HttpOptions();
-//        options.setConnectTimeout(5);
-//        options.setReadTimeout(6);
-//
-//        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
-//        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-//                .withHttpOptions(options));
-//
-//        spy.build();
-//        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
-//
-//        HttpOptions actual = captor.getValue();
-//        assertThat(actual, is(notNullValue()));
-//        assertThat(actual.getConnectTimeout(), is(5));
-//        assertThat(actual.getReadTimeout(), is(6));
-//    }
-
 //    @Test
 //    public void shouldDisableTelemetry() {
 //        AuthenticationController controller = builderSpy.build();

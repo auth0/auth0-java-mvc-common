@@ -1,10 +1,10 @@
 package com.auth0;
 
-import com.auth0.client.HttpOptions;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.PushedAuthorizationResponse;
 import com.auth0.net.Request;
+import com.auth0.net.Response;
 import okhttp3.HttpUrl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -244,67 +244,75 @@ public class AuthorizeUrlTest {
         assertEquals("Please, use the dedicated methods for setting the 'nonce' and 'state' parameters.", e.getMessage());
     }
 
-//    @Test
-//    public void shouldGetAuthorizeUrlFromPAR() throws Exception {
-//        AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
-//        Request requestMock = mock(Request.class);
-//
-//        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse("urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", 90));
-//
-//        authAPIStub.pushedAuthorizationResponseRequest = requestMock;
-//        String url = new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
-//                .fromPushedAuthorizationRequest();
-//
-//        assertThat(url, is("https://domain.com/authorize?client_id=clientId&request_uri=urn%3Aexample%3Abwc4JK-ESC0w8acc191e-Y1LTC2"));
-//    }
+    @Test
+    public void shouldGetAuthorizeUrlFromPAR() throws Exception {
+        AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
+        Request requestMock = mock(Request.class);
 
-//    @Test
-//    public void fromPushedAuthorizationRequestThrowsWhenRequestUriIsNull() throws Exception {
-//        AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
-//        Request requestMock = mock(Request.class);
-//        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse(null, 90));
-//
-//        authAPIStub.pushedAuthorizationResponseRequest = requestMock;
-//
-//        InvalidRequestException exception = assertThrows(InvalidRequestException.class, () -> {
-//            new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
-//                    .fromPushedAuthorizationRequest();
-//        });
-//
-//        assertThat(exception.getMessage(), is("The PAR request returned a missing or empty request_uri value"));
-//    }
+        Response<PushedAuthorizationResponse> pushedAuthorizationResponseResponse = mock(Response.class);
+        when(requestMock.execute()).thenReturn(pushedAuthorizationResponseResponse);
+        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse("urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", 90));
 
-//    @Test
-//    public void fromPushedAuthorizationRequestThrowsWhenRequestUriIsEmpty() throws Exception {
-//        AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
-//        Request requestMock = mock(Request.class);
-//        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse("urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", null));
-//
-//        authAPIStub.pushedAuthorizationResponseRequest = requestMock;
-//
-//        InvalidRequestException exception = assertThrows(InvalidRequestException.class, () -> {
-//            new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
-//                    .fromPushedAuthorizationRequest();
-//        });
-//
-//        assertThat(exception.getMessage(), is("The PAR request returned a missing expires_in value"));
-//    }
+        authAPIStub.pushedAuthorizationResponseRequest = requestMock;
+        String url = new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
+                .fromPushedAuthorizationRequest();
 
-//    @Test
-//    public void fromPushedAuthorizationRequestThrowsWhenExpiresInIsNull() throws Exception {
-//        AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
-//        Request requestMock = mock(Request.class);
-//        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse(null, 90));
-//
-//        authAPIStub.pushedAuthorizationResponseRequest = requestMock;
-//
-//        InvalidRequestException exception = assertThrows(InvalidRequestException.class, () -> {
-//            new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
-//                    .fromPushedAuthorizationRequest();
-//        });
-//
-//        assertThat(exception.getMessage(), is("The PAR request returned a missing or empty request_uri value"));
-//    }
+        assertThat(url, is("https://domain.com/authorize?client_id=clientId&request_uri=urn%3Aexample%3Abwc4JK-ESC0w8acc191e-Y1LTC2"));
+    }
+
+    @Test
+    public void fromPushedAuthorizationRequestThrowsWhenRequestUriIsNull() throws Exception {
+        AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
+        Request requestMock = mock(Request.class);
+        Response<PushedAuthorizationResponse> pushedAuthorizationResponseResponse = mock(Response.class);
+        when(requestMock.execute()).thenReturn(pushedAuthorizationResponseResponse);
+        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse(null, 90));
+
+        authAPIStub.pushedAuthorizationResponseRequest = requestMock;
+
+        InvalidRequestException exception = assertThrows(InvalidRequestException.class, () -> {
+            new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
+                    .fromPushedAuthorizationRequest();
+        });
+
+        assertThat(exception.getMessage(), is("The PAR request returned a missing or empty request_uri value"));
+    }
+
+    @Test
+    public void fromPushedAuthorizationRequestThrowsWhenRequestUriIsEmpty() throws Exception {
+        AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
+        Request requestMock = mock(Request.class);
+        Response<PushedAuthorizationResponse> pushedAuthorizationResponseResponse = mock(Response.class);
+        when(requestMock.execute()).thenReturn(pushedAuthorizationResponseResponse);
+        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse("urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", null));
+
+        authAPIStub.pushedAuthorizationResponseRequest = requestMock;
+
+        InvalidRequestException exception = assertThrows(InvalidRequestException.class, () -> {
+            new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
+                    .fromPushedAuthorizationRequest();
+        });
+
+        assertThat(exception.getMessage(), is("The PAR request returned a missing expires_in value"));
+    }
+
+    @Test
+    public void fromPushedAuthorizationRequestThrowsWhenExpiresInIsNull() throws Exception {
+        AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
+        Request requestMock = mock(Request.class);
+        Response<PushedAuthorizationResponse> pushedAuthorizationResponseResponse = mock(Response.class);
+        when(requestMock.execute()).thenReturn(pushedAuthorizationResponseResponse);
+        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse(null, 90));
+
+        authAPIStub.pushedAuthorizationResponseRequest = requestMock;
+
+        InvalidRequestException exception = assertThrows(InvalidRequestException.class, () -> {
+            new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
+                    .fromPushedAuthorizationRequest();
+        });
+
+        assertThat(exception.getMessage(), is("The PAR request returned a missing or empty request_uri value"));
+    }
 
     @Test
     public void fromPushedAuthorizationRequestThrowsWhenRequestThrows() throws Exception {
@@ -328,10 +336,6 @@ public class AuthorizeUrlTest {
     static class AuthAPIStub extends AuthAPI {
 
         Request<PushedAuthorizationResponse> pushedAuthorizationResponseRequest;
-
-        public AuthAPIStub(String domain, String clientId, String clientSecret, HttpOptions options) {
-            super(domain, clientId, clientSecret, options);
-        }
 
         public AuthAPIStub(String domain, String clientId, String clientSecret) {
             super(domain, clientId, clientSecret);
