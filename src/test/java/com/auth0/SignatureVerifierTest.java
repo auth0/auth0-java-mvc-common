@@ -4,9 +4,9 @@ import com.auth0.jwk.Jwk;
 import com.auth0.jwk.JwkException;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Test;
 
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -18,6 +18,7 @@ import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.util.Scanner;
 
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -146,7 +147,7 @@ public class SignatureVerifierTest {
 
     private static RSAPublicKey readPublicKeyFromFile(final String path) throws IOException {
         Scanner scanner = null;
-        PemReader pemReader = null;
+        BufferedReader reader = null;
         try {
             scanner = new Scanner(Paths.get(path));
             if (scanner.hasNextLine() && scanner.nextLine().startsWith("-----BEGIN CERTIFICATE-----")) {
@@ -157,8 +158,15 @@ public class SignatureVerifierTest {
                 fs.close();
                 return (RSAPublicKey) key;
             } else {
-                pemReader = new PemReader(new FileReader(path));
-                byte[] keyBytes = pemReader.readPemObject().getContent();
+                reader = new BufferedReader(new FileReader(path));
+                StringBuilder pemContent = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!line.startsWith("-----BEGIN") && !line.startsWith("-----END")) {
+                        pemContent.append(line);
+                    }
+                }
+                byte[] keyBytes = Base64.getDecoder().decode(pemContent.toString());
                 KeyFactory kf = KeyFactory.getInstance("RSA");
                 EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
                 return (RSAPublicKey) kf.generatePublic(keySpec);
@@ -169,8 +177,8 @@ public class SignatureVerifierTest {
             if (scanner != null) {
                 scanner.close();
             }
-            if (pemReader != null) {
-                pemReader.close();
+            if (reader != null) {
+                reader.close();
             }
         }
     }
