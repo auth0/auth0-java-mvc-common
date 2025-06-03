@@ -187,7 +187,7 @@ tasks.register('performJakartaTransformation') {
         delete transformedClassesDir
         transformedClassesDir.mkdirs()
         
-        // Transform each classes directory
+        // Transform each classes directory directly to the root of transformedClassesDir
         sourceSets.main.output.classesDirs.each { classDir ->
             if (classDir.exists()) {
                 project.javaexec {
@@ -195,7 +195,7 @@ tasks.register('performJakartaTransformation') {
                     main = 'org.eclipse.transformer.cli.JakartaTransformerCLI'
                     args = [
                         classDir.absolutePath,
-                        file("${transformedClassesDir}/${classDir.name}").absolutePath,
+                        transformedClassesDir.absolutePath,
                         '-q' // quiet mode
                     ]
                 }
@@ -207,7 +207,7 @@ tasks.register('performJakartaTransformation') {
             if (resourceDir.exists()) {
                 copy {
                     from resourceDir
-                    into file("${transformedClassesDir}/resources")
+                    into transformedClassesDir
                 }
             }
         }
