@@ -26,8 +26,6 @@ version = getVersionFromFile()
 group = GROUP
 logger.lifecycle("Using version ${version} for ${name} group $group")
 
-import me.champeau.gradle.japicmp.JapicmpTask
-
 project.afterEvaluate {
     def versions = project.ext.testInJavaVersions
     for (pluginJavaTestVersion in versions) {
@@ -49,7 +47,7 @@ project.afterEvaluate {
 
     project.configure(project) {
         def baselineVersion = project.ext.baselineCompareVersion
-        task('apiDiff', type: JapicmpTask, dependsOn: 'jar') {
+        task('apiDiff', type: me.champeau.gradle.japicmp.JapicmpTask, dependsOn: 'jar') {
             oldClasspath.from(files(getBaselineJar(project, baselineVersion)))
             newClasspath.from(files(jar.archiveFile))
             onlyModified = true
@@ -169,44 +167,14 @@ dependencies {
     testJakartaRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }
 
-// Jakarta test task (disabled in development environment)
-tasks.register('testJakarta', Test) {
-    description = "Runs Jakarta EE specific tests (disabled in development due to toolchain compatibility)"
-    group = "verification"
-    testClassesDirs = sourceSets.testJakarta.output.classesDirs
-    classpath = sourceSets.testJakarta.runtimeClasspath
-    shouldRunAfter tasks.named('test')
+// Task to perform javax to jakarta transformation using Eclipse Transformer
+tasks.register('performJakartaTransformation') {
+    dependsOn tasks.named('classes')
     
-    // Disabled in development environment (can be enabled in CI with appropriate Java version)
-    enabled = false
+    def transformedClassesDir = file("$buildDir/transformed-classes")
     
-    useJUnitPlatform()
-    testLogging {
-        events "skipped", "failed"
-        exceptionFormat "short"
-    }
-    
-    // Include Jakarta JAR in classpath
-    dependsOn tasks.named('transformJarToJakarta')
-    doFirst {
-        def jakartaJar = file("$buildDir/libs/${project.name}-${project.version}-jakarta.jar")
-        if (jakartaJar.exists()) {
-            classpath += files(jakartaJar)
-        }
-    }
-}
-
-// Jakarta tests excluded from check task in development environment
-// Can be enabled in CI environment with appropriate Java version
-// tasks.named('check').configure {
-//     dependsOn tasks.named('testJakarta')
-// }
-
-apply from: rootProject.file('gradle/maven-publish.gradle')
-
-// Task to transform javax JAR to jakarta JAR using Eclipse Transformer
-tasks.register('transformJarToJakarta') {
-    dependsOn tasks.named('jar')
+    outputs.dir transformedClassesDir
+    inputs.files sourceSets.main.output.classesDirs
     
     doLast {
         // Eclipse Transformer CLI configuration
@@ -215,27 +183,111 @@ tasks.register('transformJarToJakarta') {
             project.dependencies.create("org.eclipse.transformer:org.eclipse.transformer.cli:${transformerVersion}")
         )
         
-        def inputJar = tasks.jar.archiveFile.get().asFile
-        def outputJar = file("$buildDir/libs/${project.name}-${project.version}-jakarta.jar")
+        // Clean and create output directory
+        delete transformedClassesDir
+        transformedClassesDir.mkdirs()
         
-        // Create output directory
-        outputJar.parentFile.mkdirs()
-        
-        project.javaexec {
-            classpath = transformerConfig
-            main = 'org.eclipse.transformer.cli.JakartaTransformerCLI'
-            args = [
-                inputJar.absolutePath,
-                outputJar.absolutePath,
-                '-q' // quiet mode
-            ]
+        // Transform each classes directory
+        sourceSets.main.output.classesDirs.each { classDir ->
+            if (classDir.exists()) {
+                project.javaexec {
+                    classpath = transformerConfig
+                    main = 'org.eclipse.transformer.cli.JakartaTransformerCLI'
+                    args = [
+                        classDir.absolutePath,
+                        file("${transformedClassesDir}/${classDir.name}").absolutePath,
+                        '-q' // quiet mode
+                    ]
+                }
+            }
         }
         
-        println "Jakarta JAR file generated: ${outputJar.absolutePath}"
+        // Also transform resources if needed
+        sourceSets.main.output.resourcesDir.with { resourceDir ->
+            if (resourceDir.exists()) {
+                copy {
+                    from resourceDir
+                    into file("${transformedClassesDir}/resources")
+                }
+            }
+        }
+        
+        println "Jakarta transformation completed: ${transformedClassesDir.absolutePath}"
     }
+}
+
+// Task to create Jakarta JAR from transformed classes
+tasks.register('transformJarToJakarta', Jar) {
+    dependsOn tasks.named('performJakartaTransformation')
+    
+    archiveClassifier = 'jakarta'
+    
+    def transformedClassesDir = file("$buildDir/transformed-classes")
+    
+    from transformedClassesDir
+    
+    // Include original manifest with modifications
+    manifest {
+        from(tasks.jar.manifest) {
+            attributes.remove('Implementation-Title')
+            attributes.remove('Implementation-Version')
+        }
+        attributes(
+            'Implementation-Title': "${project.name}-jakarta",
+            'Implementation-Version': project.version,
+            'Jakarta-Transformed': 'true'
+        )
+    }
+    
+    doLast {
+        println "Jakarta JAR file generated: ${archiveFile.get().asFile.absolutePath}"
+    }
+}
+
+// Jakarta test task (updated to use transformed JAR)
+tasks.register('testJakarta', Test) {
+    description = "Runs Jakarta EE specific tests using transformed jakarta classes"
+    group = "verification"
+    testClassesDirs = sourceSets.testJakarta.output.classesDirs
+    
+    // Build classpath with Jakarta dependencies and transformed JAR
+    def jakartaClasspath = sourceSets.testJakarta.runtimeClasspath
+    
+    shouldRunAfter tasks.named('test')
+    dependsOn tasks.named('transformJarToJakarta')
+    
+    // Enabled for Jakarta testing
+    enabled = true
+    
+    useJUnitPlatform()
+    testLogging {
+        events "skipped", "failed"
+        exceptionFormat "short"
+    }
+    
+    doFirst {
+        def jakartaJar = tasks.transformJarToJakarta.archiveFile.get().asFile
+        if (jakartaJar.exists()) {
+            // Replace main classes with jakarta-transformed JAR in classpath
+            classpath = jakartaClasspath + files(jakartaJar) - sourceSets.main.output
+        } else {
+            throw new GradleException("Jakarta JAR not found: ${jakartaJar.absolutePath}")
+        }
+    }
+}
+
+// Enable Jakarta tests in check task
+tasks.named('check').configure {
+    dependsOn tasks.named('testJakarta')
 }
 
 // Ensure Jakarta JAR is built when running build task
 tasks.named('build').configure {
     dependsOn tasks.named('transformJarToJakarta')
 }
+
+apply from: rootProject.file('gradle/maven-publish.gradle')
+
+
+
+
