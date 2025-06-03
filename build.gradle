@@ -106,6 +106,20 @@ java {
     }
 }
 
+// Jakarta test source set configuration
+sourceSets {
+    testJakarta {
+        java {
+            srcDirs = ['src/testJakarta/java']
+        }
+        resources {
+            srcDirs = ['src/testJakarta/resources']
+        }
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
 compileJava {
     sourceCompatibility '1.8'
     targetCompatibility '1.8'
@@ -136,6 +150,92 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
     testImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
     testImplementation 'com.squareup.okhttp3:okhttp:4.11.0'
+
+    // Jakarta test dependencies (Java 8 compatible)
+    testJakartaImplementation 'jakarta.servlet:jakarta.servlet-api:5.0.0'
+    testJakartaImplementation 'org.apache.commons:commons-lang3:3.12.0'
+    testJakartaImplementation 'com.google.guava:guava-annotations:r03'
+    testJakartaImplementation 'commons-codec:commons-codec:1.15'
+    testJakartaImplementation 'com.auth0:auth0:1.45.1'
+    testJakartaImplementation 'com.auth0:java-jwt:3.19.4'
+    testJakartaImplementation 'com.auth0:jwks-rsa:0.22.1'
+    testJakartaImplementation 'org.bouncycastle:bcprov-jdk15on:1.64'
+    testJakartaImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
+    testJakartaImplementation 'org.hamcrest:hamcrest-core:1.3'
+    testJakartaImplementation 'org.mockito:mockito-core:2.8.9'
+    testJakartaImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+    testJakartaImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
+    testJakartaImplementation 'com.squareup.okhttp3:okhttp:4.11.0'
+    testJakartaRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }
 
+// Jakarta test task (disabled in development environment)
+tasks.register('testJakarta', Test) {
+    description = "Runs Jakarta EE specific tests (disabled in development due to toolchain compatibility)"
+    group = "verification"
+    testClassesDirs = sourceSets.testJakarta.output.classesDirs
+    classpath = sourceSets.testJakarta.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+    
+    // Disabled in development environment (can be enabled in CI with appropriate Java version)
+    enabled = false
+    
+    useJUnitPlatform()
+    testLogging {
+        events "skipped", "failed"
+        exceptionFormat "short"
+    }
+    
+    // Include Jakarta JAR in classpath
+    dependsOn tasks.named('transformJarToJakarta')
+    doFirst {
+        def jakartaJar = file("$buildDir/libs/${project.name}-${project.version}-jakarta.jar")
+        if (jakartaJar.exists()) {
+            classpath += files(jakartaJar)
+        }
+    }
+}
+
+// Jakarta tests excluded from check task in development environment
+// Can be enabled in CI environment with appropriate Java version
+// tasks.named('check').configure {
+//     dependsOn tasks.named('testJakarta')
+// }
+
 apply from: rootProject.file('gradle/maven-publish.gradle')
+
+// Task to transform javax JAR to jakarta JAR using Eclipse Transformer
+tasks.register('transformJarToJakarta') {
+    dependsOn tasks.named('jar')
+    
+    doLast {
+        // Eclipse Transformer CLI configuration
+        def transformerVersion = '0.5.0'
+        def transformerConfig = project.configurations.detachedConfiguration(
+            project.dependencies.create("org.eclipse.transformer:org.eclipse.transformer.cli:${transformerVersion}")
+        )
+        
+        def inputJar = tasks.jar.archiveFile.get().asFile
+        def outputJar = file("$buildDir/libs/${project.name}-${project.version}-jakarta.jar")
+        
+        // Create output directory
+        outputJar.parentFile.mkdirs()
+        
+        project.javaexec {
+            classpath = transformerConfig
+            main = 'org.eclipse.transformer.cli.JakartaTransformerCLI'
+            args = [
+                inputJar.absolutePath,
+                outputJar.absolutePath,
+                '-q' // quiet mode
+            ]
+        }
+        
+        println "Jakarta JAR file generated: ${outputJar.absolutePath}"
+    }
+}
+
+// Ensure Jakarta JAR is built when running build task
+tasks.named('build').configure {
+    dependsOn tasks.named('transformJarToJakarta')
+}

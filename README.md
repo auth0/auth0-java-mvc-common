@@ -24,11 +24,13 @@
 
 ### Requirements
 
-Java 8 or above and `javax.servlet` version 3.
+Java 8 or above and `javax.servlet` version 3, **or** `jakarta.servlet` version 5.0 or above for Jakarta EE environments.
 
 > If you are using Spring, we recommend leveraging Spring's OIDC and OAuth2 support, as demonstrated by the [Spring Boot Quickstart](https://auth0.com/docs/quickstart/webapp/java-spring-boot).
 
 ### Installation
+
+#### For traditional Java EE / javax.servlet environments:
 
 Add the dependency via Maven:
 
@@ -36,14 +38,35 @@ Add the dependency via Maven:
 <dependency>
   <groupId>com.auth0</groupId>
   <artifactId>mvc-auth-commons</artifactId>
-  <version>1.11.0</version>
+  <version>1.12.0</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:mvc-auth-commons:1.11.0'
+implementation 'com.auth0:mvc-auth-commons:1.12.0'
+```
+
+#### For Jakarta EE / jakarta.servlet environments:
+
+Starting from version 1.12.0, this library provides dual support for both javax.servlet and jakarta.servlet environments through bytecode transformation. For Jakarta EE environments (Tomcat 10+ etc.), use the Jakarta-compatible version:
+
+Add the dependency via Maven:
+
+```xml
+<dependency>
+  <groupId>com.auth0</groupId>
+  <artifactId>mvc-auth-commons</artifactId>
+  <version>1.12.0</version>
+  <classifier>jakarta</classifier>
+</dependency>
+```
+
+or Gradle:
+
+```gradle
+implementation 'com.auth0:mvc-auth-commons:1.12.0:jakarta'
 ```
 
 ### Configure Auth0
