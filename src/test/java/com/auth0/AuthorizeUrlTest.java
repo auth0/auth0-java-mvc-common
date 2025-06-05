@@ -11,13 +11,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collection;
 import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
@@ -91,8 +92,8 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem("com.auth0.nonce=asdfghjkl; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.nonce=asdfghjkl; HttpOnly; Max-Age=600"));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
     }
 
     @Test
@@ -105,7 +106,7 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem("com.auth0.nonce=asdfghjkl; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
     }
 
     @Test
@@ -117,8 +118,8 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem("com.auth0.state=asdfghjkl; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=asdfghjkl; HttpOnly; Max-Age=600"));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
     }
 
     @Test
@@ -131,7 +132,7 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem("com.auth0.state=asdfghjkl; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
     }
 
     @Test
@@ -144,7 +145,7 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem("com.auth0.state=asdfghjkl; HttpOnly; Max-Age=600; SameSite=Lax; Secure"));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=Lax")));
     }
 
     @Test
@@ -157,8 +158,8 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem("com.auth0.state=asdfghjkl; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=asdfghjkl; HttpOnly; Max-Age=600"));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
     }
 
     @Test
