@@ -15,9 +15,13 @@ jobs:
         with:
           distribution: temurin
           java-version: 8
-      - uses: gradle/actions/setup-gradle@06832c7b30a0129d7fb559bcc6e43d26f6374244 # v4.3.1
-        with:
-          arguments: assemble apiDiff check jacocoTestReport --continue --console=plain
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@06832c7b30a0129d7fb559bcc6e43d26f6374244 # v4.3.1
+
+      - name: Test and Assemble and ApuDiff with Gradle
+        run: ./gradlew assemble apiDiff check jacocoTestReport --continue --console=plain
+
       - uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d
         with:
           flags: unittests
