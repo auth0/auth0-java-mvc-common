@@ -1,10 +1,10 @@
 package com.auth0;
 
-import com.auth0.client.HttpOptions;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.PushedAuthorizationResponse;
 import com.auth0.net.Request;
+import com.auth0.net.Response;
 import okhttp3.HttpUrl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -249,7 +249,9 @@ public class AuthorizeUrlTest {
         AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
         Request requestMock = mock(Request.class);
 
-        when(requestMock.execute()).thenReturn(new PushedAuthorizationResponse("urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", 90));
+        Response<PushedAuthorizationResponse> pushedAuthorizationResponseResponse = mock(Response.class);
+        when(requestMock.execute()).thenReturn(pushedAuthorizationResponseResponse);
+        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse("urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", 90));
 
         authAPIStub.pushedAuthorizationResponseRequest = requestMock;
         String url = new AuthorizeUrl(authAPIStub, request, response, "https://domain.com/callback", "code")
@@ -262,7 +264,9 @@ public class AuthorizeUrlTest {
     public void fromPushedAuthorizationRequestThrowsWhenRequestUriIsNull() throws Exception {
         AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
         Request requestMock = mock(Request.class);
-        when(requestMock.execute()).thenReturn(new PushedAuthorizationResponse(null, 90));
+        Response<PushedAuthorizationResponse> pushedAuthorizationResponseResponse = mock(Response.class);
+        when(requestMock.execute()).thenReturn(pushedAuthorizationResponseResponse);
+        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse(null, 90));
 
         authAPIStub.pushedAuthorizationResponseRequest = requestMock;
 
@@ -278,7 +282,9 @@ public class AuthorizeUrlTest {
     public void fromPushedAuthorizationRequestThrowsWhenRequestUriIsEmpty() throws Exception {
         AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
         Request requestMock = mock(Request.class);
-        when(requestMock.execute()).thenReturn(new PushedAuthorizationResponse("urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", null));
+        Response<PushedAuthorizationResponse> pushedAuthorizationResponseResponse = mock(Response.class);
+        when(requestMock.execute()).thenReturn(pushedAuthorizationResponseResponse);
+        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse("urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", null));
 
         authAPIStub.pushedAuthorizationResponseRequest = requestMock;
 
@@ -294,7 +300,9 @@ public class AuthorizeUrlTest {
     public void fromPushedAuthorizationRequestThrowsWhenExpiresInIsNull() throws Exception {
         AuthAPIStub authAPIStub = new AuthAPIStub("https://domain.com", "clientId", "clientSecret");
         Request requestMock = mock(Request.class);
-        when(requestMock.execute()).thenReturn(new PushedAuthorizationResponse(null, 90));
+        Response<PushedAuthorizationResponse> pushedAuthorizationResponseResponse = mock(Response.class);
+        when(requestMock.execute()).thenReturn(pushedAuthorizationResponseResponse);
+        when(requestMock.execute().getBody()).thenReturn(new PushedAuthorizationResponse(null, 90));
 
         authAPIStub.pushedAuthorizationResponseRequest = requestMock;
 
@@ -328,10 +336,6 @@ public class AuthorizeUrlTest {
     static class AuthAPIStub extends AuthAPI {
 
         Request<PushedAuthorizationResponse> pushedAuthorizationResponseRequest;
-
-        public AuthAPIStub(String domain, String clientId, String clientSecret, HttpOptions options) {
-            super(domain, clientId, clientSecret, options);
-        }
 
         public AuthAPIStub(String domain, String clientId, String clientSecret) {
             super(domain, clientId, clientSecret);
