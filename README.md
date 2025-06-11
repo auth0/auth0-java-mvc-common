@@ -24,7 +24,7 @@
 
 ### Requirements
 
-Java 8 or above and `javax.servlet` version 3.
+**Java 11 or above** and **`jakarta.servlet` version 5 or higher**.
 
 > If you are using Spring, we recommend leveraging Spring's OIDC and OAuth2 support, as demonstrated by the [Spring Boot Quickstart](https://auth0.com/docs/quickstart/webapp/java-spring-boot).
 
