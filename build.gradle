@@ -47,40 +47,40 @@ project.afterEvaluate {
         }
     }
 
-//    project.configure(project) {
-//        def baselineVersion = project.ext.baselineCompareVersion
-//        task('apiDiff', type: JapicmpTask, dependsOn: 'jar') {
-//            oldClasspath.from(files(getBaselineJar(project, baselineVersion)))
-//            newClasspath.from(files(jar.archiveFile))
-//            onlyModified = true
-//            failOnModification = true
-//            ignoreMissingClasses = true
-//            htmlOutputFile = file("$buildDir/reports/apiDiff/apiDiff.html")
-//            txtOutputFile = file("$buildDir/reports/apiDiff/apiDiff.txt")
-//            doLast {
-//                project.logger.quiet("Comparing against baseline version ${baselineVersion}")
-//            }
-//        }
-//    }
+    project.configure(project) {
+        def baselineVersion = project.ext.baselineCompareVersion
+        task('apiDiff', type: JapicmpTask, dependsOn: 'jar') {
+            oldClasspath.from(files(getBaselineJar(project, baselineVersion)))
+            newClasspath.from(files(jar.archiveFile))
+            onlyModified = true
+            failOnModification = true
+            ignoreMissingClasses = true
+            htmlOutputFile = file("$buildDir/reports/apiDiff/apiDiff.html")
+            txtOutputFile = file("$buildDir/reports/apiDiff/apiDiff.txt")
+            doLast {
+                project.logger.quiet("Comparing against baseline version ${baselineVersion}")
+            }
+        }
+    }
 }
 
-//private static File getBaselineJar(Project project, String baselineVersion) {
-//    // Use detached configuration: https://github.com/square/okhttp/blob/master/build.gradle#L270
-//    def group = project.group
-//    try {
-//        def baseline = "${project.group}:${project.name}:$baselineVersion"
-//        project.group = 'virtual_group_for_japicmp'
-//        def dependency = project.dependencies.create(baseline + "@jar")
-//        return project.configurations.detachedConfiguration(dependency).files.find {
-//            it.name == "${project.name}-${baselineVersion}.jar"
-//        }
-//    } finally {
-//        project.group = group
-//    }
-//}
+private static File getBaselineJar(Project project, String baselineVersion) {
+    // Use detached configuration: https://github.com/square/okhttp/blob/master/build.gradle#L270
+    def group = project.group
+    try {
+        def baseline = "${project.group}:${project.name}:$baselineVersion"
+        project.group = 'virtual_group_for_japicmp'
+        def dependency = project.dependencies.create(baseline + "@jar")
+        return project.configurations.detachedConfiguration(dependency).files.find {
+            it.name == "${project.name}-${baselineVersion}.jar"
+        }
+    } finally {
+        project.group = group
+    }
+}
 
 ext {
-    //baselineCompareVersion = '1.5.0'
+    baselineCompareVersion = '1.5.0'
     testInJavaVersions = [8, 11, 17, 21]
 }
 
@@ -103,6 +103,20 @@ java {
         configurations.getByName(compileClasspathConfigurationName) {
             attributes.attribute(Attribute.of("org.gradle.jvm.environment", String), "standard-jvm")
         }
+    }
+}
+
+// Jakarta test source set configuration
+sourceSets {
+    testJakarta {
+        java {
+            srcDirs = ['src/testJakarta/java']
+        }
+        resources {
+            srcDirs = ['src/testJakarta/resources']
+        }
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
     }
 }
 
@@ -136,6 +150,142 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
     testImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
     testImplementation 'com.squareup.okhttp3:okhttp:4.11.0'
+
+    // Jakarta test dependencies (Java 8 compatible)
+    testJakartaImplementation 'jakarta.servlet:jakarta.servlet-api:5.0.0'
+    testJakartaImplementation 'org.apache.commons:commons-lang3:3.12.0'
+    testJakartaImplementation 'com.google.guava:guava-annotations:r03'
+    testJakartaImplementation 'commons-codec:commons-codec:1.15'
+    testJakartaImplementation 'com.auth0:auth0:1.45.1'
+    testJakartaImplementation 'com.auth0:java-jwt:3.19.4'
+    testJakartaImplementation 'com.auth0:jwks-rsa:0.22.1'
+    testJakartaImplementation 'org.bouncycastle:bcprov-jdk15on:1.64'
+    testJakartaImplementation 'org.hamcrest:java-hamcrest:2.0.0.0'
+    testJakartaImplementation 'org.hamcrest:hamcrest-core:1.3'
+    testJakartaImplementation 'org.mockito:mockito-core:2.8.9'
+    testJakartaImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+    testJakartaImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
+    testJakartaImplementation 'com.squareup.okhttp3:okhttp:4.11.0'
+    testJakartaRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+// Task to perform javax to jakarta transformation using Eclipse Transformer
+tasks.register('performJakartaTransformation') {
+    dependsOn tasks.named('classes')
+
+    def transformedClassesDir = file("$buildDir/transformed-classes")
+
+    outputs.dir transformedClassesDir
+    inputs.files sourceSets.main.output.classesDirs
+
+    doLast {
+        // Eclipse Transformer CLI configuration
+        def transformerVersion = '0.5.0'
+        def transformerConfig = project.configurations.detachedConfiguration(
+                project.dependencies.create("org.eclipse.transformer:org.eclipse.transformer.cli:${transformerVersion}")
+        )
+
+        // Clean and create output directory
+        delete transformedClassesDir
+        transformedClassesDir.mkdirs()
+
+        // Transform each classes directory directly to the root of transformedClassesDir
+        sourceSets.main.output.classesDirs.each { classDir ->
+            if (classDir.exists()) {
+                project.javaexec {
+                    classpath = transformerConfig
+                    main = 'org.eclipse.transformer.cli.JakartaTransformerCLI'
+                    args = [
+                            classDir.absolutePath,
+                            transformedClassesDir.absolutePath,
+                            '-q' // quiet mode
+                    ]
+                }
+            }
+        }
+
+        // Also transform resources if needed
+        sourceSets.main.output.resourcesDir.with { resourceDir ->
+            if (resourceDir.exists()) {
+                copy {
+                    from resourceDir
+                    into transformedClassesDir
+                }
+            }
+        }
+
+        println "Jakarta transformation completed: ${transformedClassesDir.absolutePath}"
+    }
+}
+
+// Task to create Jakarta JAR from transformed classes
+tasks.register('transformJarToJakarta', Jar) {
+    dependsOn tasks.named('performJakartaTransformation')
+
+    archiveClassifier = 'jakarta'
+
+    def transformedClassesDir = file("$buildDir/transformed-classes")
+
+    from transformedClassesDir
+
+    // Include original manifest with modifications
+    manifest {
+        from(tasks.jar.manifest) {
+            attributes.remove('Implementation-Title')
+            attributes.remove('Implementation-Version')
+        }
+        attributes(
+                'Implementation-Title': "${project.name}-jakarta",
+                'Implementation-Version': project.version,
+                'Jakarta-Transformed': 'true'
+        )
+    }
+
+    doLast {
+        println "Jakarta JAR file generated: ${archiveFile.get().asFile.absolutePath}"
+    }
+}
+
+// Jakarta test task (updated to use transformed JAR)
+tasks.register('testJakarta', Test) {
+    description = "Runs Jakarta EE specific tests using transformed jakarta classes"
+    group = "verification"
+    testClassesDirs = sourceSets.testJakarta.output.classesDirs
+
+    // Build classpath with Jakarta dependencies and transformed JAR
+    def jakartaClasspath = sourceSets.testJakarta.runtimeClasspath
+
+    shouldRunAfter tasks.named('test')
+    dependsOn tasks.named('transformJarToJakarta')
+
+    // Enabled for Jakarta testing
+    enabled = true
+
+    useJUnitPlatform()
+    testLogging {
+        events "skipped", "failed"
+        exceptionFormat "short"
+    }
+
+    doFirst {
+        def jakartaJar = tasks.transformJarToJakarta.archiveFile.get().asFile
+        if (jakartaJar.exists()) {
+            // Replace main classes with jakarta-transformed JAR in classpath
+            classpath = jakartaClasspath + files(jakartaJar) - sourceSets.main.output
+        } else {
+            throw new GradleException("Jakarta JAR not found: ${jakartaJar.absolutePath}")
+        }
+    }
+}
+
+// Enable Jakarta tests in check task
+tasks.named('check').configure {
+    dependsOn tasks.named('testJakarta')
+}
+
+// Ensure Jakarta JAR is built when running build task
+tasks.named('build').configure {
+    dependsOn tasks.named('transformJarToJakarta')
 }
 
 apply from: rootProject.file('gradle/maven-publish.gradle')
