@@ -37,7 +37,14 @@ publishing {
             artifactId = POM_ARTIFACT_ID
             version = getVersionName()
 
+            // 1. Main artifact (javax version) - no classifier
             artifact("$buildDir/libs/${project.name}-${version}.jar")
+
+            // 2. Jakarta EE version artifact - with 'jakarta' classifier
+            artifact("$buildDir/libs/${project.name}-${version}-jakarta.jar") {
+                classifier 'jakarta'
+            }
+
             artifact sourcesJar
             artifact javadocJar
 
