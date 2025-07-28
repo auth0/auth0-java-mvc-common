@@ -7,8 +7,8 @@ import com.auth0.net.client.DefaultHttpClient;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
@@ -284,7 +284,7 @@ public class AuthenticationController {
      * when building the {@link AuthorizeUrl} that the user will be redirected to to login. Failure to do so may result
      * in a broken login experience for the user.</p>
      *
-     * @deprecated This method uses the {@link javax.servlet.http.HttpSession} for auth-based data, and is incompatible
+     * @deprecated This method uses the {@link jakarta.servlet.http.HttpSession} for auth-based data, and is incompatible
      * with clients that are using the "id_token" or "token" responseType with browsers that enforce SameSite cookie
      * restrictions. This method will be removed in version 2.0.0. Use
      * {@link AuthenticationController#handle(HttpServletRequest, HttpServletResponse)} instead.
@@ -308,7 +308,7 @@ public class AuthenticationController {
      * {@link AuthenticationController#handle(HttpServletRequest)} method. Failure to do so may result in a broken login
      * experience for users.</p>
      *
-     * @deprecated This method stores data in the {@link javax.servlet.http.HttpSession}, and is incompatible with clients
+     * @deprecated This method stores data in the {@link jakarta.servlet.http.HttpSession}, and is incompatible with clients
      * that are using the "id_token" or "token" responseType with browsers that enforce SameSite cookie restrictions.
      * This method will be removed in version 2.0.0. Use
      * {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)} instead.

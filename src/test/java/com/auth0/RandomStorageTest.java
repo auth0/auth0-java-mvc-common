@@ -1,80 +1,116 @@
 package com.auth0;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockHttpServletRequest;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.when;
 
 public class RandomStorageTest {
 
+    @Mock
+    private HttpServletRequest request; // Mockito mock for HttpServletRequest
+    @Mock
+    private HttpSession session;     // Mockito mock for HttpSession
+
+    // A map to simulate the session attributes for our mocked HttpSession
+    private Map<String, Object> sessionAttributes;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+
+        sessionAttributes = new HashMap<>();
+
+        when(request.getSession()).thenReturn(session);
+        when(request.getSession(anyBoolean())).thenReturn(session);
+
+        doAnswer(invocation -> {
+            String name = invocation.getArgument(0);
+            Object value = invocation.getArgument(1);
+            sessionAttributes.put(name, value);
+            return null;
+        }).when(session).setAttribute(anyString(), any());
+
+        when(session.getAttribute(anyString())).thenAnswer(invocation -> {
+            String name = invocation.getArgument(0);
+            return sessionAttributes.get(name);
+        });
+
+        doAnswer(invocation -> {
+            String name = invocation.getArgument(0);
+            sessionAttributes.remove(name);
+            return null;
+        }).when(session).removeAttribute(anyString());
+    }
+
     @Test
     public void shouldSetState() {
-        MockHttpServletRequest req = new MockHttpServletRequest();
 
-        RandomStorage.setSessionState(req, "123456");
-        assertThat(req.getSession().getAttribute("com.auth0.state"), is("123456"));
+        RandomStorage.setSessionState(request, "123456");
+        assertThat(request.getSession().getAttribute("com.auth0.state"), is("123456"));
     }
 
     @Test
     public void shouldAcceptBothNullStates() {
-        MockHttpServletRequest req = new MockHttpServletRequest();
-        boolean validState = RandomStorage.checkSessionState(req, null);
+        boolean validState = RandomStorage.checkSessionState(request, null);
         assertThat(validState, is(true));
     }
 
     @Test
     public void shouldFailIfSessionStateIsNullButCurrentStateNotNull() {
-        MockHttpServletRequest req = new MockHttpServletRequest();
-        boolean validState = RandomStorage.checkSessionState(req, "12345");
+        boolean validState = RandomStorage.checkSessionState(request, "12345");
         assertThat(validState, is(false));
     }
 
     @Test
     public void shouldCheckAndRemoveInvalidState() {
-        MockHttpServletRequest req = new MockHttpServletRequest();
-        req.getSession().setAttribute("com.auth0.state", "123456");
+        request.getSession().setAttribute("com.auth0.state", "123456");
 
-        boolean validState = RandomStorage.checkSessionState(req, "abcdef");
+        boolean validState = RandomStorage.checkSessionState(request, "abcdef");
         assertThat(validState, is(false));
-        assertThat(req.getSession().getAttribute("com.auth0.state"), is(nullValue()));
+        assertThat(request.getSession().getAttribute("com.auth0.state"), is(nullValue()));
     }
 
     @Test
     public void shouldCheckAndRemoveCorrectState() {
-        MockHttpServletRequest req = new MockHttpServletRequest();
-        req.getSession().setAttribute("com.auth0.state", "123456");
+        sessionAttributes.put("com.auth0.state", "123456");
 
-        boolean validState = RandomStorage.checkSessionState(req, "123456");
+        boolean validState = RandomStorage.checkSessionState(request, "123456");
         assertThat(validState, is(true));
-        assertThat(req.getSession().getAttribute("com.auth0.state"), is(nullValue()));
+        assertThat(request.getSession().getAttribute("com.auth0.state"), is(nullValue()));
     }
 
     @Test
     public void shouldSetNonce() {
-        MockHttpServletRequest req = new MockHttpServletRequest();
-
-        RandomStorage.setSessionNonce(req, "123456");
-        assertThat(req.getSession().getAttribute("com.auth0.nonce"), is("123456"));
+        RandomStorage.setSessionNonce(request, "123456");
+        assertThat(request.getSession().getAttribute("com.auth0.nonce"), is("123456"));
     }
 
     @Test
     public void shouldGetAndRemoveNonce() {
-        MockHttpServletRequest req = new MockHttpServletRequest();
-        req.getSession().setAttribute("com.auth0.nonce", "123456");
+        request.getSession().setAttribute("com.auth0.nonce", "123456");
 
-        String nonce = RandomStorage.removeSessionNonce(req);
+        String nonce = RandomStorage.removeSessionNonce(request);
         assertThat(nonce, is("123456"));
-        assertThat(req.getSession().getAttribute("com.auth0.nonce"), is(nullValue()));
+        assertThat(request.getSession().getAttribute("com.auth0.nonce"), is(nullValue()));
     }
 
     @Test
     public void shouldGetAndRemoveNonceIfMissing() {
-        MockHttpServletRequest req = new MockHttpServletRequest();
-
-        String nonce = RandomStorage.removeSessionNonce(req);
+        String nonce = RandomStorage.removeSessionNonce(request);
         assertThat(nonce, is(nullValue()));
-        assertThat(req.getSession().getAttribute("com.auth0.nonce"), is(nullValue()));
+        assertThat(request.getSession().getAttribute("com.auth0.nonce"), is(nullValue()));
     }
 }
