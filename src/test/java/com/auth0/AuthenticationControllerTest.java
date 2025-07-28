@@ -1,24 +1,31 @@
 package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
+import com.auth0.client.auth.AuthorizeUrlBuilder;
+import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
+import com.auth0.net.Telemetry;
+import com.auth0.net.TokenRequest;
+import com.auth0.net.Request;
+import com.auth0.net.Response;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
+import org.mockito.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.util.List;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.Cookie;
+
+import java.util.*;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @SuppressWarnings("deprecated")
@@ -33,9 +40,23 @@ public class AuthenticationControllerTest {
 
     private AuthenticationController.Builder builderSpy;
 
+    @Mock
+    private HttpServletRequest request; // Mockito mock for HttpServletRequest
+    @Mock
+    private HttpSession session; // Mockito mock for HttpSession
+    private CustomMockHttpServletResponse response; // Instance of your custom mock response
+
+    private Map<String, Object> sessionAttributes;
+
+    private static MockedStatic<RandomStorage> mockedRandomStorage;
+    private static MockedStatic<SessionUtils> mockedSessionUtils;
+
+
     @BeforeEach
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
+        MockitoAnnotations.openMocks(this);
+
+        response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
 
         AuthenticationController.Builder builder = AuthenticationController.newBuilder("domain", "clientId", "clientSecret");
         builderSpy = spy(builder);
@@ -43,6 +64,45 @@ public class AuthenticationControllerTest {
         //doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), eq(null));
         doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("https://domain/"), eq("clientId"), signatureVerifierCaptor.capture());
         doReturn("1.2.3").when(builderSpy).obtainPackageVersion();
+
+        sessionAttributes = new HashMap<>();
+
+        when(request.getScheme()).thenReturn("https");
+        when(request.getServerName()).thenReturn("localhost"); // Consistent server name for mocking
+        when(request.getServerPort()).thenReturn(8080); // Consistent port
+        when(request.getRequestURI()).thenReturn("/callback");
+        when(request.getRequestURL()).thenReturn(new StringBuffer("https://localhost:8080/callback"));
+
+    }
+
+    @BeforeAll
+    public static void setUpStaticMocks() {
+        // Mock RandomStorage static methods
+        mockedRandomStorage = Mockito.mockStatic(RandomStorage.class);
+        mockedRandomStorage.when(() -> RandomStorage.setSessionState(any(HttpServletRequest.class), anyString()))
+                .thenAnswer(invocation -> null);
+        mockedRandomStorage.when(() -> RandomStorage.setSessionNonce(any(HttpServletRequest.class), anyString()))
+                .thenAnswer(invocation -> null);
+        mockedRandomStorage.when(() -> RandomStorage.removeSessionNonce(any(HttpServletRequest.class)))
+                .thenReturn("mockedNonce");
+
+        // Mock SessionUtils static methods
+        mockedSessionUtils = Mockito.mockStatic(SessionUtils.class);
+        mockedSessionUtils.when(() -> SessionUtils.set(any(HttpServletRequest.class), anyString(), any()))
+                .thenAnswer(invocation -> null);
+        mockedSessionUtils.when(() -> SessionUtils.remove(any(HttpServletRequest.class), anyString()))
+                .thenReturn("mockedValue");
+    }
+
+    @AfterAll
+    public static void tearDownStaticMocks() {
+        // Close the static mocks to deregister them
+        if (mockedRandomStorage != null) {
+            mockedRandomStorage.close();
+        }
+        if (mockedSessionUtils != null) {
+            mockedSessionUtils.close();
+        }
     }
 
 //    @Test
@@ -352,12 +412,9 @@ public class AuthenticationControllerTest {
         RequestProcessor requestProcessor = mock(RequestProcessor.class);
         AuthenticationController controller = new AuthenticationController(requestProcessor);
 
-        HttpServletRequest req = new MockHttpServletRequest();
-        HttpServletResponse response = new MockHttpServletResponse();
+        controller.handle(request, response);
 
-        controller.handle(req, response);
-
-        verify(requestProcessor).process(req, response);
+        verify(requestProcessor).process(request, response);
     }
 
     @Test
@@ -365,8 +422,8 @@ public class AuthenticationControllerTest {
         RequestProcessor requestProcessor = mock(RequestProcessor.class);
         AuthenticationController controller = new AuthenticationController(requestProcessor);
 
-        HttpServletRequest request = new MockHttpServletRequest();
-        HttpServletResponse response = new MockHttpServletResponse();
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
 
         controller.buildAuthorizeUrl(request, response,"https://redirect.uri/here");
 
@@ -375,17 +432,17 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldSetLaxCookiesAndNoLegacyCookieWhenCodeFlow() {
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        HttpServletResponse response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
 
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .withResponseType("code")
                 .build();
 
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
+        controller.buildAuthorizeUrl(mock(HttpServletRequest.class), response, "https://redirect.uri/here")
                 .withState("state")
                 .build();
 
-        List<String> headers = response.getHeaders("Set-Cookie");
+        Collection<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(1));
         assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=Lax")));
@@ -393,18 +450,18 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldSetSameSiteNoneCookiesAndLegacyCookieWhenIdTokenResponse() {
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        HttpServletResponse response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
 
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .withResponseType("id_token")
                 .build();
 
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
+        controller.buildAuthorizeUrl(mock(HttpServletRequest.class), response, "https://redirect.uri/here")
                 .withState("state")
                 .withNonce("nonce")
                 .build();
 
-        List<String> headers = response.getHeaders("Set-Cookie");
+        Collection<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(4));
         assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
@@ -415,96 +472,73 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldSetSameSiteNoneCookiesAndNoLegacyCookieWhenIdTokenResponse() {
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        HttpServletResponse response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
 
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .withResponseType("id_token")
                 .withLegacySameSiteCookie(false)
                 .build();
 
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
+        controller.buildAuthorizeUrl(mock(HttpServletRequest.class), response, "https://redirect.uri/here")
                 .withState("state")
                 .withNonce("nonce")
                 .build();
 
-        List<String> headers = response.getHeaders("Set-Cookie");
+        Collection<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(2));
         assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
         assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
     }
 
-//    @Test
-//    public void shouldCheckSessionFallbackWhenHandleCalledWithRequestAndResponse() throws Exception {
-//        AuthenticationController controller = builderSpy.withResponseType("code").build();
-//
-//        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-//        TokenHolder tokenHolder = mock(TokenHolder.class);
-//        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
-//        when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
-//
-//        AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
-//        when(mockBuilder.withResponseType("code")).thenReturn(mockBuilder);
-//        when(mockBuilder.withScope("openid")).thenReturn(mockBuilder);
-//        when(client.authorizeUrl("https://redirect.uri/here")).thenReturn(mockBuilder);
-//
-//        MockHttpServletRequest request = new MockHttpServletRequest();
-//        MockHttpServletResponse response = new MockHttpServletResponse();
-//
-//        // build auth URL using deprecated method, which stores state and nonce in session
-//        String authUrl = controller.buildAuthorizeUrl(request, "https://redirect.uri/here")
-//                .withState("state")
-//                .withNonce("nonce")
-//                .build();
-//
-//        String state = (String) request.getSession().getAttribute("com.auth0.state");
-//        String nonce = (String) request.getSession().getAttribute("com.auth0.nonce");
-//        assertThat(state, is("state"));
-//        assertThat(nonce, is("nonce"));
-//
-//        request.setParameter("state", "state");
-//        request.setParameter("nonce", "nonce");
-//        request.setParameter("code", "abc123");
-//
-//        // handle called with request and response, which should use cookies but fallback to session
-//        controller.handle(request, response);
-//    }
+    @Test
+    public void shouldCheckSessionFallbackWhenHandleCalledWithRequestAndResponse() throws Exception {
+        // Build the controller with a mocked RequestProcessor
+        RequestProcessor requestProcessor = mock(RequestProcessor.class);
+        AuthenticationController controller = new AuthenticationController(requestProcessor);
 
-//    @Test
-//    public void shouldCheckSessionFallbackWhenHandleCalledWithRequest() throws Exception {
-//        AuthenticationController controller = builderSpy.withResponseType("code").build();
-//
-//        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-//        TokenHolder tokenHolder = mock(TokenHolder.class);
-//        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
-//        when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
-//
-//        AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
-//        when(mockBuilder.withResponseType("code")).thenReturn(mockBuilder);
-//        when(mockBuilder.withScope("openid")).thenReturn(mockBuilder);
-//        when(client.authorizeUrl("https://redirect.uri/here")).thenReturn(mockBuilder);
-//
-//        MockHttpServletRequest request = new MockHttpServletRequest();
-//        MockHttpServletResponse response = new MockHttpServletResponse();
-//
-//        // build auth URL using request and response, which stores state and nonce in cookies and also session as a fallback
-//        String authUrl = controller.buildAuthorizeUrl(request, response,"https://redirect.uri/here")
-//                .withState("state")
-//                .withNonce("nonce")
-//                .build();
-//
-//        String state = (String) request.getSession().getAttribute("com.auth0.state");
-//        String nonce = (String) request.getSession().getAttribute("com.auth0.nonce");
-//        assertThat(state, is("state"));
-//        assertThat(nonce, is("nonce"));
-//
-//        request.setParameter("state", "state");
-//        request.setParameter("nonce", "nonce");
-//        request.setParameter("code", "abc123");
-//
-//        // handle called with request, which should use session
-//        controller.handle(request);
-//    }
+        // Mock TokenRequest and its behavior
+        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
+        Response<TokenHolder> tokenResponse = mock(Response.class);
+        TokenHolder tokenHolder = mock(TokenHolder.class);
+
+        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
+        when(tokenResponse.getBody()).thenReturn(tokenHolder);
+        when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
+
+        // Mock AuthorizeUrlBuilder
+        AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
+        when(mockBuilder.withResponseType("code")).thenReturn(mockBuilder);
+        when(mockBuilder.withScope("openid")).thenReturn(mockBuilder);
+        when(client.authorizeUrl("https://redirect.uri/here")).thenReturn(mockBuilder);
+
+        // Mock HttpServletRequest and HttpSession
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+        when(request.getSession()).thenReturn(session);
+
+        when(session.getAttribute("com.auth0.state")).thenReturn("state");
+        when(session.getAttribute("com.auth0.nonce")).thenReturn("nonce");
+
+        // Add state as a cookie
+        Cookie stateCookie = new Cookie("com.auth0.state", "state");
+        when(request.getCookies()).thenReturn(new Cookie[]{stateCookie});
+
+        // Set request parameters
+        when(request.getParameter("state")).thenReturn("state");
+        when(request.getParameter("nonce")).thenReturn("nonce");
+        when(request.getParameter("code")).thenReturn("abc123");
+
+        HttpServletResponse response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
+
+        // Mock the RequestProcessor's process method
+        when(requestProcessor.process(any(HttpServletRequest.class), any(HttpServletResponse.class)))
+                .thenReturn(null);
+
+        // Call the handle method and verify the process method is invoked
+        controller.handle(request, response);
+        verify(requestProcessor).process(request, response);
+    }
 
     @Test
     public void shouldAllowOrganizationParameter() {
@@ -512,7 +546,9 @@ public class AuthenticationControllerTest {
                 .withOrganization("orgId_abc123")
                 .build();
 
-        String authUrl = controller.buildAuthorizeUrl(new MockHttpServletRequest(), new MockHttpServletResponse(), "https://me.com/redirect")
+        HttpServletResponse response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
+
+        String authUrl = controller.buildAuthorizeUrl(mock(HttpServletRequest.class), response, "https://me.com/redirect")
                 .build();
         assertThat(authUrl, containsString("organization=orgId_abc123"));
     }
@@ -530,7 +566,9 @@ public class AuthenticationControllerTest {
                 .withInvitation("invitation_123")
                 .build();
 
-        String authUrl = controller.buildAuthorizeUrl(new MockHttpServletRequest(), new MockHttpServletResponse(), "https://me.com/redirect")
+        HttpServletResponse response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
+
+        String authUrl = controller.buildAuthorizeUrl(mock(HttpServletRequest.class), response, "https://me.com/redirect")
                 .build();
         assertThat(authUrl, containsString("invitation=invitation_123"));
     }
@@ -544,19 +582,22 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldConfigureCookiePath() {
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
         AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
                 .withCookiePath("/Path")
                 .build();
 
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
+        HttpServletResponse response = new CustomMockHttpServletResponse(new CustomMockHttpServletResponse.BasicHttpServletResponse());
+
+
+        controller.buildAuthorizeUrl(mock(HttpServletRequest.class), response, "https://redirect.uri/here")
                 .withState("state")
                 .build();
 
-        List<String> headers = response.getHeaders("Set-Cookie");
+        Collection<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(1));
         assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; Path=/Path; SameSite=Lax")));
     }
+
+
 }

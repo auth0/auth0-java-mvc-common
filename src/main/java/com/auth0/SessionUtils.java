@@ -2,8 +2,8 @@ package com.auth0;
 
 import org.apache.commons.lang3.Validate;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * Helper class to handle easy session key-value storage.
