@@ -121,7 +121,7 @@ test {
 
 dependencies {
     implementation 'javax.servlet:javax.servlet-api:3.1.0'
-    implementation 'org.apache.commons:commons-lang3:3.12.0'
+    implementation 'org.apache.commons:commons-lang3:3.18.0'
     implementation 'com.google.guava:guava-annotations:r03'
     implementation 'commons-codec:commons-codec:1.15'
 
