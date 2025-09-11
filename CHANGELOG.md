@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.11.1](https://github.com/auth0/auth0-java-mvc-common/tree/1.11.1) (2025-09-11)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.11.0...1.11.1)
+
+**Added**
+- Updated apache commons package version [\#165](https://github.com/auth0/auth0-java-mvc-common/pull/165) ([tanya732](https://github.com/tanya732))
+
 ## [1.11.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.11.0) (2023-12-19)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.10.0...1.11.0)
 
