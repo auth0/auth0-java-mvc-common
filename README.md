@@ -5,6 +5,7 @@
 [![License](http://img.shields.io/:license-mit-blue.svg?style=flat)](https://doge.mit-license.org/)
 [![Maven Central](https://img.shields.io/maven-central/v/com.auth0/mvc-auth-commons.svg?style=flat-square)](https://mvnrepository.com/artifact/com.auth0/mvc-auth-commons)
 [![javadoc](https://javadoc.io/badge2/com.auth0/auth0-java-mvc-common/javadoc.svg)](https://javadoc.io/doc/com.auth0/mvc-auth-commons)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/auth0/auth0-java-mvc-common)
 
 > **Note**
 > As part of our ongoing commitment to best security practices, we have rotated the signing keys used to sign previous releases of this SDK. As a result, new patch builds have been released using the new signing key. Please upgrade at your earliest convenience.
