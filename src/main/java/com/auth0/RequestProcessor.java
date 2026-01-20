@@ -3,6 +3,8 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
+import com.auth0.jwk.JwkProvider;
+import com.auth0.jwk.UrlJwkProvider;
 import org.apache.commons.lang3.Validate;
 
 import javax.servlet.http.HttpServletRequest;
@@ -41,7 +43,11 @@ class RequestProcessor {
     private final String organization;
     private final String invitation;
     private final String cookiePath;
-
+    private DomainResolver domainResolver;
+    private String domain;
+    private final boolean isMcdEnabled;
+    private final String clientId;
+    private final String clientSecret;
 
     static class Builder {
         private final AuthAPI client;
@@ -52,9 +58,13 @@ class RequestProcessor {
         private String organization;
         private String invitation;
         private String cookiePath;
+        private DomainResolver domainResolver;
+        private String domain;
+        private boolean isMcdEnabled = false;
+        private String clientId;
+        private String clientSecret;
 
         Builder(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
-            Validate.notNull(client);
             Validate.notNull(responseType);
             Validate.notNull(verifyOptions);
             this.client = client;
@@ -87,15 +97,38 @@ class RequestProcessor {
             return this;
         }
 
+        Builder withDomain(String domain) {
+            this.domain = domain;
+            return this;
+        }
+
+        Builder withDomainResolver(DomainResolver resolver) {
+            this.domainResolver = resolver;
+            return this;
+        }
+
+        Builder withMcdEnabled(boolean isMcdEnabled) {
+            this.isMcdEnabled = isMcdEnabled;
+            return this;
+        }
+
+        Builder withCredentials(String clientId, String clientSecret) {
+            this.clientId = clientId;
+            this.clientSecret = clientSecret;
+            return this;
+        }
+
         RequestProcessor build() {
+            System.out.println("Building RequestProcessor with MCD Enabled: "+isMcdEnabled);
             return new RequestProcessor(client, responseType, verifyOptions,
                     this.tokenVerifier == null ? new IdTokenVerifier() : this.tokenVerifier,
-                    useLegacySameSiteCookie, organization, invitation, cookiePath);
+                    useLegacySameSiteCookie, organization, invitation, cookiePath, domainResolver, domain,
+                    isMcdEnabled, clientId, clientSecret);
         }
     }
 
-    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization, String invitation, String cookiePath) {
-        Validate.notNull(client);
+    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization, String invitation, String cookiePath, DomainResolver domainResolver, String domain, boolean isMcdEnabled,
+                             String clientId, String clientSecret) {
         Validate.notNull(responseType);
         Validate.notNull(verifyOptions);
         this.client = client;
@@ -106,6 +139,11 @@ class RequestProcessor {
         this.organization = organization;
         this.invitation = invitation;
         this.cookiePath = cookiePath;
+        this.domainResolver = domainResolver;
+        this.domain = domain;
+        this.isMcdEnabled = isMcdEnabled;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
     }
 
     /**
@@ -116,6 +154,12 @@ class RequestProcessor {
      */
     AuthAPI getClient() {
         return client;
+    }
+
+    AuthAPI createClientForDomain(String domain) {
+        AuthAPI authAPI =  new AuthAPI(domain, clientId, clientSecret);
+        System.out.println("Created dynamic AuthAPI for domain: "+domain+" "+clientId);
+        return authAPI;
     }
 
     /**
@@ -131,7 +175,17 @@ class RequestProcessor {
     AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri,
                                    String state, String nonce) {
 
-        AuthorizeUrl creator = new AuthorizeUrl(client, request, response, redirectUri, responseType)
+        // PRD Requirement: Resolve domain at initiation
+        String resolvedDomain = isMcdEnabled ? domainResolver.resolve(request) : domain;
+        String resolvedIssuer = "https://" + resolvedDomain + "/";
+
+        // Store origin data in cookies for callback validation
+        TransientCookieStore.storeOriginData(response, resolvedDomain, resolvedIssuer, cookiePath);
+
+        // Create a dynamic client with the resolved domain
+        AuthAPI dynamicClient = createClientForDomain(resolvedDomain);
+
+        AuthorizeUrl creator = new AuthorizeUrl(dynamicClient, request, response, redirectUri, responseType)
                 .withState(state);
 
         if (this.organization != null) {
@@ -168,6 +222,21 @@ class RequestProcessor {
         assertNoError(request);
         assertValidState(request, response);
 
+        // Retrieve stored origin domain and issuer from the authorization flow
+        String originDomain = TransientCookieStore.getOriginDomain(request, response);
+        String originIssuer = TransientCookieStore.getOriginIssuer(request, response);
+        System.out.println("Processing Request with MCD Enabled: "+isMcdEnabled+" Origin Domain: "+originDomain+" Origin Issuer: "+originIssuer);
+
+        if (originDomain == null) {
+            if (isMcdEnabled) {
+                originDomain = domainResolver.resolve(request);
+            }
+        }
+
+        if (originIssuer == null && originDomain != null) {
+            originIssuer = "https://" + originDomain + "/";
+        }
+
         Tokens frontChannelTokens = getFrontChannelTokens(request);
         List<String> responseTypeList = getResponseType();
 
@@ -193,7 +262,7 @@ class RequestProcessor {
 
         verifyOptions.setNonce(nonce);
 
-        return getVerifiedTokens(request, frontChannelTokens, responseTypeList);
+        return getVerifiedTokens(request, frontChannelTokens, responseTypeList, originDomain, originIssuer);
     }
 
     static boolean requiresFormPostResponseMode(List<String> responseType) {
@@ -209,7 +278,7 @@ class RequestProcessor {
      * @return a Tokens object that wraps the values obtained from the front-channel and/or the code request response.
      * @throws IdentityVerificationException
      */
-    private Tokens getVerifiedTokens(HttpServletRequest request, Tokens frontChannelTokens, List<String> responseTypeList)
+    private Tokens getVerifiedTokens(HttpServletRequest request, Tokens frontChannelTokens, List<String> responseTypeList, String originDomain, String originIssuer)
             throws IdentityVerificationException {
 
         String authorizationCode = request.getParameter(KEY_CODE);
@@ -218,17 +287,20 @@ class RequestProcessor {
         try {
             if (responseTypeList.contains(KEY_ID_TOKEN)) {
                 // Implicit/Hybrid flow: must verify front-channel ID Token first
-                tokenVerifier.verify(frontChannelTokens.getIdToken(), verifyOptions);
+                validateIdTokenIssuer(frontChannelTokens.getIdToken(), originIssuer);
+
+                verifyIdToken(frontChannelTokens.getIdToken(), originDomain, originIssuer);
             }
             if (responseTypeList.contains(KEY_CODE)) {
                 // Code/Hybrid flow
                 String redirectUri = request.getRequestURL().toString();
-                codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
+                codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri, originDomain);
                 if (!responseTypeList.contains(KEY_ID_TOKEN)) {
                     // If we already verified the front-channel token, don't verify it again.
                     String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
                     if (idTokenFromCodeExchange != null) {
-                        tokenVerifier.verify(idTokenFromCodeExchange, verifyOptions);
+                        validateIdTokenIssuer(idTokenFromCodeExchange, originIssuer);
+                        verifyIdToken(idTokenFromCodeExchange, originDomain, originIssuer);
                     }
                 }
             }
@@ -240,6 +312,121 @@ class RequestProcessor {
         // Keep the front-channel ID Token and the code-exchange Access Token.
         return mergeTokens(frontChannelTokens, codeExchangeTokens);
     }
+
+    private void verifyIdToken(String idToken, String originDomain, String originIssuer) throws TokenValidationException {
+        if (!isMcdEnabled) {
+            // Standard flow: Use the static verifier created at build time
+            tokenVerifier.verify(idToken, verifyOptions);
+            return;
+        }
+
+        // MCD Flow: We MUST create a new SignatureVerifier for the originDomain
+        // to satisfy Requirement #3 (Fetch JWKS from the specific issuer)
+        SignatureVerifier dynamicSignatureVerifier = createSignatureVerifierForDomain(originDomain);
+
+        IdTokenVerifier.Options dynamicOptions = new IdTokenVerifier.Options(
+                originIssuer,                // Requirement #4: Dynamic Issuer
+                verifyOptions.audience,      // Client ID (remains same)
+                dynamicSignatureVerifier     // Dynamic Key Provider
+        );
+
+        // Copy all transient state from the original verifyOptions
+        dynamicOptions.setNonce(verifyOptions.nonce);
+        dynamicOptions.setClockSkew(verifyOptions.clockSkew);
+        dynamicOptions.setMaxAge(verifyOptions.getMaxAge());
+        dynamicOptions.setOrganization(verifyOptions.organization);
+        dynamicOptions.setClock(verifyOptions.clock);
+
+        tokenVerifier.verify(idToken, dynamicOptions);
+    }
+
+    private SignatureVerifier createSignatureVerifierForDomain(String domain) {
+        // Check if the builder provided a JwkProvider.
+        // In MCD, we usually need to create a new one per domain.
+        JwkProvider domainJwkProvider = new UrlJwkProvider(domain);
+        return new AsymmetricSignatureVerifier(domainJwkProvider);
+    }
+
+    /**
+     * Validates that the ID Token's issuer matches the expected origin issuer.
+     *
+     * @param idToken        the ID Token to validate
+     * @param expectedIssuer the expected issuer from the authorization flow
+     * @throws IdentityVerificationException if the issuer doesn't match
+     */
+    private void validateIdTokenIssuer(String idToken, String expectedIssuer) throws IdentityVerificationException {
+        if (idToken == null || expectedIssuer == null) {
+            return; // Skip validation if either is null
+        }
+
+        try {
+            // Decode the JWT header and payload (without verification for issuer check)
+            String[] parts = idToken.split("\\.");
+            if (parts.length != 3) {
+                throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "Invalid ID Token format", null);
+            }
+
+            // Decode the payload (base64url)
+            String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
+
+            // Simple JSON parsing to extract issuer - for production, use a proper JSON
+            // parser
+            if (payload.contains("\"iss\"")) {
+                String issPattern = "\"iss\"\\s*:\\s*\"([^\"]+)\"";
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(issPattern);
+                java.util.regex.Matcher matcher = pattern.matcher(payload);
+
+                if (matcher.find()) {
+                    String tokenIssuer = matcher.group(1);
+
+                    // Normalize both issuers for comparison (handle with/without trailing slash)
+                    String normalizedTokenIssuer = normalizeIssuer(tokenIssuer);
+                    String normalizedExpectedIssuer = normalizeIssuer(expectedIssuer);
+
+                    if (!normalizedTokenIssuer.equals(normalizedExpectedIssuer)) {
+                        throw new IdentityVerificationException(JWT_VERIFICATION_ERROR,
+                                String.format("Token issuer '%s' does not match expected issuer '%s'",
+                                        tokenIssuer, expectedIssuer),
+                                null);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            if (e instanceof IdentityVerificationException) {
+                throw e;
+            }
+            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR,
+                    "Failed to validate token issuer: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Normalizes an issuer URL for comparison by ensuring it starts with https://
+     * and ends with /.
+     *
+     * @param issuer the issuer to normalize
+     * @return the normalized issuer
+     */
+    private String normalizeIssuer(String issuer) {
+        if (issuer == null) {
+            return null;
+        }
+
+        String normalized = issuer.trim();
+
+        // Add https:// if no scheme is present
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+            normalized = "https://" + normalized;
+        }
+
+        // Ensure it ends with /
+        if (!normalized.endsWith("/")) {
+            normalized = normalized + "/";
+        }
+
+        return normalized;
+    }
+
 
     List<String> getResponseType() {
         return Arrays.asList(responseType.split(" "));
@@ -256,6 +443,7 @@ class RequestProcessor {
         if (verifyOptions.getMaxAge() != null) {
             creator.withParameter(KEY_MAX_AGE, verifyOptions.getMaxAge().toString());
         }
+        System.out.println("Built AuthorizeUrl with MCD Enabled: "+isMcdEnabled + " "+creator.toString());
         return creator;
     }
 
@@ -343,8 +531,9 @@ class RequestProcessor {
      * @throws Auth0Exception if the request to the Auth0 server failed.
      * @see AuthAPI#exchangeCode(String, String)
      */
-    private Tokens exchangeCodeForTokens(String authorizationCode, String redirectUri) throws Auth0Exception {
-        TokenHolder holder = client
+    private Tokens exchangeCodeForTokens(String authorizationCode, String redirectUri, String originDomain) throws Auth0Exception {
+        AuthAPI domainClient = createClientForDomain(originDomain);
+        TokenHolder holder = domainClient
                 .exchangeCode(authorizationCode, redirectUri)
                 .execute();
         return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn());

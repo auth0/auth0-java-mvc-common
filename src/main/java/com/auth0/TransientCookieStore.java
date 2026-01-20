@@ -66,6 +66,19 @@ class TransientCookieStore {
         return getOnce(StorageUtils.NONCE_KEY, request, response);
     }
 
+    static void storeOriginData(HttpServletResponse response, String domain, String issuer, String path) {
+        store(response, StorageUtils.ORIGIN_DOMAIN_KEY, domain, SameSite.LAX, true, true, path);
+        store(response, StorageUtils.ORIGIN_ISSUER_KEY, issuer, SameSite.LAX, true, true, path);
+    }
+
+    static String getOriginDomain(HttpServletRequest request, HttpServletResponse response) {
+        return getOnce(StorageUtils.ORIGIN_DOMAIN_KEY, request, response);
+    }
+
+    static String getOriginIssuer(HttpServletRequest request, HttpServletResponse response) {
+        return getOnce(StorageUtils.ORIGIN_ISSUER_KEY, request, response);
+    }
+
     private static void store(HttpServletResponse response, String key, String value, SameSite sameSite, boolean useLegacySameSiteCookie, boolean isSecureCookie, String cookiePath) {
         Validate.notNull(response, "response must not be null");
         Validate.notNull(key, "key must not be null");

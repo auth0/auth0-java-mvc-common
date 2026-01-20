@@ -44,14 +44,20 @@ public class AuthenticationController {
      * @return a new Builder instance ready to configure
      */
     public static Builder newBuilder(String domain, String clientId, String clientSecret) {
-        return new Builder(domain, clientId, clientSecret);
+        return new Builder(clientId, clientSecret).withDomain(domain);
+    }
+
+    public static Builder newBuilder(DomainResolver domainResolver,
+                                     String clientId,
+                                     String clientSecret) {
+        return new Builder(clientId, clientSecret).withDomainResolver(domainResolver);
     }
 
 
     public static class Builder {
         private static final String RESPONSE_TYPE_CODE = "code";
 
-        private final String domain;
+        private String domain;
         private final String clientId;
         private final String clientSecret;
         private String responseType;
@@ -63,17 +69,36 @@ public class AuthenticationController {
         private String invitation;
         private HttpOptions httpOptions;
         private String cookiePath;
+        private DomainResolver domainResolver;
 
-        Builder(String domain, String clientId, String clientSecret) {
-            Validate.notNull(domain);
-            Validate.notNull(clientId);
-            Validate.notNull(clientSecret);
+        Builder(String clientId, String clientSecret) {
+            if (clientId == null) {
+                throw new IllegalArgumentException("clientId cannot be null");
+            }
+            if (clientSecret == null) {
+                throw new IllegalArgumentException("clientSecret cannot be null");
+            }
 
-            this.domain = domain;
             this.clientId = clientId;
             this.clientSecret = clientSecret;
             this.responseType = RESPONSE_TYPE_CODE;
             this.useLegacySameSiteCookie = true;
+        }
+
+        public Builder withDomain(String domain) {
+            if (this.domainResolver != null) {
+                throw new IllegalStateException("Cannot specify both 'domain' and 'domainResolver'.");
+            }
+            this.domain = domain;
+            return this;
+        }
+
+        public Builder withDomainResolver(DomainResolver domainResolver) {
+            if (this.domain != null) {
+                throw new IllegalStateException("Cannot specify both 'domain' and 'domainResolver'.");
+            }
+            this.domainResolver = domainResolver;
+            return this;
         }
 
         /**
@@ -196,8 +221,20 @@ public class AuthenticationController {
          * @throws UnsupportedOperationException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
          */
         public AuthenticationController build() throws UnsupportedOperationException {
-            AuthAPI apiClient = createAPIClient(domain, clientId, clientSecret, httpOptions);
-            setupTelemetry(apiClient);
+
+            validateDomainConfiguration();
+
+            AuthAPI apiClient;
+            if (domainResolver != null) {
+                // MCD mode: no need for initial client, RequestProcessor will create domain-specific clients
+                apiClient = null;
+            } else {
+                // Non-MCD mode: create client with the fixed domain
+                apiClient = createAPIClient(domain, clientId, clientSecret, httpOptions);
+                setupTelemetry(apiClient);
+            }
+
+//            setupTelemetry(apiClient);
 
             final boolean expectedAlgorithmIsExplicitlySetAndAsymmetric = jwkProvider != null;
             final SignatureVerifier signatureVerifier;
@@ -212,20 +249,37 @@ public class AuthenticationController {
                 signatureVerifier = new SymmetricSignatureVerifier(clientSecret);
             }
 
-            String issuer = getIssuer(domain);
+            String issuer = domain != null ? getIssuer(domain) : "https://dynamic-resolver.auth0.com/";
+
+            System.out.println("Issuer set to: " + issuer);
+
             IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
             verifyOptions.setClockSkew(clockSkew);
             verifyOptions.setMaxAge(authenticationMaxAge);
             verifyOptions.setOrganization(this.organization);
+
 
             RequestProcessor processor = new RequestProcessor.Builder(apiClient, responseType, verifyOptions)
                     .withLegacySameSiteCookie(useLegacySameSiteCookie)
                     .withOrganization(organization)
                     .withInvitation(invitation)
                     .withCookiePath(cookiePath)
+                    .withDomainResolver(domainResolver)
+                    .withDomain(domain)
+                    .withMcdEnabled(domainResolver != null)
+                    .withCredentials(clientId, clientSecret)
                     .build();
 
             return new AuthenticationController(processor);
+        }
+
+        private void validateDomainConfiguration() {
+            if (domain == null && domainResolver == null) {
+                throw new IllegalStateException("Either domain or domainResolver must be provided.");
+            }
+            if (domain != null && domainResolver != null) {
+                throw new IllegalStateException("Cannot specify both domain and domainResolver.");
+            }
         }
 
         @VisibleForTesting
@@ -244,7 +298,7 @@ public class AuthenticationController {
         @VisibleForTesting
         void setupTelemetry(AuthAPI client) {
             Telemetry telemetry = new Telemetry("auth0-java-mvc-common", obtainPackageVersion());
-            client.setTelemetry(telemetry);
+//            client.setTelemetry(telemetry);
         }
 
         @VisibleForTesting

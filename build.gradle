@@ -15,6 +15,15 @@ plugins {
     id 'jacoco'
     id 'me.champeau.gradle.japicmp' version '0.4.6'
     id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
+    id "war"
+    id "org.gretty" version "3.1.1"
+}
+
+gretty {
+    httpPort = 3000
+    host = '0.0.0.0'         // Required for Docker to communicate
+    contextPath = '/'
+    servletContainer = 'tomcat9'
 }
 
 repositories {
