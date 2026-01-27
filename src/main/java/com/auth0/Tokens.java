@@ -22,6 +22,8 @@ public class Tokens implements Serializable {
     private final String refreshToken;
     private final String type;
     private final Long expiresIn;
+    private final String domain;
+    private final String issuer;
 
     /**
      * @param accessToken  access token for Auth0 API
@@ -31,11 +33,29 @@ public class Tokens implements Serializable {
      * @param expiresIn    token expiration
      */
     public Tokens(String accessToken, String idToken, String refreshToken, String type, Long expiresIn) {
+        this(accessToken, idToken, refreshToken, type, expiresIn, null, null);
+    }
+
+    /**
+     * Full constructor with domain information for MCD support
+     *
+     * @param accessToken  access token for Auth0 API
+     * @param idToken      identity token with user information
+     * @param refreshToken refresh token that can be used to request new tokens
+     *                     without signing in again
+     * @param type         token type
+     * @param expiresIn    token expiration
+     * @param domain       the Auth0 domain that issued these tokens
+     * @param issuer       the issuer URL from the ID token
+     */
+    public Tokens(String accessToken, String idToken, String refreshToken, String type, Long expiresIn, String domain, String issuer) {
         this.accessToken = accessToken;
         this.idToken = idToken;
         this.refreshToken = refreshToken;
         this.type = type;
         this.expiresIn = expiresIn;
+        this.domain = domain;
+        this.issuer = issuer;
     }
 
     /**
@@ -81,5 +101,80 @@ public class Tokens implements Serializable {
      */
     public Long getExpiresIn() {
         return expiresIn;
+    }
+
+
+    /**
+     * Getter for the Auth0 domain that issued these tokens.
+     * Used for domain-specific session management in Multi-Customer Domain (MCD)
+     * scenarios.
+     *
+     * @return the domain that issued these tokens, or null for non-MCD scenarios
+     */
+    public String getDomain() {
+        return domain;
+    }
+
+    /**
+     * Getter for the issuer URL from the ID token.
+     * Used for domain-specific session management in Multi-Customer Domain (MCD)
+     * scenarios.
+     *
+     * @return the issuer URL, or null for non-MCD scenarios
+     */
+    public String getIssuer() {
+        return issuer;
+    }
+
+    /**
+     * Validates that these tokens belong to the specified domain.
+     * Used to prevent cross-domain session leakage in MCD scenarios.
+     *
+     * @param expectedDomain the expected domain for these tokens
+     * @return true if tokens belong to the expected domain, false otherwise
+     */
+    public boolean belongsToDomain(String expectedDomain) {
+        if (domain == null || expectedDomain == null) {
+            // Non-MCD scenario - no domain validation needed
+            return true;
+        }
+        return domain.equals(expectedDomain);
+    }
+
+    /**
+     * Validates that these tokens have the specified issuer.
+     * Used to prevent cross-domain session leakage in MCD scenarios.
+     *
+     * @param expectedIssuer the expected issuer for these tokens
+     * @return true if tokens have the expected issuer, false otherwise
+     */
+    public boolean hasIssuer(String expectedIssuer) {
+        if (issuer == null || expectedIssuer == null) {
+            // Non-MCD scenario - no issuer validation needed
+            return true;
+        }
+
+        // Normalize both for comparison
+        String normalizedTokenIssuer = normalizeIssuer(issuer);
+        String normalizedExpectedIssuer = normalizeIssuer(expectedIssuer);
+
+        return normalizedTokenIssuer.equals(normalizedExpectedIssuer);
+    }
+
+    /**
+     * Normalizes an issuer URL for comparison.
+     */
+    private String normalizeIssuer(String issuer) {
+        if (issuer == null)
+            return null;
+
+        String normalized = issuer.trim();
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+            normalized = "https://" + normalized;
+        }
+        if (!normalized.endsWith("/")) {
+            normalized = normalized + "/";
+        }
+        return normalized;
     }
 }

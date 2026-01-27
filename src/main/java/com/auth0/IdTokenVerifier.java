@@ -146,7 +146,7 @@ class IdTokenVerifier {
     }
 
     static class Options {
-        final String issuer;
+        String issuer;
         final String audience;
         final SignatureVerifier verifier;
         String nonce;
@@ -162,6 +162,17 @@ class IdTokenVerifier {
             this.issuer = issuer;
             this.audience = audience;
             this.verifier = verifier;
+        }
+
+        public Options(String audience, SignatureVerifier verifier) {
+            Validate.notNull(audience);
+            Validate.notNull(verifier);
+            this.audience = audience;
+            this.verifier = verifier;
+        }
+
+        void setIssuer(String issuer) {
+            this.issuer = issuer;
         }
 
         void setNonce(String nonce) {
