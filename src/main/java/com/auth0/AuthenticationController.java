@@ -341,22 +341,23 @@ public class AuthenticationController {
         }
     }
 
-//    /**
-//     * Whether to enable or not the HTTP Logger for every Request and Response.
-//     * Enabling this can expose sensitive information.
-//     *
-//     * @param enabled whether to enable the HTTP logger or not.
-//     */
-//    public void setLoggingEnabled(boolean enabled) {
-//        requestProcessor.getClient().setLoggingEnabled(enabled);
-//    }
-//
-//    /**
-//     * Disable sending the Telemetry header on every request to the Auth0 API
-//     */
-//    public void doNotSendTelemetry() {
-//        requestProcessor.getClient().doNotSendTelemetry();
-//    }
+    /**
+     * Whether to enable or not the HTTP Logger for every Request and Response.
+     * Enabling this can expose sensitive information.
+     *
+     * @param enabled whether to enable the HTTP logger or not.
+     */
+    public void setLoggingEnabled(boolean enabled) {
+        // No longer requestProcessor.getClient()... (which was null)
+        requestProcessor.setLoggingEnabled(enabled);
+    }
+
+    /**
+     * Disable sending the Telemetry header on every request to the Auth0 API
+     */
+    public void doNotSendTelemetry() {
+        requestProcessor.doNotSendTelemetry();
+    }
 
     /**
      * Process a request to obtain a set of {@link Tokens} that represent successful authentication or authorization.

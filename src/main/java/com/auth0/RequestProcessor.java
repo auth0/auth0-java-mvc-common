@@ -54,6 +54,8 @@ class RequestProcessor {
     private final String organization;
     private final String invitation;
     private final String cookiePath;
+    private boolean loggingEnabled = false;
+    private boolean telemetryDisabled = false;
 
 
     static class Builder {
@@ -178,15 +180,22 @@ class RequestProcessor {
 //        this.clientSecret = clientSecret;
 //    }
 
-//    /**
-//     * Getter for the AuthAPI client instance.
-//     * Used to customize options such as Telemetry and Logging.
-//     *
-//     * @return the AuthAPI client.
-//     */
-//    AuthAPI getClient() {
-//        return client;
-//    }
+    void setLoggingEnabled(boolean enabled) {
+        this.loggingEnabled = enabled;
+    }
+
+    void doNotSendTelemetry() {
+        this.telemetryDisabled = true;
+    }
+    /**
+     * Getter for the AuthAPI client instance.
+     * Used to customize options such as Telemetry and Logging.
+     *
+     * @return the AuthAPI client.
+     */
+    AuthAPI getClient() {
+        return client;
+    }
 
     AuthAPI createClientForDomain(String domain) {
         final AuthAPI client;
@@ -198,7 +207,13 @@ class RequestProcessor {
             client = new AuthAPI(domain, clientId, clientSecret);
         }
 
-        setupTelemetry(client);
+        // Apply deferred settings
+        client.setLoggingEnabled(loggingEnabled);
+        if (telemetryDisabled) {
+            client.doNotSendTelemetry();
+        } else {
+            setupTelemetry(client);
+        }
 
         System.out.println("Created dynamic AuthAPI for domain: "+domain+" "+clientId);
         return client;
