@@ -8,6 +8,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+/*NOTE
+THis is added just for testing purpose, will be removed before merging to master. This is login endpoint configured.
+*/
 @WebServlet(urlPatterns = {"/login"})
 public class LoginServlet extends HttpServlet {
 
@@ -29,8 +32,6 @@ public class LoginServlet extends HttpServlet {
         sb.append("/callback"); // Ensure this matches your dashboard path
 
         String dynamicCallbackUrl = sb.toString();
-
-        System.out.println("Dynamic Callback URL: " + dynamicCallbackUrl);
 
         String authorizeUrl = controller
                 .buildAuthorizeUrl(req, resp, dynamicCallbackUrl)

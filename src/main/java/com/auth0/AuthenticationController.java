@@ -10,12 +10,11 @@ import org.apache.commons.lang3.Validate;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-
 /**
  * Base Auth0 Authenticator class.
  * Allows to easily authenticate using the Auth0 Hosted Login Page.
  */
-@SuppressWarnings({"WeakerAccess", "UnusedReturnValue", "SameParameterValue"})
+@SuppressWarnings({ "WeakerAccess", "UnusedReturnValue", "SameParameterValue" })
 public class AuthenticationController {
 
     private final RequestProcessor requestProcessor;
@@ -34,9 +33,13 @@ public class AuthenticationController {
     }
 
     /**
-     * Create a new {@link Builder} instance to configure the {@link AuthenticationController} response type and algorithm used on the verification.
-     * By default it will request response type 'code' and later perform the Code Exchange, but if the response type is changed to 'token' it will handle
-     * the Implicit Grant using the HS256 algorithm with the Client Secret as secret.
+     * Create a new {@link Builder} instance to configure the
+     * {@link AuthenticationController} response type and algorithm used on the
+     * verification.
+     * By default it will request response type 'code' and later perform the Code
+     * Exchange, but if the response type is changed to 'token' it will handle
+     * the Implicit Grant using the HS256 algorithm with the Client Secret as
+     * secret.
      *
      * @param domain       the Auth0 domain
      * @param clientId     the Auth0 application's client id
@@ -49,22 +52,25 @@ public class AuthenticationController {
     }
 
     /**
-     * Create a new {@link Builder} instance to configure the {@link AuthenticationController} response type and algorithm used on the verification.
-     * By default it will request response type 'code' and later perform the Code Exchange, but if the response type is changed to 'token' it will handle
-     * the Implicit Grant using the HS256 algorithm with the Client Secret as secret.
+     * Create a new {@link Builder} instance to configure the
+     * {@link AuthenticationController} response type and algorithm used on the
+     * verification.
+     * By default it will request response type 'code' and later perform the Code
+     * Exchange, but if the response type is changed to 'token' it will handle
+     * the Implicit Grant using the HS256 algorithm with the Client Secret as
+     * secret.
      *
-     * @param domainResolver       the Auth0 domain resolver function
-     * @param clientId     the Auth0 application's client id
-     * @param clientSecret the Auth0 application's client secret
+     * @param domainResolver the Auth0 domain resolver function
+     * @param clientId       the Auth0 application's client id
+     * @param clientSecret   the Auth0 application's client secret
      * @return a new Builder instance ready to configure
      */
     public static Builder newBuilder(DomainResolver domainResolver,
-                                     String clientId,
-                                     String clientSecret) {
+            String clientId,
+            String clientSecret) {
         Validate.notNull(domainResolver, "domainResolver must not be null");
         return new Builder(clientId, clientSecret).withDomainResolver(domainResolver);
     }
-
 
     public static class Builder {
         private static final String RESPONSE_TYPE_CODE = "code";
@@ -144,7 +150,8 @@ public class AuthenticationController {
         }
 
         /**
-         * Customize certain aspects of the underlying HTTP client networking library, such as timeouts and proxy configuration.
+         * Customize certain aspects of the underlying HTTP client networking library,
+         * such as timeouts and proxy configuration.
          *
          * @param httpOptions a non-null {@code HttpOptions}
          * @return this same builder instance.
@@ -156,7 +163,8 @@ public class AuthenticationController {
         }
 
         /**
-         * Specify that transient authentication-based cookies such as state and nonce are created with the specified
+         * Specify that transient authentication-based cookies such as state and nonce
+         * are created with the specified
          * {@code Path} cookie attribute.
          *
          * @param cookiePath the path to set on the cookie.
@@ -169,9 +177,12 @@ public class AuthenticationController {
         }
 
         /**
-         * Change the response type to request in the Authorization step. Default value is 'code'.
+         * Change the response type to request in the Authorization step. Default value
+         * is 'code'.
          *
-         * @param responseType the response type to request. Any combination of 'code', 'token' and 'id_token' but 'token id_token' is allowed, using a space as separator.
+         * @param responseType the response type to request. Any combination of 'code',
+         *                     'token' and 'id_token' but 'token id_token' is allowed,
+         *                     using a space as separator.
          * @return this same builder instance.
          */
         public Builder withResponseType(String responseType) {
@@ -181,8 +192,10 @@ public class AuthenticationController {
         }
 
         /**
-         * Sets the Jwk Provider that will return the Public Key required to verify the token in case of Implicit Grant flows.
-         * This is required if the Auth0 Application is signing the tokens with the RS256 algorithm.
+         * Sets the Jwk Provider that will return the Public Key required to verify the
+         * token in case of Implicit Grant flows.
+         * This is required if the Auth0 Application is signing the tokens with the
+         * RS256 algorithm.
          *
          * @param jwkProvider a valid Jwk provider.
          * @return this same builder instance.
@@ -194,7 +207,8 @@ public class AuthenticationController {
         }
 
         /**
-         * Sets the clock-skew or leeway value to use in the ID Token verification. The value must be in seconds.
+         * Sets the clock-skew or leeway value to use in the ID Token verification. The
+         * value must be in seconds.
          * Defaults to 60 seconds.
          *
          * @param clockSkew the clock-skew to use for ID Token verification, in seconds.
@@ -207,7 +221,8 @@ public class AuthenticationController {
         }
 
         /**
-         * Sets the allowable elapsed time in seconds since the last time user was authenticated.
+         * Sets the allowable elapsed time in seconds since the last time user was
+         * authenticated.
          * By default there is no limit.
          *
          * @param maxAge the max age of the authentication, in seconds.
@@ -220,10 +235,14 @@ public class AuthenticationController {
         }
 
         /**
-         * Sets whether fallback cookies will be set for clients that do not support SameSite=None cookie attribute.
-         * The SameSite Cookie attribute will only be set to "None" if the reponseType includes "id_token".
+         * Sets whether fallback cookies will be set for clients that do not support
+         * SameSite=None cookie attribute.
+         * The SameSite Cookie attribute will only be set to "None" if the reponseType
+         * includes "id_token".
          * By default this is true.
-         * @param useLegacySameSiteCookie whether fallback auth-based cookies should be set.
+         * 
+         * @param useLegacySameSiteCookie whether fallback auth-based cookies should be
+         *                                set.
          * @return this same builder instance.
          */
         public Builder withLegacySameSiteCookie(boolean useLegacySameSiteCookie) {
@@ -232,7 +251,8 @@ public class AuthenticationController {
         }
 
         /**
-         * Sets the organization query string parameter value used to login to an organization.
+         * Sets the organization query string parameter value used to login to an
+         * organization.
          *
          * @param organization The ID or name of the organization to log the user in to.
          * @return the builder instance.
@@ -244,10 +264,12 @@ public class AuthenticationController {
         }
 
         /**
-         * Sets the invitation query string parameter to join an organization. If using this, you must also specify the
+         * Sets the invitation query string parameter to join an organization. If using
+         * this, you must also specify the
          * organization using {@linkplain Builder#withOrganization(String)}.
          *
-         * @param invitation The ID of the invitation to accept. This is available on the URL that is provided when accepting an invitation.
+         * @param invitation The ID of the invitation to accept. This is available on
+         *                   the URL that is provided when accepting an invitation.
          * @return the builder instance.
          */
         public Builder withInvitation(String invitation) {
@@ -257,22 +279,26 @@ public class AuthenticationController {
         }
 
         /**
-         * Create a new {@link AuthenticationController} instance that will handle both Code Grant and Implicit Grant flows using either Code Exchange or Token Signature verification.
+         * Create a new {@link AuthenticationController} instance that will handle both
+         * Code Grant and Implicit Grant flows using either Code Exchange or Token
+         * Signature verification.
          *
          * @return a new instance of {@link AuthenticationController}.
-         * @throws UnsupportedOperationException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
+         * @throws UnsupportedOperationException if the Implicit Grant is chosen and the
+         *                                       environment doesn't support UTF-8
+         *                                       encoding.
          */
         public AuthenticationController build() throws UnsupportedOperationException {
             validateDomainConfiguration();
 
-            DomainProvider domainProvider =
-                    domain != null
-                            ? new StaticDomainProvider(domain)
-                            : new ResolverDomainProvider(domainResolver);
+            DomainProvider domainProvider = domain != null
+                    ? new StaticDomainProvider(domain)
+                    : new ResolverDomainProvider(domainResolver);
 
             SignatureVerifier signatureVerifier = buildSignatureVerifier();
 
-            RequestProcessor processor = new RequestProcessor.Builder(domainProvider, responseType, clientId, clientSecret, httpOptions, signatureVerifier)
+            RequestProcessor processor = new RequestProcessor.Builder(domainProvider, responseType, clientId,
+                    clientSecret, httpOptions, signatureVerifier)
                     .withClockSkew(clockSkew)
                     .withAuthenticationMaxAge(authenticationMaxAge)
                     .withLegacySameSiteCookie(useLegacySameSiteCookie)
@@ -304,11 +330,6 @@ public class AuthenticationController {
         }
 
         @VisibleForTesting
-        IdTokenVerifier.Options createIdTokenVerificationOptions(String issuer, String audience, SignatureVerifier signatureVerifier) {
-            return new IdTokenVerifier.Options(issuer, audience, signatureVerifier);
-        }
-
-        @VisibleForTesting
         AuthAPI createAPIClient(String domain, String clientId, String clientSecret, HttpOptions httpOptions) {
             if (httpOptions != null) {
                 return new AuthAPI(domain, clientId, clientSecret, httpOptions);
@@ -318,26 +339,17 @@ public class AuthenticationController {
 
         @VisibleForTesting
         void setupTelemetry(AuthAPI client) {
-            if (client == null) return;
+            if (client == null)
+                return;
             Telemetry telemetry = new Telemetry("auth0-java-mvc-common", obtainPackageVersion());
             client.setTelemetry(telemetry);
         }
 
         @VisibleForTesting
         String obtainPackageVersion() {
-            //Value if taken from jar's manifest file.
-            //Call will return null on dev environment (outside of a jar)
+            // Value if taken from jar's manifest file.
+            // Call will return null on dev environment (outside of a jar)
             return getClass().getPackage().getImplementationVersion();
-        }
-
-        private String getIssuer(String domain) {
-            if (!domain.startsWith("http://") && !domain.startsWith("https://")) {
-                domain = "https://" + domain;
-            }
-            if (!domain.endsWith("/")) {
-                domain = domain + "/";
-            }
-            return domain;
         }
     }
 
@@ -360,23 +372,35 @@ public class AuthenticationController {
     }
 
     /**
-     * Process a request to obtain a set of {@link Tokens} that represent successful authentication or authorization.
+     * Process a request to obtain a set of {@link Tokens} that represent successful
+     * authentication or authorization.
      *
-     * This method should be called when processing the callback request to your application. It will validate
-     * authentication-related request parameters, handle performing a Code Exchange request if using
-     * the "code" response type, and verify the integrity of the ID token (if present).
+     * This method should be called when processing the callback request to your
+     * application. It will validate
+     * authentication-related request parameters, handle performing a Code Exchange
+     * request if using
+     * the "code" response type, and verify the integrity of the ID token (if
+     * present).
      *
-     * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also use {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
-     * when building the {@link AuthorizeUrl} that the user will be redirected to to login. Failure to do so may result
-     * in a broken login experience for the user.</p>
+     * <p>
+     * <strong>Important:</strong> When using this API, you <strong>must</strong>
+     * also use
+     * {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
+     * when building the {@link AuthorizeUrl} that the user will be redirected to to
+     * login. Failure to do so may result
+     * in a broken login experience for the user.
+     * </p>
      *
-     * @param request the received request to process.
+     * @param request  the received request to process.
      * @param response the received response to process.
      * @return the Tokens obtained after the user authentication.
-     * @throws InvalidRequestException       if the error is result of making an invalid authentication request.
-     * @throws IdentityVerificationException if an error occurred while verifying the request tokens.
+     * @throws InvalidRequestException       if the error is result of making an
+     *                                       invalid authentication request.
+     * @throws IdentityVerificationException if an error occurred while verifying
+     *                                       the request tokens.
      */
-    public Tokens handle(HttpServletRequest request, HttpServletResponse response) throws IdentityVerificationException {
+    public Tokens handle(HttpServletRequest request, HttpServletResponse response)
+            throws IdentityVerificationException {
         Validate.notNull(request, "request must not be null");
         Validate.notNull(response, "response must not be null");
 
@@ -384,25 +408,39 @@ public class AuthenticationController {
     }
 
     /**
-     * Process a request to obtain a set of {@link Tokens} that represent successful authentication or authorization.
+     * Process a request to obtain a set of {@link Tokens} that represent successful
+     * authentication or authorization.
      *
-     * This method should be called when processing the callback request to your application. It will validate
-     * authentication-related request parameters, handle performing a Code Exchange request if using
-     * the "code" response type, and verify the integrity of the ID token (if present).
+     * This method should be called when processing the callback request to your
+     * application. It will validate
+     * authentication-related request parameters, handle performing a Code Exchange
+     * request if using
+     * the "code" response type, and verify the integrity of the ID token (if
+     * present).
      *
-     * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also use the {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, String)}
-     * when building the {@link AuthorizeUrl} that the user will be redirected to to login. Failure to do so may result
-     * in a broken login experience for the user.</p>
+     * <p>
+     * <strong>Important:</strong> When using this API, you <strong>must</strong>
+     * also use the
+     * {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, String)}
+     * when building the {@link AuthorizeUrl} that the user will be redirected to to
+     * login. Failure to do so may result
+     * in a broken login experience for the user.
+     * </p>
      *
-     * @deprecated This method uses the {@link javax.servlet.http.HttpSession} for auth-based data, and is incompatible
-     * with clients that are using the "id_token" or "token" responseType with browsers that enforce SameSite cookie
-     * restrictions. This method will be removed in version 2.0.0. Use
-     * {@link AuthenticationController#handle(HttpServletRequest, HttpServletResponse)} instead.
+     * @deprecated This method uses the {@link javax.servlet.http.HttpSession} for
+     *             auth-based data, and is incompatible
+     *             with clients that are using the "id_token" or "token"
+     *             responseType with browsers that enforce SameSite cookie
+     *             restrictions. This method will be removed in version 2.0.0. Use
+     *             {@link AuthenticationController#handle(HttpServletRequest, HttpServletResponse)}
+     *             instead.
      *
      * @param request the received request to process.
      * @return the Tokens obtained after the user authentication.
-     * @throws InvalidRequestException       if the error is result of making an invalid authentication request.
-     * @throws IdentityVerificationException if an error occurred while verifying the request tokens.
+     * @throws InvalidRequestException       if the error is result of making an
+     *                                       invalid authentication request.
+     * @throws IdentityVerificationException if an error occurred while verifying
+     *                                       the request tokens.
      */
     @Deprecated
     public Tokens handle(HttpServletRequest request) throws IdentityVerificationException {
@@ -412,20 +450,30 @@ public class AuthenticationController {
     }
 
     /**
-     * Pre builds an Auth0 Authorize Url with the given redirect URI using a random state and a random nonce if applicable.
+     * Pre builds an Auth0 Authorize Url with the given redirect URI using a random
+     * state and a random nonce if applicable.
      *
-     * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also obtain the tokens using the
-     * {@link AuthenticationController#handle(HttpServletRequest)} method. Failure to do so may result in a broken login
-     * experience for users.</p>
+     * <p>
+     * <strong>Important:</strong> When using this API, you <strong>must</strong>
+     * also obtain the tokens using the
+     * {@link AuthenticationController#handle(HttpServletRequest)} method. Failure
+     * to do so may result in a broken login
+     * experience for users.
+     * </p>
      *
-     * @deprecated This method stores data in the {@link javax.servlet.http.HttpSession}, and is incompatible with clients
-     * that are using the "id_token" or "token" responseType with browsers that enforce SameSite cookie restrictions.
-     * This method will be removed in version 2.0.0. Use
-     * {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)} instead.
+     * @deprecated This method stores data in the
+     *             {@link javax.servlet.http.HttpSession}, and is incompatible with
+     *             clients
+     *             that are using the "id_token" or "token" responseType with
+     *             browsers that enforce SameSite cookie restrictions.
+     *             This method will be removed in version 2.0.0. Use
+     *             {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)}
+     *             instead.
      *
      * @param request     the caller request. Used to keep the session context.
      * @param redirectUri the url to call back with the authentication result.
-     * @return the authorize url builder to continue any further parameter customization.
+     * @return the authorize url builder to continue any further parameter
+     *         customization.
      */
     @Deprecated
     public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri) {
@@ -439,18 +487,25 @@ public class AuthenticationController {
     }
 
     /**
-     * Pre builds an Auth0 Authorize Url with the given redirect URI using a random state and a random nonce if applicable.
+     * Pre builds an Auth0 Authorize Url with the given redirect URI using a random
+     * state and a random nonce if applicable.
      *
-     * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also obtain the tokens using the
-     * {@link AuthenticationController#handle(HttpServletRequest, HttpServletResponse)} method. Failure to do so will result in a broken login
-     * experience for users.</p>
+     * <p>
+     * <strong>Important:</strong> When using this API, you <strong>must</strong>
+     * also obtain the tokens using the
+     * {@link AuthenticationController#handle(HttpServletRequest, HttpServletResponse)}
+     * method. Failure to do so will result in a broken login
+     * experience for users.
+     * </p>
      *
      * @param request     the HTTP request
      * @param response    the HTTP response. Used to store auth-based cookies.
      * @param redirectUri the url to call back with the authentication result.
-     * @return the authorize url builder to continue any further parameter customization.
+     * @return the authorize url builder to continue any further parameter
+     *         customization.
      */
-    public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri) {
+    public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response,
+            String redirectUri) {
         Validate.notNull(request, "request must not be null");
         Validate.notNull(response, "response must not be null");
         Validate.notNull(redirectUri, "redirectUri must not be null");

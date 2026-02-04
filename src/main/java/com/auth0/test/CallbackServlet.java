@@ -7,6 +7,9 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 import java.io.IOException;
 
+/*NOTE
+THis is added just for testing purpose, will be removed before merging to master. This is /callback endpoint configured
+*/
 @WebServlet(urlPatterns = {"/callback"})
 public class CallbackServlet extends HttpServlet {
 
@@ -15,20 +18,12 @@ public class CallbackServlet extends HttpServlet {
         AuthenticationController controller = Auth0Provider.getController();
 
         try {
-            // 3. The Handle Method
-            // This validates the state cookie, exchanges the code for tokens,
-            // and performs the dynamic ID token verification.
+
+            System.out.println("CallbackServlet: Handling callback request for authentication.");
+
             Tokens tokens = controller.handle(req, resp);
 
-            // 4. Success: Store in session (Requirement #5)
-            HttpSession session = req.getSession(true);
-            session.setAttribute("accessToken", tokens.getAccessToken());
-            session.setAttribute("idToken", tokens.getIdToken());
-
-            // Note: originDomain is now inside the tokens object
-            System.out.println("Authenticated via domain: " + tokens.getDomain());
-
-            resp.getWriter().write("Login Successful! Welcome, " + tokens.getIdToken());
+            resp.getWriter().write("Login Successful! Welcome");
 
         } catch (IdentityVerificationException e) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
