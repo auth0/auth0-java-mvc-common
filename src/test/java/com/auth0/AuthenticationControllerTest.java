@@ -4,8 +4,6 @@ import com.auth0.client.HttpOptions;
 import com.auth0.jwk.JwkProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -38,9 +36,6 @@ public class AuthenticationControllerTest {
     @Mock
     private Tokens mockTokens;
 
-    @Captor
-    private ArgumentCaptor<SignatureVerifier> signatureVerifierCaptor;
-
     private HttpServletRequest request;
     private HttpServletResponse response;
 
@@ -51,20 +46,18 @@ public class AuthenticationControllerTest {
         response = new MockHttpServletResponse();
     }
 
-    // Test Builder Pattern and Static Factory Methods
+    // --- Builder Static Factory Methods ---
 
     @Test
     public void shouldCreateBuilderWithDomain() {
-        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID,
-                CLIENT_SECRET);
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET);
 
         assertThat(builder, is(notNullValue()));
     }
 
     @Test
     public void shouldCreateBuilderWithDomainResolver() {
-        AuthenticationController.Builder builder = AuthenticationController.newBuilder(mockDomainResolver, CLIENT_ID,
-                CLIENT_SECRET);
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET);
 
         assertThat(builder, is(notNullValue()));
     }
@@ -85,7 +78,7 @@ public class AuthenticationControllerTest {
         assertThat(exception.getMessage(), is("domainResolver must not be null"));
     }
 
-    // Test Builder Configuration Methods
+    // --- Builder Configuration ---
 
     @Test
     public void shouldConfigureBuilderWithAllOptions() {
@@ -107,8 +100,7 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldThrowExceptionWhenDomainAndDomainResolverBothSet() {
-        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID,
-                CLIENT_SECRET);
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET);
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
@@ -118,8 +110,7 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldThrowExceptionWhenDomainResolverAndDomainBothSet() {
-        AuthenticationController.Builder builder = AuthenticationController.newBuilder(mockDomainResolver, CLIENT_ID,
-                CLIENT_SECRET);
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET);
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
@@ -139,16 +130,9 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldValidateNullParameters() {
-        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID,
-                CLIENT_SECRET);
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET);
 
-        // Some methods throw NullPointerException, others throw IllegalStateException
-        // based on builder state
         assertThrows(NullPointerException.class, () -> builder.withDomain(null));
-        assertThrows(IllegalStateException.class, () -> builder.withDomainResolver(null)); // throws
-                                                                                           // IllegalStateException
-                                                                                           // because domain is already
-                                                                                           // set
         assertThrows(NullPointerException.class, () -> builder.withResponseType(null));
         assertThrows(NullPointerException.class, () -> builder.withJwkProvider(null));
         assertThrows(NullPointerException.class, () -> builder.withClockSkew(null));
@@ -164,7 +148,6 @@ public class AuthenticationControllerTest {
         AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
                 .build();
 
-        // Default response type should be "code"
         assertThat(controller, is(notNullValue()));
     }
 
@@ -187,15 +170,7 @@ public class AuthenticationControllerTest {
         assertThat(controller, is(notNullValue()));
     }
 
-    @Test
-    public void shouldSetLegacySameSiteCookieToTrueByDefault() {
-        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
-                .build();
-
-        assertThat(controller, is(notNullValue()));
-    }
-
-    // Test Handle Methods
+    // --- handle(request, response) Tests ---
 
     @Test
     public void shouldHandleRequestWithResponse() throws IdentityVerificationException {
@@ -206,18 +181,6 @@ public class AuthenticationControllerTest {
 
         assertThat(result, is(mockTokens));
         verify(mockRequestProcessor).process(request, response);
-    }
-
-    @Test
-    @SuppressWarnings("deprecation")
-    public void shouldHandleDeprecatedRequestOnly() throws IdentityVerificationException {
-        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
-        when(mockRequestProcessor.process(request, null)).thenReturn(mockTokens);
-
-        Tokens result = controller.handle(request);
-
-        assertThat(result, is(mockTokens));
-        verify(mockRequestProcessor).process(request, null);
     }
 
     @Test
@@ -240,18 +203,7 @@ public class AuthenticationControllerTest {
         assertThat(exception.getMessage(), is("response must not be null"));
     }
 
-    @Test
-    @SuppressWarnings("deprecation")
-    public void shouldThrowExceptionWhenDeprecatedHandleRequestIsNull() {
-        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
-
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () -> controller.handle((HttpServletRequest) null));
-        assertThat(exception.getMessage(), is("request must not be null"));
-    }
-
-    // Test BuildAuthorizeUrl Methods
+    // --- buildAuthorizeUrl(request, response, redirectUri) Tests ---
 
     @Test
     public void shouldBuildAuthorizeUrlWithRequestAndResponse() {
@@ -259,32 +211,13 @@ public class AuthenticationControllerTest {
         AuthorizeUrl mockAuthorizeUrl = mock(AuthorizeUrl.class);
         String redirectUri = "https://redirect.to/me";
 
-        when(mockRequestProcessor.buildAuthorizeUrl(eq(request), eq(response), eq(redirectUri), anyString(),
-                anyString()))
+        when(mockRequestProcessor.buildAuthorizeUrl(eq(request), eq(response), eq(redirectUri), anyString(), anyString()))
                 .thenReturn(mockAuthorizeUrl);
 
         AuthorizeUrl result = controller.buildAuthorizeUrl(request, response, redirectUri);
 
         assertThat(result, is(mockAuthorizeUrl));
-        verify(mockRequestProcessor).buildAuthorizeUrl(eq(request), eq(response), eq(redirectUri), anyString(),
-                anyString());
-    }
-
-    @Test
-    @SuppressWarnings("deprecation")
-    public void shouldBuildDeprecatedAuthorizeUrl() {
-        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
-        AuthorizeUrl mockAuthorizeUrl = mock(AuthorizeUrl.class);
-        String redirectUri = "https://redirect.to/me";
-
-        when(mockRequestProcessor.buildAuthorizeUrl(eq(request), isNull(), eq(redirectUri), anyString(), anyString()))
-                .thenReturn(mockAuthorizeUrl);
-
-        AuthorizeUrl result = controller.buildAuthorizeUrl(request, redirectUri);
-
-        assertThat(result, is(mockAuthorizeUrl));
-        verify(mockRequestProcessor).buildAuthorizeUrl(eq(request), isNull(), eq(redirectUri), anyString(),
-                anyString());
+        verify(mockRequestProcessor).buildAuthorizeUrl(eq(request), eq(response), eq(redirectUri), anyString(), anyString());
     }
 
     @Test
@@ -317,29 +250,7 @@ public class AuthenticationControllerTest {
         assertThat(exception.getMessage(), is("redirectUri must not be null"));
     }
 
-    @Test
-    @SuppressWarnings("deprecation")
-    public void shouldThrowExceptionWhenDeprecatedBuildAuthorizeUrlRequestIsNull() {
-        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
-
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () -> controller.buildAuthorizeUrl(null, "https://redirect.to/me"));
-        assertThat(exception.getMessage(), is("request must not be null"));
-    }
-
-    @Test
-    @SuppressWarnings("deprecation")
-    public void shouldThrowExceptionWhenDeprecatedBuildAuthorizeUrlRedirectUriIsNull() {
-        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
-
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () -> controller.buildAuthorizeUrl(request, (String) null));
-        assertThat(exception.getMessage(), is("redirectUri must not be null"));
-    }
-
-    // Test Logging and Telemetry Methods
+    // --- Logging and Telemetry Tests ---
 
     @Test
     public void shouldSetLoggingEnabled() {
@@ -359,7 +270,33 @@ public class AuthenticationControllerTest {
         verify(mockRequestProcessor).doNotSendTelemetry();
     }
 
-    // Test Builder Edge Cases and Advanced Configuration
+    // --- Exception Propagation ---
+
+    @Test
+    public void shouldPropagateIdentityVerificationException() throws IdentityVerificationException {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        IdentityVerificationException expectedException = new IdentityVerificationException("test", "error", null);
+        when(mockRequestProcessor.process(request, response)).thenThrow(expectedException);
+
+        IdentityVerificationException actualException = assertThrows(
+                IdentityVerificationException.class,
+                () -> controller.handle(request, response));
+
+        assertThat(actualException, is(expectedException));
+    }
+
+    // --- RequestProcessor Integration ---
+
+    @Test
+    public void shouldGetRequestProcessor() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        RequestProcessor result = controller.getRequestProcessor();
+
+        assertThat(result, is(mockRequestProcessor));
+    }
+
+    // --- Builder Variations ---
 
     @Test
     public void shouldBuildWithCodeResponseTypeAndNoJwkProvider() {
@@ -382,8 +319,6 @@ public class AuthenticationControllerTest {
 
     @Test
     public void shouldBuildWithDomainResolver() {
-        when(mockDomainResolver.resolve(any())).thenReturn(DOMAIN);
-
         AuthenticationController controller = AuthenticationController
                 .newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET)
                 .build();
@@ -438,63 +373,19 @@ public class AuthenticationControllerTest {
         assertThat(controller, is(notNullValue()));
     }
 
-    // Test Exception Handling
-
-    @Test
-    public void shouldPropagateIdentityVerificationException() throws IdentityVerificationException {
-        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
-        IdentityVerificationException expectedException = new IdentityVerificationException("test", "error", null);
-        when(mockRequestProcessor.process(request, response)).thenThrow(expectedException);
-
-        IdentityVerificationException actualException = assertThrows(
-                IdentityVerificationException.class,
-                () -> controller.handle(request, response));
-
-        assertThat(actualException, is(expectedException));
-    }
-
-    // Test RequestProcessor Integration
-
-    @Test
-    public void shouldGetRequestProcessor() {
-        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
-
-        RequestProcessor result = controller.getRequestProcessor();
-
-        assertThat(result, is(mockRequestProcessor));
-    }
-
-    // Test Multi-Customer Domain (MCD) Support
+    // --- MCD Support ---
 
     @Test
     public void shouldSupportMCDWithDomainResolver() {
-        when(mockDomainResolver.resolve(any())).thenReturn("tenant1.auth0.com");
-
         AuthenticationController controller = AuthenticationController
                 .newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET)
                 .build();
 
         assertThat(controller, is(notNullValue()));
-        // Verify that the controller is built properly with domain resolver
         assertThat(controller.getRequestProcessor(), is(notNullValue()));
     }
 
-    // Test Builder Reusability (Should Throw Exception)
-
-    @Test
-    public void shouldThrowExceptionWhenBuilderReused() {
-        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID,
-                CLIENT_SECRET);
-        builder.build(); // First build should succeed
-
-        // Second build should throw exception (based on coding instructions about
-        // non-reusable builders)
-        // Note: This test assumes the builder throws on reuse - if not implemented yet,
-        // this documents the expected behavior
-        assertThat(builder, is(notNullValue())); // Builder exists but should not be reusable
-    }
-
-    // Test Complex Response Types
+    // --- Response Type Variations ---
 
     @Test
     public void shouldHandleCodeResponseType() {

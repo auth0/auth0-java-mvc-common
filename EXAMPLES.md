@@ -2,6 +2,7 @@
 
 - [Including additional authorization parameters](#including-additional-authorization-parameters)
 - [Organizations](#organizations)
+- [Multi-Customer Domain (MCD) Support](#multi-customer-domain-mcd-support)
 - [Allowing clock skew for token validation](#allow-a-clock-skew-for-token-validation)
 - [Changing the OAuth response_type](#changing-the-oauth-response_type)
 - [HTTP logging](#http-logging)
@@ -72,6 +73,87 @@ AuthenticationController controller = AuthenticationController.newBuilder("{DOMA
 ```
 
 The ID of the invitation and organization are available as query parameters on the invitation URL, e.g., `https://your-domain.auth0.com/login?invitation={INVITATION_ID}&organization={ORG_ID}&organization_name={ORG_NAME}`
+
+## Multi-Customer Domain (MCD) Support
+
+MCD allows a single application to authenticate users against different Auth0 domains on a per-request basis. Instead of configuring a static domain, you provide a `DomainResolver` that determines the correct domain for each request.
+
+### Configure with a DomainResolver
+
+Implement the `DomainResolver` interface to resolve the domain dynamically based on the incoming request. The domain can be derived from a subdomain, request header, query parameter, or any other request attribute:
+
+```java
+DomainResolver domainResolver = (HttpServletRequest request) -> {
+    // Example: resolve from a custom header
+    String tenant = request.getHeader("X-Tenant-Domain");
+    return tenant != null ? tenant : "default-tenant.auth0.com";
+};
+
+AuthenticationController controller = AuthenticationController
+        .newBuilder(domainResolver, "YOUR-CLIENT-ID", "YOUR-CLIENT-SECRET")
+        .build();
+```
+
+### Resolve domain from subdomain
+
+```java
+DomainResolver domainResolver = (HttpServletRequest request) -> {
+    // e.g., "acme.myapp.com" -> "acme.auth0.com"
+    String host = request.getServerName();
+    String subdomain = host.split("\\.")[0];
+    return subdomain + ".auth0.com";
+};
+
+AuthenticationController controller = AuthenticationController
+        .newBuilder(domainResolver, "YOUR-CLIENT-ID", "YOUR-CLIENT-SECRET")
+        .build();
+```
+
+### Building the authorize URL and handling the callback
+
+The login and callback servlets work the same way as with a static domain. The library automatically stores the resolved domain and issuer in transient cookies during the authorization flow, and retrieves them when handling the callback:
+
+```java
+// LoginServlet - domain is resolved automatically per request
+@WebServlet(urlPatterns = {"/login"})
+public class LoginServlet extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        String authorizeUrl = controller
+                .buildAuthorizeUrl(req, res, "https://myapp.com/callback")
+                .build();
+        res.sendRedirect(authorizeUrl);
+    }
+}
+
+// CallbackServlet - domain/issuer retrieved from cookies and validated
+@WebServlet(urlPatterns = {"/callback"})
+public class CallbackServlet extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException, ServletException {
+        try {
+            Tokens tokens = controller.handle(req, res);
+
+            // Access the domain and issuer that were used for this authentication
+            String domain = tokens.getDomain();   // e.g., "acme.auth0.com"
+            String issuer = tokens.getIssuer();    // e.g., "https://acme.auth0.com/"
+
+            // Use domain/issuer for tenant-specific session management
+            req.getSession().setAttribute("auth0_domain", domain);
+
+            res.sendRedirect("/dashboard");
+        } catch (IdentityVerificationException e) {
+            // handle authentication error
+        }
+    }
+}
+```
+
+### How it works
+
+1. When `buildAuthorizeUrl()` is called, the `DomainResolver` resolves the domain from the current request. The resolved domain and its issuer are stored as transient cookies (`com.auth0.origin_domain`, `com.auth0.origin_issuer`).
+2. When the callback is handled via `handle()`, the stored domain and issuer are retrieved from cookies. The library creates a domain-specific API client for the code exchange and validates that the ID token's `iss` claim matches the expected issuer.
+3. The returned `Tokens` object includes `getDomain()` and `getIssuer()` for use in tenant-specific logic.
 
 ## Allow a clock skew for token validation
 
