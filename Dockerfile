@@ -1,19 +1,16 @@
-FROM gradle:6.9.2-jdk8
+FROM tomcat:9-jdk11
 
-WORKDIR /home/gradle
-# Copy your project files
-COPY . .
+# Remove default Tomcat apps
+RUN rm -rf /usr/local/tomcat/webapps/*
 
-# Ensure the Gradle wrapper is executable
-RUN chmod +x ./gradlew
+# Change Tomcat's default port from 8080 to 3000
+RUN sed -i 's/port="8080"/port="3000"/' /usr/local/tomcat/conf/server.xml
 
-# Expose both ports for your MCD test
-EXPOSE 3000
-EXPOSE 8080
-EXPOSE 5005
+# Copy the locally-built WAR into Tomcat
+COPY build/libs/mvc-auth-commons-*.war /usr/local/tomcat/webapps/ROOT.war
 
-# Use --no-daemon to keep the container process alive
-# We use the wrapper (./gradlew) to ensure consistency
-#CMD ["./gradlew", "appRun", "--no-daemon", "-Pgretty.managed=false"]
-ENV GRADLE_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
-CMD ["gradle", "appRun", "--no-daemon"]
+EXPOSE 3000 5005
+
+ENV JAVA_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+
+CMD ["catalina.sh", "run"]

@@ -5,15 +5,12 @@ import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.net.Telemetry;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import static com.auth0.InvalidRequestException.*;
 
@@ -183,7 +180,6 @@ class RequestProcessor {
             setupTelemetry(client);
         }
 
-        System.out.println("Created dynamic AuthAPI for domain: " + domain + " " + clientId);
         return client;
     }
 
@@ -231,23 +227,11 @@ class RequestProcessor {
         }
 
         // null response means state and nonce will be stored in session, so legacy
-        // cookie flag does not apply
+        // cookie flag does not apply and origin domain cookie cannot be set
         if (response != null) {
             creator.withLegacySameSiteCookie(useLegacySameSiteCookie);
+            creator.withOriginDomain(originDomain, clientSecret);
         }
-
-        boolean isSecure = request.isSecure();
-
-        TransientCookieStore.storeOriginData(
-                response,
-                originDomain,
-                SameSite.LAX,
-                constructIssuer(originDomain),
-                cookiePath,
-                isSecure);
-
-        TransientCookieStore.storeOriginData(response, originDomain, SameSite.LAX, constructIssuer(originDomain), cookiePath,
-                isSecure);
 
         return getAuthorizeUrl(nonce, creator);
     }
@@ -269,19 +253,21 @@ class RequestProcessor {
         assertNoError(request);
         assertValidState(request, response);
 
-        // Retrieve stored origin domain and issuer from the authorization flow
-        String originDomain = TransientCookieStore.getOriginDomain(request, response);
-        String originIssuer = TransientCookieStore.getOriginIssuer(request, response);
+        // Extract origin_domain from the HMAC-signed transaction state cookie.
+        // If the cookie was tampered with, getSignedOriginDomain returns null.
+        String originDomain = null;
+        if (response != null) {
+            originDomain = TransientCookieStore.getSignedOriginDomain(request, response, clientSecret);
+        }
 
+        // Fallback for session-based (deprecated) flow or if cookie was not set
         if (originDomain == null) {
             originDomain = domainProvider.getDomain(request);
         }
 
-        if (originIssuer == null) {
-            originIssuer = constructIssuer(originDomain);
-        }
+        // Always derive the issuer from the verified domain — never from a cookie
+        String originIssuer = constructIssuer(originDomain);
 
-        // Each request will create its own verification options with the correct issuer
         Tokens frontChannelTokens = getFrontChannelTokens(request, originDomain, originIssuer);
         List<String> responseTypeList = getResponseType();
 
@@ -322,18 +308,24 @@ class RequestProcessor {
         Tokens codeExchangeTokens = null;
 
         // Get nonce for this specific request
-        String nonce = response != null
-                ? (TransientCookieStore.getNonce(request, response) != null
-                        ? TransientCookieStore.getNonce(request, response)
-                        : RandomStorage.removeSessionNonce(request))
-                : RandomStorage.removeSessionNonce(request);
+        String nonce;
+        if (response != null) {
+            nonce = TransientCookieStore.getNonce(request, response);
+            // Fallback to session if cookie was not set (deprecated API path)
+            if (nonce == null) {
+                nonce = RandomStorage.removeSessionNonce(request);
+            }
+        } else {
+            nonce = RandomStorage.removeSessionNonce(request);
+        }
 
         IdTokenVerifier.Options requestVerifyOptions = createRequestVerifyOptions(originIssuer, nonce);
 
         try {
             if (responseTypeList.contains(KEY_ID_TOKEN)) {
-                // Implicit/Hybrid flow: must verify front-channel ID Token first
-                validateIdTokenIssuer(frontChannelTokens.getIdToken(), originIssuer);
+                // Implicit/Hybrid flow: must verify front-channel ID Token first.
+                // The issuer is derived from the HMAC-verified domain, so this check
+                // validates the token's iss against a trusted value.
                 tokenVerifier.verify(frontChannelTokens.getIdToken(), requestVerifyOptions);
             }
             if (responseTypeList.contains(KEY_CODE)) {
@@ -344,7 +336,6 @@ class RequestProcessor {
                     // If we already verified the front-channel token, don't verify it again.
                     String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
                     if (idTokenFromCodeExchange != null) {
-                        validateIdTokenIssuer(idTokenFromCodeExchange, originIssuer);
                         tokenVerifier.verify(idTokenFromCodeExchange, requestVerifyOptions);
                     }
                 }
@@ -382,66 +373,6 @@ class RequestProcessor {
         }
 
         return requestOptions;
-    }
-
-    /**
-     * Validates that the ID Token's issuer matches the expected origin issuer.
-     *
-     * @param idToken        the ID Token to validate
-     * @param expectedIssuer the expected issuer from the authorization flow
-     * @throws IdentityVerificationException if the issuer doesn't match
-     */
-    private void validateIdTokenIssuer(String idToken, String expectedIssuer) throws IdentityVerificationException {
-        if (idToken == null || expectedIssuer == null) {
-            return;
-        }
-
-        try {
-            String[] parts = idToken.split("\\.");
-            if (parts.length != 3) {
-                throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "Invalid ID Token format", null);
-            }
-
-            String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
-            String tokenIssuer = extractIssuerFromPayload(payload);
-
-            if (!tokenIssuer.equals(expectedIssuer)) {
-                throw new IdentityVerificationException(JWT_VERIFICATION_ERROR,
-                        String.format("Token issuer '%s' does not match expected issuer '%s'",
-                                tokenIssuer, expectedIssuer),
-                        null);
-            }
-        } catch (Exception e) {
-            if (e instanceof IdentityVerificationException) {
-                throw e;
-            }
-            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR,
-                    "Failed to validate token issuer: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Extracts the issuer (iss) claim from the ID Token payload.
-     *
-     * @param payload the decoded payload of the ID Token
-     * @return the issuer claim value
-     * @throws IdentityVerificationException if the issuer claim is missing
-     */
-    private String extractIssuerFromPayload(String payload) throws IdentityVerificationException {
-        try {
-            Map<String, Object> payloadMap = new ObjectMapper().readValue(payload,
-                    new TypeReference<Map<String, Object>>() {
-                    });
-            if (payloadMap.containsKey("iss")) {
-                return payloadMap.get("iss").toString();
-            } else {
-                throw new IdentityVerificationException(JWT_VERIFICATION_ERROR,
-                        "Issuer claim (iss) is missing in the ID Token payload.", null);
-            }
-        } catch (Exception e) {
-            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR,
-                    "Failed to parse ID Token payload: " + e.getMessage(), e);
-        }
     }
 
     List<String> getResponseType() {
