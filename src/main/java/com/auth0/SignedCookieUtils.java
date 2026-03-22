@@ -46,7 +46,6 @@ class SignedCookieUtils {
      *         the signature is invalid or the format is unexpected
      */
     static String verifyAndExtract(String signedValue, String secret) {
-        System.out.println("Verifying signed value: " + signedValue);
         if (signedValue == null || secret == null) {
             return null;
         }

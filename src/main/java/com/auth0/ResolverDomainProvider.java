@@ -2,7 +2,7 @@ package com.auth0;
 
 import javax.servlet.http.HttpServletRequest;
 
-public class ResolverDomainProvider implements DomainProvider {
+class ResolverDomainProvider implements DomainProvider {
     private final DomainResolver resolver;
 
     ResolverDomainProvider(DomainResolver resolver) {

@@ -81,7 +81,6 @@ class TransientCookieStore {
     static void storeSignedOriginDomain(HttpServletResponse response, String domain,
             SameSite sameSite, String path, boolean isSecure, String secret) {
         String signedDomain = SignedCookieUtils.sign(domain, secret);
-        System.out.println("Signed Domain: "+signedDomain);
         store(response, StorageUtils.ORIGIN_DOMAIN_KEY, signedDomain, sameSite, true, isSecure, path);
     }
 
