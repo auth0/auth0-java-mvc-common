@@ -5,8 +5,8 @@ import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.PushedAuthorizationResponse;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.*;
 
 import static com.auth0.IdentityVerificationException.API_ERROR;
@@ -39,7 +39,7 @@ public class AuthorizeUrl {
      *
      * Using this constructor with a non-null {@link HttpServletResponse} will store the state and nonce as
      * cookies when the {@link AuthorizeUrl#build()} method is called, with the appropriate SameSite attribute depending
-     * on the responseType. State and nonce will also be stored in the {@link javax.servlet.http.HttpSession} as a fallback,
+     * on the responseType. State and nonce will also be stored in the {@link jakarta.servlet.http.HttpSession} as a fallback,
      * but this behavior will be removed in a future release, and only cookies will be used.
      *
      * @param client       the Auth0 Authentication API client
