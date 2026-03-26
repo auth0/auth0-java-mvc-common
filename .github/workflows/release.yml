@@ -33,7 +33,6 @@ jobs:
     needs: rl-scanner
     with:
       java-version: 8.0.382-tem
-      is-android: false
     secrets:
       ossr-username: ${{ secrets.OSSR_USERNAME }}
       ossr-token: ${{ secrets.OSSR_TOKEN }}
