@@ -76,7 +76,15 @@ The ID of the invitation and organization are available as query parameters on t
 
 ## Multi-Customer Domain (MCD) Support
 
-MCD allows a single application to authenticate users against different Auth0 domains on a per-request basis. Instead of configuring a static domain, you provide a `DomainResolver` that determines the correct domain for each request.
+Multiple Custom Domains (MCD) lets you resolve the Auth0 domain per request while keeping a single SDK instance. This is useful when one application serves multiple customer domains (for example, `brand-1.my-app.com` and `brand-2.my-app.com`), each mapped to a different `Auth0` custom domain.
+
+`MCD` is enabled by providing a `DomainResolver` function instead of a static domain string, enabling you to dynamically define the `Auth0` custom domain at run-time.
+
+Resolver mode is intended for the custom domains of a single `Auth0` tenant. It is not a supported way to connect multiple `Auth0` tenants to one application.
+
+### Dynamic Domain Resolver
+
+Provide a resolver function to select the domain at runtime. The resolver should return the `Auth0 Custom Domain` (for example, `brand-1.custom-domain.com`). Returning `null` or an empty value throws `IllegalStateException`.
 
 ### Configure with a DomainResolver
 
@@ -154,6 +162,43 @@ public class CallbackServlet extends HttpServlet {
 1. When `buildAuthorizeUrl()` is called, the `DomainResolver` resolves the domain from the current request. The resolved domain and its issuer are stored as transient cookies (`com.auth0.origin_domain`, `com.auth0.origin_issuer`).
 2. When the callback is handled via `handle()`, the stored domain and issuer are retrieved from cookies. The library creates a domain-specific API client for the code exchange and validates that the ID token's `iss` claim matches the expected issuer.
 3. The returned `Tokens` object includes `getDomain()` and `getIssuer()` for use in tenant-specific logic.
+
+### Redirect URI requirements
+
+When using MCD, the `redirectUri` passed to `buildAuthorizeUrl()` must be an **absolute URL**. The SDK does not infer it from the request. In MCD deployments, you will typically resolve the redirect URI per request so each domain uses the correct callback URL:
+
+```java
+@Override
+protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
+    // Resolve redirect URI based on the incoming request's host
+    String redirectUri = req.getScheme() + "://" + req.getServerName() + "/callback";
+
+    String authorizeUrl = controller
+            .buildAuthorizeUrl(req, res, redirectUri)
+            .build();
+    res.sendRedirect(authorizeUrl);
+}
+```
+
+You must validate the host and scheme safely for your deployment to prevent open redirect attacks.
+
+### Legacy sessions and migration
+
+When moving from a static domain setup to a `DomainResolver`, existing sessions can continue to work if the resolver returns the same Auth0 custom domain that was used for those legacy sessions.
+
+If the resolver returns a different domain, the SDK treats the session as missing and requires the user to sign in again. This is intentional to keep sessions isolated per domain.
+
+### Security requirements
+
+When configuring the `DomainResolver`, you are responsible for ensuring that all resolved domains are trusted. Mis-configuring the domain resolver is a critical security risk that can lead to authentication bypass on the relying party (RP) or expose the application to Server-Side Request Forgery (SSRF).
+
+**Single tenant limitation:**
+The `DomainResolver` is intended solely for multiple custom domains belonging to the same Auth0 tenant. It is not a supported mechanism for connecting multiple Auth0 tenants to a single application.
+
+**Secure proxy requirement:**
+When using MCD, your application must be deployed behind a secure edge or reverse proxy (e.g., Cloudflare, Nginx, or AWS ALB). The proxy must be configured to sanitize and overwrite `Host` and `X-Forwarded-Host` headers before they reach your application.
+
+Without a trusted proxy layer to validate these headers, an attacker can manipulate the domain resolution process. This can result in malicious redirects, where users are sent to unauthorized or fraudulent endpoints during the login and logout flows.
 
 ## Allow a clock skew for token validation
 

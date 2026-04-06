@@ -11,6 +11,10 @@ class ResolverDomainProvider implements DomainProvider {
 
     @Override
     public String getDomain(HttpServletRequest request) {
-        return resolver.resolve(request);
+        String domain = resolver.resolve(request);
+        if (domain == null || domain.trim().isEmpty()) {
+            throw new IllegalStateException("DomainResolver returned a null or empty domain");
+        }
+        return domain;
     }
 }
