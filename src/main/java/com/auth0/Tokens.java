@@ -106,7 +106,7 @@ public class Tokens implements Serializable {
 
     /**
      * Getter for the Auth0 domain that issued these tokens.
-     * Used for domain-specific session management in Multi-Customer Domain (MCD)
+     * Used for domain-specific session management in Multiple Custom Domains (MCD)
      * scenarios.
      *
      * @return the domain that issued these tokens, or null for non-MCD scenarios
@@ -117,7 +117,7 @@ public class Tokens implements Serializable {
 
     /**
      * Getter for the issuer URL from the ID token.
-     * Used for domain-specific session management in Multi-Customer Domain (MCD)
+     * Used for domain-specific session management in Multiple Custom Domains (MCD)
      * scenarios.
      *
      * @return the issuer URL, or null for non-MCD scenarios

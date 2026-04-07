@@ -2,7 +2,7 @@
 
 - [Including additional authorization parameters](#including-additional-authorization-parameters)
 - [Organizations](#organizations)
-- [Multi-Customer Domain (MCD) Support](#multi-customer-domain-mcd-support)
+- [Multiple Custom Domains (MCD) Support](#multiple-custom-domains-support)
 - [Allowing clock skew for token validation](#allow-a-clock-skew-for-token-validation)
 - [Changing the OAuth response_type](#changing-the-oauth-response_type)
 - [HTTP logging](#http-logging)
@@ -74,9 +74,9 @@ AuthenticationController controller = AuthenticationController.newBuilder("{DOMA
 
 The ID of the invitation and organization are available as query parameters on the invitation URL, e.g., `https://your-domain.auth0.com/login?invitation={INVITATION_ID}&organization={ORG_ID}&organization_name={ORG_NAME}`
 
-## Multi-Customer Domain (MCD) Support
+## Multiple Custom Domains Support
 
-Multiple Custom Domains (MCD) lets you resolve the Auth0 domain per request while keeping a single SDK instance. This is useful when one application serves multiple customer domains (for example, `brand-1.my-app.com` and `brand-2.my-app.com`), each mapped to a different `Auth0` custom domain.
+Multiple Custom Domains (MCD) lets you resolve the Auth0 domain per request while keeping a single SDK instance. This is useful when one application serves multiple custom domains (for example, `brand-1.my-app.com` and `brand-2.my-app.com`), each mapped to a different `Auth0` custom domain.
 
 `MCD` is enabled by providing a `DomainResolver` function instead of a static domain string, enabling you to dynamically define the `Auth0` custom domain at run-time.
 

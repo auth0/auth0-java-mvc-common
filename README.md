@@ -129,7 +129,7 @@ public class CallbackServlet extends HttpServlet {
 
 That's it! You have authenticated the user using Auth0.
 
-### Multi-Customer Domain (MCD) Support
+### Multiple Custom Domains Support
 
 If your application needs to authenticate users against different Auth0 domains per request, use a `DomainResolver` instead of a static domain:
 
@@ -144,7 +144,7 @@ AuthenticationController controller = AuthenticationController
         .build();
 ```
 
-The library handles storing and retrieving the resolved domain throughout the authentication flow. The returned `Tokens` object includes `getDomain()` and `getIssuer()` for tenant-specific session management. See [EXAMPLES.md](./EXAMPLES.md#multi-customer-domain-mcd-support) for more details.
+The library handles storing and retrieving the resolved domain throughout the authentication flow. The returned `Tokens` object includes `getDomain()` and `getIssuer()` for tenant-specific session management. See [EXAMPLES.md](./EXAMPLES.md#multiple-custom-domains-support) for more details.
 
 ## API Reference
 
