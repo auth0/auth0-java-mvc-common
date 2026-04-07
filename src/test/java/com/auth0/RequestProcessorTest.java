@@ -480,7 +480,7 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldBuildAuthorizeUrl() {
-        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
         SignatureVerifier signatureVerifier = mock(SignatureVerifier.class);
         IdTokenVerifier.Options verifyOptions = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
@@ -503,7 +503,7 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldSetMaxAgeIfProvided() {
-        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
         when(verifyOptions.getMaxAge()).thenReturn(906030);
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .build();
@@ -517,7 +517,7 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldNotSetNonceIfRequestTypeIsNotIdToken() {
-        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
         RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
                 .build();
         HttpServletRequest request = new MockHttpServletRequest();
@@ -530,7 +530,7 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldSetNonceIfRequestTypeIsIdToken() {
-        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
         RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
                 .build();
         HttpServletRequest request = new MockHttpServletRequest();
@@ -543,7 +543,7 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldNotSetNullNonceIfRequestTypeIsIdToken() {
-        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
         RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
                 .build();
         HttpServletRequest request = new MockHttpServletRequest();
@@ -556,7 +556,7 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeIsIdToken() {
-        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
         RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
                 .build();
         HttpServletRequest request = new MockHttpServletRequest();
@@ -576,7 +576,7 @@ public class RequestProcessorTest {
 
     @Test
     public void shouldBuildAuthorizeUrlWithFormPostIfResponseTypeIsToken() {
-        AuthAPI client = new AuthAPI("me.auth0.com", "clientId", "clientSecret");
+        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
         RequestProcessor handler = new RequestProcessor.Builder(client, "token", verifyOptions)
                 .build();
         HttpServletRequest request = new MockHttpServletRequest();
