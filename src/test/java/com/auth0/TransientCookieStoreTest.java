@@ -270,4 +270,114 @@ public class TransientCookieStoreTest {
         assertThat(nonce, is(nullValue()));
         assertThat(nonce, is(nullValue()));
     }
+
+    private static final String TEST_SECRET = "testClientSecret123";
+    private static final String TEST_DOMAIN = "tenant-a.auth0.com";
+
+    @Test
+    public void shouldStoreSignedOriginDomainCookie() {
+        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN,
+                SameSite.LAX, null, false, TEST_SECRET);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(1));
+        String header = headers.get(0);
+        assertThat(header, containsString("com.auth0.origin_domain="));
+        assertThat(header, containsString("SameSite=Lax"));
+        assertThat(header, containsString("HttpOnly"));
+    }
+
+    @Test
+    public void shouldStoreSignedOriginDomainWithSameSiteNone() {
+        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN,
+                SameSite.NONE, null, false, TEST_SECRET);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(2)); // primary + legacy fallback
+        assertThat(headers.get(0), containsString("SameSite=None"));
+        assertThat(headers.get(0), containsString("Secure"));
+    }
+
+    @Test
+    public void shouldRetrieveAndVerifySignedOriginDomain() {
+        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_SECRET);
+        Cookie cookie = new Cookie("com.auth0.origin_domain", signedValue);
+        request.setCookies(cookie);
+
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_SECRET);
+
+        assertThat(domain, is(TEST_DOMAIN));
+    }
+
+    @Test
+    public void shouldReturnNullForTamperedOriginDomain() {
+        Cookie cookie = new Cookie("com.auth0.origin_domain",
+                "evil.auth0.com|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        request.setCookies(cookie);
+
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_SECRET);
+
+        assertThat(domain, is(nullValue()));
+    }
+
+    @Test
+    public void shouldReturnNullForMissingOriginDomainCookie() {
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_SECRET);
+
+        assertThat(domain, is(nullValue()));
+    }
+
+    @Test
+    public void shouldReturnNullForWrongSecret() {
+        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_SECRET);
+        Cookie cookie = new Cookie("com.auth0.origin_domain", signedValue);
+        request.setCookies(cookie);
+
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, "wrong-secret");
+
+        assertThat(domain, is(nullValue()));
+    }
+
+    @Test
+    public void shouldDeleteOriginDomainCookieAfterReading() {
+        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_SECRET);
+        Cookie cookie = new Cookie("com.auth0.origin_domain", signedValue);
+        request.setCookies(cookie);
+
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_SECRET);
+        assertThat(domain, is(TEST_DOMAIN));
+
+        Cookie[] responseCookies = response.getCookies();
+        assertThat(responseCookies, is(notNullValue()));
+        boolean foundDeleted = false;
+        for (Cookie c : responseCookies) {
+            if ("com.auth0.origin_domain".equals(c.getName())) {
+                assertThat(c.getMaxAge(), is(0));
+                assertThat(c.getValue(), is(""));
+                foundDeleted = true;
+            }
+        }
+        assertThat(foundDeleted, is(true));
+    }
+
+    @Test
+    public void shouldStoreAndRetrieveSignedOriginDomainEndToEnd() {
+        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN,
+                SameSite.LAX, null, false, TEST_SECRET);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(1));
+
+        String header = headers.get(0);
+        String cookieValue = header.split(";")[0].split("=", 2)[1];
+
+        Cookie cookie = new Cookie("com.auth0.origin_domain", cookieValue);
+
+        MockHttpServletRequest callbackRequest = new MockHttpServletRequest();
+        MockHttpServletResponse callbackResponse = new MockHttpServletResponse();
+        callbackRequest.setCookies(cookie);
+
+        String domain = TransientCookieStore.getSignedOriginDomain(callbackRequest, callbackResponse, TEST_SECRET);
+        assertThat(domain, is(TEST_DOMAIN));
+    }
 }

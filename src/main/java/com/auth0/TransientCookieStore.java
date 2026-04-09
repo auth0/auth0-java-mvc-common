@@ -66,6 +66,42 @@ class TransientCookieStore {
         return getOnce(StorageUtils.NONCE_KEY, request, response);
     }
 
+    /**
+     * Stores the origin domain as an HMAC-signed cookie. The issuer is not stored
+     * separately — it is always derived from the domain on callback to prevent
+     * tampering.
+     *
+     * @param response  the response to set the cookie on
+     * @param domain    the resolved Auth0 domain
+     * @param sameSite  the SameSite attribute value
+     * @param path      the cookie path, or null
+     * @param isSecure  whether to set the Secure attribute
+     * @param secret    the client secret used for HMAC signing
+     */
+    static void storeSignedOriginDomain(HttpServletResponse response, String domain,
+            SameSite sameSite, String path, boolean isSecure, String secret) {
+        String signedDomain = SignedCookieUtils.sign(domain, secret);
+        store(response, StorageUtils.ORIGIN_DOMAIN_KEY, signedDomain, sameSite, true, isSecure, path);
+    }
+
+    /**
+     * Retrieves and verifies the HMAC-signed origin domain cookie.
+     *
+     * @param request  the request to read the cookie from
+     * @param response the response used to delete the cookie after reading
+     * @param secret   the client secret used for HMAC verification
+     * @return the verified domain value, or {@code null} if the cookie is missing
+     *         or the signature is invalid (tampered)
+     */
+    static String getSignedOriginDomain(HttpServletRequest request, HttpServletResponse response,
+            String secret) {
+        String signedValue = getOnce(StorageUtils.ORIGIN_DOMAIN_KEY, request, response);
+        if (signedValue == null) {
+            return null;
+        }
+        return SignedCookieUtils.verifyAndExtract(signedValue, secret);
+    }
+
     private static void store(HttpServletResponse response, String key, String value, SameSite sameSite, boolean useLegacySameSiteCookie, boolean isSecureCookie, String cookiePath) {
         Validate.notNull(response, "response must not be null");
         Validate.notNull(key, "key must not be null");

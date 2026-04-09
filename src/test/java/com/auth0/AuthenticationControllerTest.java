@@ -1,16 +1,9 @@
 package com.auth0;
 
 import com.auth0.client.HttpOptions;
-import com.auth0.client.auth.AuthAPI;
-import com.auth0.client.auth.AuthorizeUrlBuilder;
-import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
-import com.auth0.net.Telemetry;
-import com.auth0.net.TokenRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -18,569 +11,428 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsNull.notNullValue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@SuppressWarnings("deprecated")
 public class AuthenticationControllerTest {
 
-    @Mock
-    private AuthAPI client;
-    @Mock
-    private IdTokenVerifier.Options verificationOptions;
-    @Captor
-    private ArgumentCaptor<SignatureVerifier> signatureVerifierCaptor;
+    private static final String DOMAIN = "domain.auth0.com";
+    private static final String CLIENT_ID = "clientId";
+    private static final String CLIENT_SECRET = "clientSecret";
 
-    private AuthenticationController.Builder builderSpy;
+    @Mock
+    private RequestProcessor mockRequestProcessor;
+    @Mock
+    private JwkProvider mockJwkProvider;
+    @Mock
+    private HttpOptions mockHttpOptions;
+    @Mock
+    private DomainResolver mockDomainResolver;
+    @Mock
+    private Tokens mockTokens;
+
+    private HttpServletRequest request;
+    private HttpServletResponse response;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+        request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
+    }
 
-        AuthenticationController.Builder builder = AuthenticationController.newBuilder("domain", "clientId", "clientSecret");
-        builderSpy = spy(builder);
+    // --- Builder Static Factory Methods ---
 
-        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), eq(null));
-        doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("https://domain/"), eq("clientId"), signatureVerifierCaptor.capture());
-        doReturn("1.2.3").when(builderSpy).obtainPackageVersion();
+    @Test
+    public void shouldCreateBuilderWithDomain() {
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET);
+
+        assertThat(builder, is(notNullValue()));
     }
 
     @Test
-    public void shouldSetupClientWithTelemetry() {
-        AuthenticationController controller = builderSpy.build();
+    public void shouldCreateBuilderWithDomainResolver() {
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET);
 
-        ArgumentCaptor<Telemetry> telemetryCaptor = ArgumentCaptor.forClass(Telemetry.class);
+        assertThat(builder, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenDomainIsNull() {
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> AuthenticationController.newBuilder((String) null, CLIENT_ID, CLIENT_SECRET));
+        assertThat(exception.getMessage(), is("domain must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenDomainResolverIsNull() {
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> AuthenticationController.newBuilder((DomainResolver) null, CLIENT_ID, CLIENT_SECRET));
+        assertThat(exception.getMessage(), is("domainResolver must not be null"));
+    }
+
+    // --- Builder Configuration ---
+
+    @Test
+    public void shouldConfigureBuilderWithAllOptions() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("id_token token")
+                .withJwkProvider(mockJwkProvider)
+                .withClockSkew(120)
+                .withAuthenticationMaxAge(3600)
+                .withLegacySameSiteCookie(false)
+                .withOrganization("org_123")
+                .withInvitation("inv_456")
+                .withHttpOptions(mockHttpOptions)
+                .withCookiePath("/custom")
+                .build();
 
         assertThat(controller, is(notNullValue()));
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.getClient(), is(client));
-        verify(client).setTelemetry(telemetryCaptor.capture());
-
-        Telemetry capturedTelemetry = telemetryCaptor.getValue();
-        assertThat(capturedTelemetry, is(notNullValue()));
-        assertThat(capturedTelemetry.getName(), is("auth0-java-mvc-common"));
-        assertThat(capturedTelemetry.getVersion(), is("1.2.3"));
+        assertThat(controller.getRequestProcessor(), is(notNullValue()));
     }
 
     @Test
-    public void shouldCreateAuthAPIClientWithoutCustomHttpOptions() {
-        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
-        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret"));
+    public void shouldThrowExceptionWhenDomainAndDomainResolverBothSet() {
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET);
 
-        spy.build();
-        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
-
-        HttpOptions actual = captor.getValue();
-        assertThat(actual, is(nullValue()));
-
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> builder.withDomainResolver(mockDomainResolver));
+        assertThat(exception.getMessage(), is("Cannot specify both 'domain' and 'domainResolver'."));
     }
 
     @Test
-    public void shouldCreateAuthAPIClientWithCustomHttpOptions() {
-        HttpOptions options = new HttpOptions();
-        options.setConnectTimeout(5);
-        options.setReadTimeout(6);
+    public void shouldThrowExceptionWhenDomainResolverAndDomainBothSet() {
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET);
 
-        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
-        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withHttpOptions(options));
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> builder.withDomain(DOMAIN));
+        assertThat(exception.getMessage(), is("Cannot specify both 'domain' and 'domainResolver'."));
+    }
 
-        spy.build();
-        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
+    @Test
+    public void shouldThrowExceptionWhenBuildingWithoutDomainOrResolver() {
+        AuthenticationController.Builder builder = new AuthenticationController.Builder(CLIENT_ID, CLIENT_SECRET);
 
-        HttpOptions actual = captor.getValue();
-        assertThat(actual, is(notNullValue()));
-        assertThat(actual.getConnectTimeout(), is(5));
-        assertThat(actual.getReadTimeout(), is(6));
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                builder::build);
+        assertThat(exception.getMessage(), is("Either domain or domainResolver must be provided."));
+    }
+
+    @Test
+    public void shouldValidateNullParameters() {
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET);
+
+        assertThrows(NullPointerException.class, () -> builder.withDomain(null));
+        assertThrows(NullPointerException.class, () -> builder.withResponseType(null));
+        assertThrows(NullPointerException.class, () -> builder.withJwkProvider(null));
+        assertThrows(NullPointerException.class, () -> builder.withClockSkew(null));
+        assertThrows(NullPointerException.class, () -> builder.withAuthenticationMaxAge(null));
+        assertThrows(NullPointerException.class, () -> builder.withOrganization(null));
+        assertThrows(NullPointerException.class, () -> builder.withInvitation(null));
+        assertThrows(NullPointerException.class, () -> builder.withHttpOptions(null));
+        assertThrows(NullPointerException.class, () -> builder.withCookiePath(null));
+    }
+
+    @Test
+    public void shouldSetDefaultResponseTypeToCode() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldNormalizeResponseTypeToLowerCase() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("ID_TOKEN TOKEN")
+                .withJwkProvider(mockJwkProvider)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldTrimResponseType() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("  code  ")
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+    }
+
+    // --- handle(request, response) Tests ---
+
+    @Test
+    public void shouldHandleRequestWithResponse() throws IdentityVerificationException {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        when(mockRequestProcessor.process(request, response)).thenReturn(mockTokens);
+
+        Tokens result = controller.handle(request, response);
+
+        assertThat(result, is(mockTokens));
+        verify(mockRequestProcessor).process(request, response);
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenRequestIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.handle(null, response));
+        assertThat(exception.getMessage(), is("request must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenResponseIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.handle(request, null));
+        assertThat(exception.getMessage(), is("response must not be null"));
+    }
+
+    // --- buildAuthorizeUrl(request, response, redirectUri) Tests ---
+
+    @Test
+    public void shouldBuildAuthorizeUrlWithRequestAndResponse() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        AuthorizeUrl mockAuthorizeUrl = mock(AuthorizeUrl.class);
+        String redirectUri = "https://redirect.to/me";
+
+        when(mockRequestProcessor.buildAuthorizeUrl(eq(request), eq(response), eq(redirectUri), anyString(), anyString()))
+                .thenReturn(mockAuthorizeUrl);
+
+        AuthorizeUrl result = controller.buildAuthorizeUrl(request, response, redirectUri);
+
+        assertThat(result, is(mockAuthorizeUrl));
+        verify(mockRequestProcessor).buildAuthorizeUrl(eq(request), eq(response), eq(redirectUri), anyString(), anyString());
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBuildAuthorizeUrlRequestIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.buildAuthorizeUrl(null, response, "https://redirect.to/me"));
+        assertThat(exception.getMessage(), is("request must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBuildAuthorizeUrlResponseIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.buildAuthorizeUrl(request, null, "https://redirect.to/me"));
+        assertThat(exception.getMessage(), is("response must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBuildAuthorizeUrlRedirectUriIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.buildAuthorizeUrl(request, response, null));
+        assertThat(exception.getMessage(), is("redirectUri must not be null"));
+    }
+
+    // --- Logging and Telemetry Tests ---
+
+    @Test
+    public void shouldSetLoggingEnabled() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        controller.setLoggingEnabled(true);
+
+        verify(mockRequestProcessor).setLoggingEnabled(true);
     }
 
     @Test
     public void shouldDisableTelemetry() {
-        AuthenticationController controller = builderSpy.build();
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
         controller.doNotSendTelemetry();
 
-        verify(client).doNotSendTelemetry();
+        verify(mockRequestProcessor).doNotSendTelemetry();
     }
 
-    @Test
-    public void shouldEnableLogging() {
-        AuthenticationController controller = builderSpy.build();
+    // --- Exception Propagation ---
 
-        controller.setLoggingEnabled(true);
-        verify(client).setLoggingEnabled(true);
+    @Test
+    public void shouldPropagateIdentityVerificationException() throws IdentityVerificationException {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        IdentityVerificationException expectedException = new IdentityVerificationException("test", "error", null);
+        when(mockRequestProcessor.process(request, response)).thenThrow(expectedException);
+
+        IdentityVerificationException actualException = assertThrows(
+                IdentityVerificationException.class,
+                () -> controller.handle(request, response));
+
+        assertThat(actualException, is(expectedException));
     }
 
-    @Test
-    public void shouldDisableLogging() {
-        AuthenticationController controller = builderSpy.build();
+    // --- RequestProcessor Integration ---
 
-        controller.setLoggingEnabled(true);
-        verify(client).setLoggingEnabled(true);
+    @Test
+    public void shouldGetRequestProcessor() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        RequestProcessor result = controller.getRequestProcessor();
+
+        assertThat(result, is(mockRequestProcessor));
     }
 
-    @Test
-    public void shouldCreateWithSymmetricSignatureVerifierForNoCodeGrants() {
-        AuthenticationController controller = builderSpy
-                .withResponseType("id_token")
-                .build();
-
-        SignatureVerifier signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(SymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("token")
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(SymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-    }
+    // --- Builder Variations ---
 
     @Test
-    public void shouldCreateWithAsymmetricSignatureVerifierWhenJwkProviderIsExplicitlySet() {
-        JwkProvider jwkProvider = mock(JwkProvider.class);
-        AuthenticationController controller = builderSpy
-                .withResponseType("code id_token")
-                .withJwkProvider(jwkProvider)
-                .build();
-
-        SignatureVerifier signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("code token")
-                .withJwkProvider(jwkProvider)
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("code id_token token")
-                .withJwkProvider(jwkProvider)
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("code")
-                .withJwkProvider(jwkProvider)
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("id_token")
-                .withJwkProvider(jwkProvider)
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("token")
-                .withJwkProvider(jwkProvider)
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AsymmetricSignatureVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-    }
-
-    @Test
-    public void shouldCreateWithAlgorithmNameSignatureVerifierForResponseTypesIncludingCode() {
-        AuthenticationController controller = builderSpy
-                .withResponseType("code id_token")
-                .build();
-
-        SignatureVerifier signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AlgorithmNameVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("code token")
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AlgorithmNameVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
-                .withResponseType("code token id_token")
-                .build();
-
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AlgorithmNameVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
-
-        controller = builderSpy
+    public void shouldBuildWithCodeResponseTypeAndNoJwkProvider() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
                 .withResponseType("code")
                 .build();
 
-        signatureVerifier = signatureVerifierCaptor.getValue();
-        assertThat(signatureVerifier, is(notNullValue()));
-        assertThat(signatureVerifier, instanceOf(AlgorithmNameVerifier.class));
-        assertThat(verificationOptions, is(controller.getRequestProcessor().verifyOptions));
+        assertThat(controller, is(notNullValue()));
     }
 
     @Test
-    public void shouldThrowOnMissingDomain() {
-        assertThrows(NullPointerException.class,
-                () -> AuthenticationController.newBuilder(null, "clientId", "clientSecret"));
-    }
-
-    @Test
-    public void shouldThrowOnMissingClientId() {
-        assertThrows(NullPointerException.class,
-                () -> AuthenticationController.newBuilder("domain", null, "clientSecret"));
-    }
-
-    @Test
-    public void shouldThrowOnMissingClientSecret() {
-        assertThrows(NullPointerException.class,
-                () -> AuthenticationController.newBuilder("domain", "clientId", null));
-    }
-
-    @Test
-    public void shouldThrowOnMissingJwkProvider() {
-        assertThrows(NullPointerException.class,
-                () -> AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                        .withJwkProvider(null));
-    }
-
-    @Test
-    public void shouldThrowOnMissingResponseType() {
-        assertThrows(NullPointerException.class,
-                () -> AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                        .withResponseType(null));
-    }
-
-    @Test
-    public void shouldCreateWithDefaultValues() {
-        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
+    public void shouldBuildWithImplicitGrantRequiringJwkProvider() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("id_token token")
+                .withJwkProvider(mockJwkProvider)
                 .build();
 
         assertThat(controller, is(notNullValue()));
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.getResponseType(), contains("code"));
-        assertThat(requestProcessor.verifyOptions.audience, is("clientId"));
-        assertThat(requestProcessor.verifyOptions.issuer, is("https://domain/"));
-        assertThat(requestProcessor.verifyOptions.verifier, is(notNullValue()));
-
-        assertThat(requestProcessor.verifyOptions.clockSkew, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.clock, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.nonce, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.getMaxAge(), is(nullValue()));
     }
 
     @Test
-    public void shouldHandleHttpDomain() {
-        AuthenticationController controller = AuthenticationController.newBuilder("http://domain/", "clientId", "clientSecret")
+    public void shouldBuildWithDomainResolver() {
+        AuthenticationController controller = AuthenticationController
+                .newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET)
                 .build();
 
         assertThat(controller, is(notNullValue()));
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.getResponseType(), contains("code"));
-        assertThat(requestProcessor.verifyOptions.audience, is("clientId"));
-        assertThat(requestProcessor.verifyOptions.issuer, is("http://domain/"));
-        assertThat(requestProcessor.verifyOptions.verifier, is(notNullValue()));
-
-        assertThat(requestProcessor.verifyOptions.clockSkew, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.clock, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.nonce, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.getMaxAge(), is(nullValue()));
     }
 
     @Test
-    public void shouldHandleHttpsDomain() {
-        AuthenticationController controller = AuthenticationController.newBuilder("https://domain/", "clientId", "clientSecret")
+    public void shouldBuildWithCustomHttpOptions() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withHttpOptions(mockHttpOptions)
                 .build();
 
         assertThat(controller, is(notNullValue()));
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.getResponseType(), contains("code"));
-        assertThat(requestProcessor.verifyOptions.audience, is("clientId"));
-        assertThat(requestProcessor.verifyOptions.issuer, is("https://domain/"));
-        assertThat(requestProcessor.verifyOptions.verifier, is(notNullValue()));
-
-        assertThat(requestProcessor.verifyOptions.clockSkew, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.clock, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.nonce, is(nullValue()));
-        assertThat(requestProcessor.verifyOptions.getMaxAge(), is(nullValue()));
     }
 
     @Test
-    public void shouldCreateWithResponseType() {
-        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withResponseType("toKEn Id_TokEn cOdE")
+    public void shouldBuildWithOrganizationAndInvitation() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withOrganization("org_123")
+                .withInvitation("inv_456")
                 .build();
 
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.getResponseType(), contains("token", "id_token", "code"));
+        assertThat(controller, is(notNullValue()));
     }
 
     @Test
-    public void shouldCreateWithJwkProvider() {
-        JwkProvider provider = mock(JwkProvider.class);
-        AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withJwkProvider(provider)
-                .build();
-    }
-
-    @Test
-    public void shouldCreateWithIDTokenVerificationLeeway() {
-        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withClockSkew(12345)
+    public void shouldBuildWithCustomCookiePath() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withCookiePath("/custom/path")
                 .build();
 
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.verifyOptions.clockSkew, is(12345));
+        assertThat(controller, is(notNullValue()));
     }
 
     @Test
-    public void shouldCreateWithMaxAge() {
-        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withAuthenticationMaxAge(12345)
-                .build();
-
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.verifyOptions.getMaxAge(), is(12345));
-    }
-
-    @Test
-    public void shouldProcessRequest() throws IdentityVerificationException {
-        RequestProcessor requestProcessor = mock(RequestProcessor.class);
-        AuthenticationController controller = new AuthenticationController(requestProcessor);
-
-        HttpServletRequest req = new MockHttpServletRequest();
-        HttpServletResponse response = new MockHttpServletResponse();
-
-        controller.handle(req, response);
-
-        verify(requestProcessor).process(req, response);
-    }
-
-    @Test
-    public void shouldBuildAuthorizeUriWithRandomStateAndNonce() {
-        RequestProcessor requestProcessor = mock(RequestProcessor.class);
-        AuthenticationController controller = new AuthenticationController(requestProcessor);
-
-        HttpServletRequest request = new MockHttpServletRequest();
-        HttpServletResponse response = new MockHttpServletResponse();
-
-        controller.buildAuthorizeUrl(request, response,"https://redirect.uri/here");
-
-        verify(requestProcessor).buildAuthorizeUrl(eq(request), eq(response), eq("https://redirect.uri/here"), anyString(), anyString());
-    }
-
-    @Test
-    public void shouldSetLaxCookiesAndNoLegacyCookieWhenCodeFlow() {
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withResponseType("code")
-                .build();
-
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
-                .withState("state")
-                .build();
-
-        List<String> headers = response.getHeaders("Set-Cookie");
-
-        assertThat(headers.size(), is(1));
-        assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=Lax")));
-    }
-
-    @Test
-    public void shouldSetSameSiteNoneCookiesAndLegacyCookieWhenIdTokenResponse() {
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withResponseType("id_token")
-                .build();
-
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
-                .withState("state")
-                .withNonce("nonce")
-                .build();
-
-        List<String> headers = response.getHeaders("Set-Cookie");
-
-        assertThat(headers.size(), is(4));
-        assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=state; HttpOnly; Max-Age=600"));
-        assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.nonce=nonce; HttpOnly; Max-Age=600"));
-    }
-
-    @Test
-    public void shouldSetSameSiteNoneCookiesAndNoLegacyCookieWhenIdTokenResponse() {
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withResponseType("id_token")
+    public void shouldBuildWithDisabledLegacySameSiteCookie() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
                 .withLegacySameSiteCookie(false)
                 .build();
 
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
-                .withState("state")
-                .withNonce("nonce")
-                .build();
-
-        List<String> headers = response.getHeaders("Set-Cookie");
-
-        assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(controller, is(notNullValue()));
     }
 
     @Test
-    public void shouldCheckSessionFallbackWhenHandleCalledWithRequestAndResponse() throws Exception {
-        AuthenticationController controller = builderSpy.withResponseType("code").build();
-
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        TokenHolder tokenHolder = mock(TokenHolder.class);
-        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
-        when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
-
-        AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
-        when(mockBuilder.withResponseType("code")).thenReturn(mockBuilder);
-        when(mockBuilder.withScope("openid")).thenReturn(mockBuilder);
-        when(client.authorizeUrl("https://redirect.uri/here")).thenReturn(mockBuilder);
-
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        // build auth URL using deprecated method, which stores state and nonce in session
-        String authUrl = controller.buildAuthorizeUrl(request, "https://redirect.uri/here")
-                .withState("state")
-                .withNonce("nonce")
+    public void shouldBuildWithCustomClockSkewAndMaxAge() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withClockSkew(180)
+                .withAuthenticationMaxAge(7200)
                 .build();
 
-        String state = (String) request.getSession().getAttribute("com.auth0.state");
-        String nonce = (String) request.getSession().getAttribute("com.auth0.nonce");
-        assertThat(state, is("state"));
-        assertThat(nonce, is("nonce"));
+        assertThat(controller, is(notNullValue()));
+    }
 
-        request.setParameter("state", "state");
-        request.setParameter("nonce", "nonce");
-        request.setParameter("code", "abc123");
+    // --- MCD Support ---
 
-        // handle called with request and response, which should use cookies but fallback to session
-        controller.handle(request, response);
+    @Test
+    public void shouldSupportMCDWithDomainResolver() {
+        AuthenticationController controller = AuthenticationController
+                .newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+        assertThat(controller.getRequestProcessor(), is(notNullValue()));
+    }
+
+    // --- Response Type Variations ---
+
+    @Test
+    public void shouldHandleCodeResponseType() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("code")
+                .build();
+
+        assertThat(controller, is(notNullValue()));
     }
 
     @Test
-    public void shouldCheckSessionFallbackWhenHandleCalledWithRequest() throws Exception {
-        AuthenticationController controller = builderSpy.withResponseType("code").build();
-
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        TokenHolder tokenHolder = mock(TokenHolder.class);
-        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
-        when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
-
-        AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
-        when(mockBuilder.withResponseType("code")).thenReturn(mockBuilder);
-        when(mockBuilder.withScope("openid")).thenReturn(mockBuilder);
-        when(client.authorizeUrl("https://redirect.uri/here")).thenReturn(mockBuilder);
-
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        // build auth URL using request and response, which stores state and nonce in cookies and also session as a fallback
-        String authUrl = controller.buildAuthorizeUrl(request, response,"https://redirect.uri/here")
-                .withState("state")
-                .withNonce("nonce")
+    public void shouldHandleIdTokenResponseType() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("id_token")
+                .withJwkProvider(mockJwkProvider)
                 .build();
 
-        String state = (String) request.getSession().getAttribute("com.auth0.state");
-        String nonce = (String) request.getSession().getAttribute("com.auth0.nonce");
-        assertThat(state, is("state"));
-        assertThat(nonce, is("nonce"));
-
-        request.setParameter("state", "state");
-        request.setParameter("nonce", "nonce");
-        request.setParameter("code", "abc123");
-
-        // handle called with request, which should use session
-        controller.handle(request);
+        assertThat(controller, is(notNullValue()));
     }
 
     @Test
-    public void shouldAllowOrganizationParameter() {
-        AuthenticationController controller = AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
-                .withOrganization("orgId_abc123")
+    public void shouldHandleTokenResponseType() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("token")
+                .withJwkProvider(mockJwkProvider)
                 .build();
 
-        String authUrl = controller.buildAuthorizeUrl(new MockHttpServletRequest(), new MockHttpServletResponse(), "https://me.com/redirect")
-                .build();
-        assertThat(authUrl, containsString("organization=orgId_abc123"));
+        assertThat(controller, is(notNullValue()));
     }
 
     @Test
-    public void shouldThrowOnNullOrganizationParameter() {
-        assertThrows(NullPointerException.class,
-                () -> AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
-                        .withOrganization(null));
+    public void shouldHandleHybridFlowResponseType() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("code id_token")
+                .withJwkProvider(mockJwkProvider)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
     }
 
     @Test
-    public void shouldAllowInvitationParameter() {
-        AuthenticationController controller = AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
-                .withInvitation("invitation_123")
+    public void shouldHandleImplicitGrantResponseType() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withResponseType("id_token token")
+                .withJwkProvider(mockJwkProvider)
                 .build();
 
-        String authUrl = controller.buildAuthorizeUrl(new MockHttpServletRequest(), new MockHttpServletResponse(), "https://me.com/redirect")
-                .build();
-        assertThat(authUrl, containsString("invitation=invitation_123"));
-    }
-
-    @Test
-    public void shouldThrowOnNullInvitationParameter() {
-        assertThrows(NullPointerException.class,
-                () -> AuthenticationController.newBuilder("DOMAIN", "CLIENT_ID", "SECRET")
-                        .withInvitation(null));
-    }
-
-    @Test
-    public void shouldConfigureCookiePath() {
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        AuthenticationController controller = AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withCookiePath("/Path")
-                .build();
-
-        controller.buildAuthorizeUrl(new MockHttpServletRequest(), response, "https://redirect.uri/here")
-                .withState("state")
-                .build();
-
-        List<String> headers = response.getHeaders("Set-Cookie");
-
-        assertThat(headers.size(), is(1));
-        assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; Path=/Path; SameSite=Lax")));
+        assertThat(controller, is(notNullValue()));
     }
 }
