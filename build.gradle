@@ -13,7 +13,8 @@ plugins {
     id 'java'
     id 'java-library'
     id 'jacoco'
-    id 'me.champeau.gradle.japicmp' version '0.4.1'
+    id 'me.champeau.gradle.japicmp' version '0.4.6'
+    id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
 }
 
 repositories {
@@ -121,20 +122,19 @@ test {
 
 dependencies {
     implementation 'javax.servlet:javax.servlet-api:3.1.0'
-    implementation 'org.apache.commons:commons-lang3:3.13.0'
+    implementation 'org.apache.commons:commons-lang3:3.18.0'
     implementation 'com.google.guava:guava:32.0.1-jre'
-    implementation 'commons-codec:commons-codec:1.15'
+    implementation 'commons-codec:commons-codec:1.20.0'
 
     api 'com.auth0:auth0:1.45.1'
     api 'com.auth0:java-jwt:4.5.0'
-    api 'com.auth0:jwks-rsa:0.22.1'
+    api 'com.auth0:jwks-rsa:0.23.0'
 
     testImplementation 'org.hamcrest:hamcrest:2.2'
-    testImplementation 'org.mockito:mockito-core:4.8.1'
+    testImplementation 'org.mockito:mockito-core:2.28.2'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
-    testImplementation 'org.springframework:spring-test:4.3.14.RELEASE'
+    testImplementation 'org.springframework:spring-test:4.3.30.RELEASE'
     testImplementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    testImplementation "com.squareup.okio:okio:3.5.0"
 }
 
 apply from: rootProject.file('gradle/maven-publish.gradle')
