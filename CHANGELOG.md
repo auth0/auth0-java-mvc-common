@@ -1,11 +1,5 @@
 # Change Log
 
-## [1.12.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.12.0) (2026-04-09)
-[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.11.1...1.12.0)
-
-**Added**
-- Feat: Added MCD Support [\#199](https://github.com/auth0/auth0-java-mvc-common/pull/199) ([tanya732](https://github.com/tanya732))
-
 ## [1.11.1](https://github.com/auth0/auth0-java-mvc-common/tree/1.11.1) (2025-09-12)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.11.0...1.11.1)
 
