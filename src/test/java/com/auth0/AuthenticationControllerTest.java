@@ -1,11 +1,10 @@
 package com.auth0;
 
-import com.auth0.client.HttpOptions;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
-import com.auth0.net.Telemetry;
+import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,82 +44,9 @@ public class AuthenticationControllerTest {
         AuthenticationController.Builder builder = AuthenticationController.newBuilder("domain", "clientId", "clientSecret");
         builderSpy = spy(builder);
 
-        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), eq(null));
+        doReturn(client).when(builderSpy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"));
         doReturn(verificationOptions).when(builderSpy).createIdTokenVerificationOptions(eq("https://domain/"), eq("clientId"), signatureVerifierCaptor.capture());
         doReturn("1.2.3").when(builderSpy).obtainPackageVersion();
-    }
-
-    @Test
-    public void shouldSetupClientWithTelemetry() {
-        AuthenticationController controller = builderSpy.build();
-
-        ArgumentCaptor<Telemetry> telemetryCaptor = ArgumentCaptor.forClass(Telemetry.class);
-
-        assertThat(controller, is(notNullValue()));
-        RequestProcessor requestProcessor = controller.getRequestProcessor();
-        assertThat(requestProcessor.getClient(), is(client));
-        verify(client).setTelemetry(telemetryCaptor.capture());
-
-        Telemetry capturedTelemetry = telemetryCaptor.getValue();
-        assertThat(capturedTelemetry, is(notNullValue()));
-        assertThat(capturedTelemetry.getName(), is("auth0-java-mvc-common"));
-        assertThat(capturedTelemetry.getVersion(), is("1.2.3"));
-    }
-
-    @Test
-    public void shouldCreateAuthAPIClientWithoutCustomHttpOptions() {
-        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
-        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret"));
-
-        spy.build();
-        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
-
-        HttpOptions actual = captor.getValue();
-        assertThat(actual, is(nullValue()));
-
-    }
-
-    @Test
-    public void shouldCreateAuthAPIClientWithCustomHttpOptions() {
-        HttpOptions options = new HttpOptions();
-        options.setConnectTimeout(5);
-        options.setReadTimeout(6);
-
-        ArgumentCaptor<HttpOptions> captor = ArgumentCaptor.forClass(HttpOptions.class);
-        AuthenticationController.Builder spy = spy(AuthenticationController.newBuilder("domain", "clientId", "clientSecret")
-                .withHttpOptions(options));
-
-        spy.build();
-        verify(spy).createAPIClient(eq("domain"), eq("clientId"), eq("clientSecret"), captor.capture());
-
-        HttpOptions actual = captor.getValue();
-        assertThat(actual, is(notNullValue()));
-        assertThat(actual.getConnectTimeout(), is(5));
-        assertThat(actual.getReadTimeout(), is(6));
-    }
-
-    @Test
-    public void shouldDisableTelemetry() {
-        AuthenticationController controller = builderSpy.build();
-        controller.doNotSendTelemetry();
-
-        verify(client).doNotSendTelemetry();
-    }
-
-    @Test
-    public void shouldEnableLogging() {
-        AuthenticationController controller = builderSpy.build();
-
-        controller.setLoggingEnabled(true);
-        verify(client).setLoggingEnabled(true);
-    }
-
-    @Test
-    public void shouldDisableLogging() {
-        AuthenticationController controller = builderSpy.build();
-
-        controller.setLoggingEnabled(true);
-        verify(client).setLoggingEnabled(true);
     }
 
     @Test
@@ -463,8 +389,10 @@ public class AuthenticationControllerTest {
         AuthenticationController controller = builderSpy.withResponseType("code").build();
 
         TokenRequest codeExchangeRequest = mock(TokenRequest.class);
+        Response<TokenHolder> tokenResponse = mock(Response.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
-        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(tokenResponse.getBody()).thenReturn(tokenHolder);
+        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
         when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
 
         AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);
@@ -499,8 +427,10 @@ public class AuthenticationControllerTest {
         AuthenticationController controller = builderSpy.withResponseType("code").build();
 
         TokenRequest codeExchangeRequest = mock(TokenRequest.class);
+        Response<TokenHolder> tokenResponse = mock(Response.class);
         TokenHolder tokenHolder = mock(TokenHolder.class);
-        when(codeExchangeRequest.execute()).thenReturn(tokenHolder);
+        when(tokenResponse.getBody()).thenReturn(tokenHolder);
+        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
         when(client.exchangeCode("abc123", "http://localhost")).thenReturn(codeExchangeRequest);
 
         AuthorizeUrlBuilder mockBuilder = mock(AuthorizeUrlBuilder.class);

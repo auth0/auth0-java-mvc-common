@@ -346,7 +346,8 @@ class RequestProcessor {
     private Tokens exchangeCodeForTokens(String authorizationCode, String redirectUri) throws Auth0Exception {
         TokenHolder holder = client
                 .exchangeCode(authorizationCode, redirectUri)
-                .execute();
+                .execute()
+                .getBody();
         return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn());
     }
 
