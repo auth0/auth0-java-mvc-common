@@ -224,7 +224,7 @@ public class AuthorizeUrl {
         storeTransient();
 
         try {
-            PushedAuthorizationResponse pushedAuthResponse = authAPI.pushedAuthorizationRequest(redirectUri, responseType, params).execute();
+            PushedAuthorizationResponse pushedAuthResponse = authAPI.pushedAuthorizationRequest(redirectUri, responseType, params).execute().getBody();
             String requestUri = pushedAuthResponse.getRequestURI();
             if (requestUri == null || requestUri.isEmpty()) {
                 throw new InvalidRequestException(API_ERROR, "The PAR request returned a missing or empty request_uri value");
