@@ -5,7 +5,7 @@ buildscript {
 
     dependencies {
         // https://github.com/melix/japicmp-gradle-plugin/issues/36
-        classpath 'com.google.guava:guava:32.0.1-jre'
+        classpath 'com.google.guava:guava:31.1-jre'
     }
 }
 
@@ -29,25 +29,25 @@ logger.lifecycle("Using version ${version} for ${name} group $group")
 
 import me.champeau.gradle.japicmp.JapicmpTask
 
-project.afterEvaluate {
-    def versions = project.ext.testInJavaVersions
-    for (pluginJavaTestVersion in versions) {
-        def taskName = "testInJava-${pluginJavaTestVersion}"
-        tasks.register(taskName, Test) {
-            def versionToUse = taskName.split("-").getAt(1) as Integer
-            description = "Runs unit tests on Java version ${versionToUse}."
-            project.logger.quiet("Test will be running in ${versionToUse}")
-            group = 'verification'
-            javaLauncher.set(javaToolchains.launcherFor {
-                languageVersion = JavaLanguageVersion.of(versionToUse)
-            })
-            shouldRunAfter(tasks.named('test'))
-        }
-        tasks.named('check') {
-            dependsOn(taskName)
-        }
-    }
-
+//project.afterEvaluate {
+//    def versions = project.ext.testInJavaVersions
+//    for (pluginJavaTestVersion in versions) {
+//        def taskName = "testInJava-${pluginJavaTestVersion}"
+//        tasks.register(taskName, Test) {
+//            def versionToUse = taskName.split("-").getAt(1) as Integer
+//            description = "Runs unit tests on Java version ${versionToUse}."
+//            project.logger.quiet("Test will be running in ${versionToUse}")
+//            group = 'verification'
+//            javaLauncher.set(javaToolchains.launcherFor {
+//                languageVersion = JavaLanguageVersion.of(versionToUse)
+//            })
+//            shouldRunAfter(tasks.named('test'))
+//        }
+//        tasks.named('check') {
+//            dependsOn(taskName)
+//        }
+//    }
+//
 //    project.configure(project) {
 //        def baselineVersion = project.ext.baselineCompareVersion
 //        task('apiDiff', type: JapicmpTask, dependsOn: 'jar') {
@@ -63,8 +63,8 @@ project.afterEvaluate {
 //            }
 //        }
 //    }
-}
-
+//}
+//
 //private static File getBaselineJar(Project project, String baselineVersion) {
 //    // Use detached configuration: https://github.com/square/okhttp/blob/master/build.gradle#L270
 //    def group = project.group
@@ -81,35 +81,27 @@ project.afterEvaluate {
 //}
 
 ext {
-    //baselineCompareVersion = '1.5.0'
-    testInJavaVersions = [8, 11, 17, 21]
+    baselineCompareVersion = '1.5.0'
+    testInJavaVersions = [17, 21]
 }
 
 jacocoTestReport {
     reports {
-        xml.enabled = true
-        html.enabled = true
+        xml.required = true
+        html.required = true
     }
 }
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-    // Needed because of broken gradle metadata, see https://github.com/google/guava/issues/6612#issuecomment-1614992368
-    sourceSets.all {
-        configurations.getByName(runtimeClasspathConfigurationName) {
-            attributes.attribute(Attribute.of("org.gradle.jvm.environment", String), "standard-jvm")
-        }
-        configurations.getByName(compileClasspathConfigurationName) {
-            attributes.attribute(Attribute.of("org.gradle.jvm.environment", String), "standard-jvm")
-        }
+        languageVersion = JavaLanguageVersion.of(17)
     }
 }
 
+
 compileJava {
-    sourceCompatibility '1.8'
-    targetCompatibility '1.8'
+    sourceCompatibility '17'
+    targetCompatibility '17'
 }
 
 test {
@@ -121,7 +113,7 @@ test {
 }
 
 dependencies {
-    implementation 'javax.servlet:javax.servlet-api:3.1.0'
+    implementation 'jakarta.servlet:jakarta.servlet-api:6.0.0'
     implementation 'org.apache.commons:commons-lang3:3.18.0'
     implementation 'com.google.guava:guava:32.0.1-jre'
     implementation 'commons-codec:commons-codec:1.20.0'
@@ -131,9 +123,10 @@ dependencies {
     api 'com.auth0:jwks-rsa:0.23.0'
 
     testImplementation 'org.hamcrest:hamcrest:2.2'
-    testImplementation 'org.mockito:mockito-core:2.28.2'
+    testImplementation 'org.mockito:mockito-core:4.11.0'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
-    testImplementation 'org.springframework:spring-test:4.3.30.RELEASE'
+    testImplementation 'org.springframework:spring-test:6.0.14'
+    testImplementation 'org.springframework:spring-web:6.0.14'
     testImplementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
 

@@ -15,8 +15,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -318,7 +318,7 @@ public class AuthenticationControllerTest {
         HttpServletRequest request = new MockHttpServletRequest();
         HttpServletResponse response = new MockHttpServletResponse();
 
-        controller.buildAuthorizeUrl(request, response,"https://redirect.uri/here");
+        controller.buildAuthorizeUrl(request, response, "https://redirect.uri/here");
 
         verify(requestProcessor).buildAuthorizeUrl(eq(request), eq(response), eq("https://redirect.uri/here"), anyString(), anyString());
     }
@@ -338,7 +338,7 @@ public class AuthenticationControllerTest {
         List<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(1));
-        assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=Lax")));
+        assertThat(headers, everyItem(matchesPattern("com\\.auth0\\.state=state; Max-Age=600; Expires=.*?; HttpOnly; SameSite=Lax")));
     }
 
     @Test
@@ -357,10 +357,10 @@ public class AuthenticationControllerTest {
         List<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(4));
-        assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=state; HttpOnly; Max-Age=600"));
-        assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.nonce=nonce; HttpOnly; Max-Age=600"));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=state; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.state=state; Max-Age=600; Expires=.*?; HttpOnly")));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.nonce=nonce; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.nonce=nonce; Max-Age=600; Expires=.*?; HttpOnly")));
     }
 
     @Test
@@ -380,8 +380,8 @@ public class AuthenticationControllerTest {
         List<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem("com.auth0.state=state; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("com.auth0.nonce=nonce; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=state; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.nonce=nonce; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
     }
 
 
@@ -436,6 +436,6 @@ public class AuthenticationControllerTest {
         List<String> headers = response.getHeaders("Set-Cookie");
 
         assertThat(headers.size(), is(1));
-        assertThat(headers, everyItem(is("com.auth0.state=state; HttpOnly; Max-Age=600; Path=/Path; SameSite=Lax")));
+        assertThat(headers, everyItem(matchesPattern("com\\.auth0\\.state=state; Path=/Path; Max-Age=600; Expires=.*?; HttpOnly; SameSite=Lax")));
     }
 }
