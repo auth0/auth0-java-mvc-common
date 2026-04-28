@@ -172,17 +172,6 @@ public class AuthorizeUrlTest {
     }
 
     @Test
-    public void shouldSetNoSessionValuesWhenNonceAndStateNotSet() {
-        String url = new AuthorizeUrl(client, request, null, "https://redirect.to/me", "id_token token")
-                .build();
-        assertThat(HttpUrl.parse(url).queryParameter("state"), nullValue());
-        assertThat(HttpUrl.parse(url).queryParameter("nonce"), nullValue());
-
-        Collection<String> headers = response.getHeaders("Set-Cookie");
-        assertThat(headers.size(), is(0));
-    }
-
-    @Test
     public void shouldSetScope() {
         String url = new AuthorizeUrl(client, request, response, "https://redirect.to/me", "id_token token")
                 .withScope("openid profile email")

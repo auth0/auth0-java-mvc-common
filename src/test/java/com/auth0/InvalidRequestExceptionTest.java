@@ -15,10 +15,9 @@ public class InvalidRequestExceptionTest {
         exception = new InvalidRequestException("error", "message");
     }
 
-    @SuppressWarnings("deprecation")
     @Test
-    public void shouldGetDescription() {
-        assertThat(exception.getDescription(), is("message"));
+    public void shouldGetMessage() {
+        assertThat(exception.getMessage(), is("message"));
     }
 
     @Test

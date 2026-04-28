@@ -274,61 +274,6 @@ public class AuthenticationController {
     }
 
     /**
-     * Process a request to obtain a set of {@link Tokens} that represent successful authentication or authorization.
-     *
-     * This method should be called when processing the callback request to your application. It will validate
-     * authentication-related request parameters, handle performing a Code Exchange request if using
-     * the "code" response type, and verify the integrity of the ID token (if present).
-     *
-     * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also use the {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, String)}
-     * when building the {@link AuthorizeUrl} that the user will be redirected to to login. Failure to do so may result
-     * in a broken login experience for the user.</p>
-     *
-     * @deprecated This method uses the {@link javax.servlet.http.HttpSession} for auth-based data, and is incompatible
-     * with clients that are using the "id_token" or "token" responseType with browsers that enforce SameSite cookie
-     * restrictions. This method will be removed in version 2.0.0. Use
-     * {@link AuthenticationController#handle(HttpServletRequest, HttpServletResponse)} instead.
-     *
-     * @param request the received request to process.
-     * @return the Tokens obtained after the user authentication.
-     * @throws InvalidRequestException       if the error is result of making an invalid authentication request.
-     * @throws IdentityVerificationException if an error occurred while verifying the request tokens.
-     */
-    @Deprecated
-    public Tokens handle(HttpServletRequest request) throws IdentityVerificationException {
-        Validate.notNull(request, "request must not be null");
-
-        return requestProcessor.process(request, null);
-    }
-
-    /**
-     * Pre builds an Auth0 Authorize Url with the given redirect URI using a random state and a random nonce if applicable.
-     *
-     * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also obtain the tokens using the
-     * {@link AuthenticationController#handle(HttpServletRequest)} method. Failure to do so may result in a broken login
-     * experience for users.</p>
-     *
-     * @deprecated This method stores data in the {@link javax.servlet.http.HttpSession}, and is incompatible with clients
-     * that are using the "id_token" or "token" responseType with browsers that enforce SameSite cookie restrictions.
-     * This method will be removed in version 2.0.0. Use
-     * {@link AuthenticationController#buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)} instead.
-     *
-     * @param request     the caller request. Used to keep the session context.
-     * @param redirectUri the url to call back with the authentication result.
-     * @return the authorize url builder to continue any further parameter customization.
-     */
-    @Deprecated
-    public AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, String redirectUri) {
-        Validate.notNull(request, "request must not be null");
-        Validate.notNull(redirectUri, "redirectUri must not be null");
-
-        String state = StorageUtils.secureRandomString();
-        String nonce = StorageUtils.secureRandomString();
-
-        return requestProcessor.buildAuthorizeUrl(request, null, redirectUri, state, nonce);
-    }
-
-    /**
      * Pre builds an Auth0 Authorize Url with the given redirect URI using a random state and a random nonce if applicable.
      *
      * <p><strong>Important:</strong> When using this API, you <strong>must</strong> also obtain the tokens using the
