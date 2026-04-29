@@ -5,7 +5,6 @@ import com.auth0.client.auth.AuthorizeUrlBuilder;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.PushedAuthorizationResponse;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.*;
 
@@ -21,7 +20,6 @@ public class AuthorizeUrl {
     private static final String SCOPE_OPENID = "openid";
 
     private HttpServletResponse response;
-    private HttpServletRequest request;
     private final String responseType;
     private boolean useLegacySameSiteCookie = true;
     private boolean setSecureCookie = false;
@@ -37,19 +35,15 @@ public class AuthorizeUrl {
     /**
      * Creates a new instance that can be used to build an Auth0 Authorization URL.
      *
-     * Using this constructor with a non-null {@link HttpServletResponse} will store the state and nonce as
-     * cookies when the {@link AuthorizeUrl#build()} method is called, with the appropriate SameSite attribute depending
-     * on the responseType. State and nonce will also be stored in the {@link jakarta.servlet.http.HttpSession} as a fallback,
-     * but this behavior will be removed in a future release, and only cookies will be used.
+     * Stores the state and nonce as cookies when the {@link AuthorizeUrl#build()} method is called,
+     * with the appropriate SameSite attribute depending on the responseType.
      *
      * @param client       the Auth0 Authentication API client
-     * @parem request      the HTTP request. Used to store state and nonce as a fallback if cookies not set.
      * @param response     the response where the state and nonce will be stored as cookies
      * @param redirectUri  the url to redirect to after authentication
      * @param responseType the response type to use
      */
-    AuthorizeUrl(AuthAPI client, HttpServletRequest request, HttpServletResponse response, String redirectUri, String responseType) {
-        this.request = request;
+    AuthorizeUrl(AuthAPI client, HttpServletResponse response, String redirectUri, String responseType) {
         this.response = response;
         this.responseType = responseType;
         this.authAPI = client;
@@ -111,7 +105,7 @@ public class AuthorizeUrl {
 
     /**
      * Sets whether a fallback cookie should be used for clients that do not support "SameSite=None".
-     * Only applicable when this instance is created with {@link AuthorizeUrl#AuthorizeUrl(AuthAPI, HttpServletRequest, HttpServletResponse, String, String)}.
+     * Only applicable when this instance is created with {@link AuthorizeUrl#AuthorizeUrl(AuthAPI, HttpServletResponse, String, String)}.
      *
      * @param useLegacySameSiteCookie whether or not to set fallback auth cookies for clients that do not support "SameSite=None"
      * @return the builder instance
@@ -243,17 +237,10 @@ public class AuthorizeUrl {
             throw new IllegalStateException("The AuthorizeUrl instance must not be reused.");
         }
 
-        if (response != null) {
-            SameSite sameSiteValue = containsFormPost() ? SameSite.NONE : SameSite.LAX;
+        SameSite sameSiteValue = containsFormPost() ? SameSite.NONE : SameSite.LAX;
 
-            TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
-            TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
-        }
-
-        // Also store in Session just in case developer uses deprecated
-        // AuthenticationController.handle(HttpServletRequest) API
-        RandomStorage.setSessionState(request, state);
-        RandomStorage.setSessionNonce(request, nonce);
+        TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
+        TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
 
         used = true;
     }

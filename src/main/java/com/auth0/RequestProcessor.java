@@ -121,8 +121,8 @@ class RequestProcessor {
     /**
      * Pre builds an Auth0 Authorize Url with the given redirect URI, state and nonce parameters.
      *
-     * @param request     the request, used to store state and nonce in the Session
-     * @param response    the response, used to set state and nonce as cookies. If null, session will be used instead.
+     * @param request     the HTTP request.
+     * @param response    the HTTP response, used to set state and nonce as cookies.
      * @param redirectUri the url to call with the authentication result.
      * @param state       a valid state value.
      * @param nonce       the nonce value that will be used if the response type contains 'id_token'. Can be null.
@@ -131,7 +131,7 @@ class RequestProcessor {
     AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri,
                                    String state, String nonce) {
 
-        AuthorizeUrl creator = new AuthorizeUrl(client, request, response, redirectUri, responseType)
+        AuthorizeUrl creator = new AuthorizeUrl(client, response, redirectUri, responseType)
                 .withState(state);
 
         if (this.organization != null) {
@@ -144,10 +144,7 @@ class RequestProcessor {
             creator.withCookiePath(this.cookiePath);
         }
 
-        // null response means state and nonce will be stored in session, so legacy cookie flag does not apply
-        if (response != null) {
-            creator.withLegacySameSiteCookie(useLegacySameSiteCookie);
-        }
+        creator.withLegacySameSiteCookie(useLegacySameSiteCookie);
 
 
         return getAuthorizeUrl(nonce, creator);
@@ -178,18 +175,8 @@ class RequestProcessor {
             throw new InvalidRequestException(MISSING_ACCESS_TOKEN, "Access Token is missing from the response.");
         }
 
-        String nonce;
-        if (response != null) {
-            // Nonce dynamically set and changes on every request.
-            nonce = TransientCookieStore.getNonce(request, response);
-
-            // Just in case the developer created the authorizeUrl that stores state/nonce in the session
-            if (nonce == null) {
-                nonce = RandomStorage.removeSessionNonce(request);
-            }
-        } else {
-            nonce = RandomStorage.removeSessionNonce(request);
-        }
+        // Nonce dynamically set and changes on every request.
+        String nonce = TransientCookieStore.getNonce(request, response);
 
         verifyOptions.setNonce(nonce);
 
@@ -285,51 +272,27 @@ class RequestProcessor {
     }
 
     /**
-     * Checks whether the state received in the request parameters is the same as the one in the state cookie or session
+     * Checks whether the state received in the request parameters is the same as the one in the state cookie
      * for this request.
      *
-     * @param request the request
+     * @param request  the request
+     * @param response the response, used to remove the state cookie
      * @throws InvalidRequestException if the request contains a different state from the expected one
      */
     private void assertValidState(HttpServletRequest request, HttpServletResponse response) throws InvalidRequestException {
-        // TODO in v2:
-        //  - only store state/nonce in cookies, remove session storage
-        //  - create specific exception classes for various state validation failures (missing from auth response, missing
-        //    state cookie, mismatch)
-
         String stateFromRequest = request.getParameter(KEY_STATE);
 
         if (stateFromRequest == null) {
             throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one. No state parameter was found on the authorization response.");
         }
 
-        // If response is null, check the Session.
-        // This can happen when the deprecated handle method that only takes the request parameter is called
-        if (response == null) {
-            checkSessionState(request, stateFromRequest);
-            return;
-        }
-
         String cookieState = TransientCookieStore.getState(request, response);
 
-        // Just in case state was stored in Session by building auth URL with deprecated method, but then called the
-        // supported handle method with the request and response
         if (cookieState == null) {
-            if (SessionUtils.get(request, StorageUtils.STATE_KEY) == null) {
-                throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one. No state cookie or state session attribute found. Check that you are using non-deprecated methods and that cookies are not being removed on the server.");
-            }
-            checkSessionState(request, stateFromRequest);
-            return;
+            throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one. No state cookie found. Check that cookies are not being removed on the server.");
         }
 
         if (!cookieState.equals(stateFromRequest)) {
-            throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one.");
-        }
-    }
-
-    private void checkSessionState(HttpServletRequest request, String stateFromRequest) throws InvalidRequestException {
-        boolean valid = RandomStorage.checkSessionState(request, stateFromRequest);
-        if (!valid) {
             throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one.");
         }
     }
