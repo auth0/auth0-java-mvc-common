@@ -131,7 +131,7 @@ class RequestProcessor {
     AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri,
                                    String state, String nonce) {
 
-        AuthorizeUrl creator = new AuthorizeUrl(client, request, response, redirectUri, responseType)
+        AuthorizeUrl creator = new AuthorizeUrl(client, response, redirectUri, responseType)
                 .withState(state);
 
         if (this.organization != null) {
