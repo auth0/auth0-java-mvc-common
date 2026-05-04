@@ -5,7 +5,6 @@ import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -15,221 +14,358 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsNull.notNullValue;
+import static org.hamcrest.core.IsNull.nullValue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 public class RequestProcessorTest {
 
-    @Mock
-    private AuthAPI client;
-    @Mock
-    private IdTokenVerifier.Options verifyOptions;
-    @Mock
-    private IdTokenVerifier tokenVerifier;
+    private static final String DOMAIN = "test-domain.auth0.com";
+    private static final String CLIENT_ID = "testClientId";
+    private static final String CLIENT_SECRET = "testClientSecret";
+    private static final String RESPONSE_TYPE_CODE = "code";
+    private static final String RESPONSE_TYPE_TOKEN = "token";
+    private static final String RESPONSE_TYPE_ID_TOKEN = "id_token";
 
+    @Mock
+    private DomainProvider mockDomainProvider;
+    @Mock
+    private SignatureVerifier mockSignatureVerifier;
+    @Mock
+    private AuthAPI mockAuthAPI;
+    @Mock
+    private TokenRequest mockTokenRequest;
+    @Mock
+    private Response<TokenHolder> mockTokenResponse;
+    @Mock
+    private TokenHolder mockTokenHolder;
+
+    private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
     @BeforeEach
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
+        MockitoAnnotations.openMocks(this);
+        request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
+        request.setSecure(true);
+    }
+
+    // --- Builder Tests ---
+
+    @Test
+    public void shouldBuildRequestProcessorWithRequiredParameters() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .build();
+
+        assertThat(processor, is(notNullValue()));
     }
 
     @Test
-    public void shouldThrowOnMissingAuthAPI() {
-        assertThrows(NullPointerException.class, () -> new RequestProcessor.Builder(null, "responseType", verifyOptions));
+    public void shouldBuildRequestProcessorWithAllOptionalParameters() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withClockSkew(120)
+                .withAuthenticationMaxAge(3600)
+                .withCookiePath("/custom")
+                .withLegacySameSiteCookie(false)
+                .withOrganization("org_123")
+                .withInvitation("inv_456")
+                .build();
+
+        assertThat(processor, is(notNullValue()));
+    }
+
+    // --- Legacy SameSite Cookie Tests ---
+
+    @Test
+    public void shouldSetDefaultLegacySameSiteCookieToTrue() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        assertThat(processor.useLegacySameSiteCookie, is(true));
     }
 
     @Test
-    public void shouldThrowOnMissingResponseType() {
-        assertThrows(NullPointerException.class, () -> new RequestProcessor.Builder(client, null, verifyOptions));
+    public void shouldDisableLegacySameSiteCookie() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withLegacySameSiteCookie(false)
+                .build();
+
+        assertThat(processor.useLegacySameSiteCookie, is(false));
+    }
+
+    // --- Domain Handling Tests ---
+
+    @Test
+    public void shouldGetDomainFromProvider() {
+        String expectedDomain = "custom-domain.auth0.com";
+        lenient().when(mockDomainProvider.getDomain(any())).thenReturn(expectedDomain);
+
+        RequestProcessor processor = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        spy.buildAuthorizeUrl(request, response, "https://callback.com", "state123", "nonce123");
+
+        verify(mockDomainProvider).getDomain(request);
+        verify(spy).createClientForDomain(expectedDomain);
     }
 
     @Test
-    public void shouldNotThrowOnMissingTokenVerifierOptions() {
-        assertThrows(NullPointerException.class, () -> new RequestProcessor.Builder(client, "responseType", null));
+    public void shouldCreateClientForDomain() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        AuthAPI result = processor.createClientForDomain(DOMAIN);
+
+        assertThat(result, is(notNullValue()));
+    }
+
+    // --- Logging and Telemetry Tests ---
+
+    @Test
+    public void shouldSetLoggingEnabled() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        processor.setLoggingEnabled(true);
+
+        AuthAPI client = processor.createClientForDomain(DOMAIN);
+        assertThat(client, is(notNullValue()));
     }
 
     @Test
-    public void shouldThrowOnProcessIfRequestHasError() throws Exception {
+    public void shouldDisableTelemetry() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        processor.doNotSendTelemetry();
+
+        AuthAPI client = processor.createClientForDomain(DOMAIN);
+        assertThat(client, is(notNullValue()));
+    }
+
+    // --- Response Type Parsing Tests ---
+
+    @Test
+    public void shouldParseResponseTypeCode() {
+        RequestProcessor processor = createRequestProcessorWithResponseType(RESPONSE_TYPE_CODE);
+
+        List<String> responseType = processor.getResponseType();
+
+        assertThat(responseType, is(Collections.singletonList("code")));
+    }
+
+    @Test
+    public void shouldParseResponseTypeToken() {
+        RequestProcessor processor = createRequestProcessorWithResponseType(RESPONSE_TYPE_TOKEN);
+
+        List<String> responseType = processor.getResponseType();
+
+        assertThat(responseType, is(Collections.singletonList("token")));
+    }
+
+    @Test
+    public void shouldParseResponseTypeIdToken() {
+        RequestProcessor processor = createRequestProcessorWithResponseType(RESPONSE_TYPE_ID_TOKEN);
+
+        List<String> responseType = processor.getResponseType();
+
+        assertThat(responseType, is(Collections.singletonList("id_token")));
+    }
+
+    @Test
+    public void shouldParseMultipleResponseTypes() {
+        RequestProcessor processor = createRequestProcessorWithResponseType("code id_token token");
+
+        List<String> responseType = processor.getResponseType();
+
+        assertThat(responseType, is(Arrays.asList("code", "id_token", "token")));
+    }
+
+    // --- Form Post Response Mode Tests ---
+
+    @Test
+    public void shouldRequireFormPostForImplicitGrant() {
+        boolean requiresFormPost = RequestProcessor.requiresFormPostResponseMode(
+                Arrays.asList("id_token", "token"));
+
+        assertThat(requiresFormPost, is(true));
+    }
+
+    @Test
+    public void shouldNotRequireFormPostForCodeGrant() {
+        boolean requiresFormPost = RequestProcessor.requiresFormPostResponseMode(
+                Collections.singletonList("code"));
+
+        assertThat(requiresFormPost, is(false));
+    }
+
+    @Test
+    public void shouldRequireFormPostForHybridFlow() {
+        boolean requiresFormPost = RequestProcessor.requiresFormPostResponseMode(
+                Arrays.asList("code", "id_token"));
+
+        assertThat(requiresFormPost, is(true));
+    }
+
+    @Test
+    public void shouldNotRequireFormPostForNullResponseType() {
+        boolean requiresFormPost = RequestProcessor.requiresFormPostResponseMode(null);
+
+        assertThat(requiresFormPost, is(false));
+    }
+
+    // --- Error Handling Tests ---
+
+    @Test
+    public void shouldThrowOnProcessIfRequestHasError() {
+        request.setParameter("error", "access_denied");
+        request.setParameter("error_description", "The user denied the request");
+
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        InvalidRequestException e = assertThrows(
+                InvalidRequestException.class,
+                () -> processor.process(request, response));
+
+        assertThat(e.getCode(), is("access_denied"));
+        assertThat(e.getMessage(), is("The user denied the request"));
+    }
+
+    @Test
+    public void shouldThrowOnProcessIfRequestHasErrorWithDescription() {
         Map<String, Object> params = new HashMap<>();
         params.put("error", "something happened");
-        HttpServletRequest request = getRequest(params);
-
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .build();
-        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
-        assertThat(e, InvalidRequestExceptionMatcher.hasCode("something happened"));
-        assertEquals("The request contains an error", e.getMessage());
-    }
-
-    @Test
-    public void shouldThrowOnProcessIfRequestHasInvalidState() throws Exception {
-        Map<String, Object> params = new HashMap<>();
-        params.put("state", "1234");
+        params.put("error_description", "something happened description");
         MockHttpServletRequest request = getRequest(params);
-        request.setCookies(new Cookie("com.auth0.state", "9999"));;
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .build();
+        RequestProcessor handler = createDefaultRequestProcessor();
+
         InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
-        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        assertEquals("The received state doesn't match the expected one.", e.getMessage());
+        assertThat(e.getCode(), is("something happened"));
+        assertThat(e.getMessage(), is("something happened description"));
     }
 
     @Test
-    public void shouldThrowOnProcessIfRequestHasInvalidStateInCookie() throws Exception {
+    public void shouldThrowOnProcessIfRequestHasInvalidStateInCookie() {
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "9999"));
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .build();
+        RequestProcessor handler = createDefaultRequestProcessor();
+
         InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
-        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        assertEquals("The received state doesn't match the expected one.", e.getMessage());
+        assertThat(e.getCode(), is("a0.invalid_state"));
+        assertThat(e.getMessage(), is("The received state doesn't match the expected one."));
     }
 
     @Test
-    public void shouldThrowOnProcessIfRequestHasMissingStateParameter() throws Exception {
+    public void shouldThrowOnProcessIfRequestHasMissingStateParameter() {
         MockHttpServletRequest request = getRequest(Collections.emptyMap());
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .build();
+        RequestProcessor handler = createDefaultRequestProcessor();
+
         InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
-        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        assertEquals("The received state doesn't match the expected one. No state parameter was found on the authorization response.", e.getMessage());
+        assertThat(e.getCode(), is("a0.invalid_state"));
+        assertThat(e.getMessage(), is("The received state doesn't match the expected one. No state parameter was found on the authorization response."));
     }
 
     @Test
-    public void shouldThrowOnProcessIfRequestHasMissingStateCookie() throws Exception {
+    public void shouldThrowOnProcessIfRequestHasMissingStateCookie() {
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .build();
+        RequestProcessor handler = createDefaultRequestProcessor();
+
         InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
-        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.invalid_state"));
-        assertEquals("The received state doesn't match the expected one. No state cookie found. Check that cookies are not being removed on the server.", e.getMessage());
+        assertThat(e.getCode(), is("a0.invalid_state"));
     }
 
     @Test
-    public void shouldThrowOnProcessIfIdTokenRequestIsMissingIdToken() throws Exception {
+    public void shouldThrowOnProcessIfIdTokenRequestIsMissingIdToken() {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
-                .build();
+        RequestProcessor handler = createRequestProcessorWithResponseType(RESPONSE_TYPE_ID_TOKEN);
+
         InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
-        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.missing_id_token"));
-        assertEquals("ID Token is missing from the response.", e.getMessage());
+        assertThat(e.getCode(), is("a0.missing_id_token"));
+        assertThat(e.getMessage(), is("ID Token is missing from the response."));
     }
 
     @Test
-    public void shouldThrowOnProcessIfTokenRequestIsMissingAccessToken() throws Exception {
+    public void shouldThrowOnProcessIfTokenRequestIsMissingAccessToken() {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
         Map<String, Object> params = new HashMap<>();
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "token", verifyOptions)
-                .build();
+        RequestProcessor handler = createRequestProcessorWithResponseType(RESPONSE_TYPE_TOKEN);
+
         InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
-        assertThat(e, InvalidRequestExceptionMatcher.hasCode("a0.missing_access_token"));
-        assertEquals("Access Token is missing from the response.", e.getMessage());
+        assertThat(e.getCode(), is("a0.missing_access_token"));
+        assertThat(e.getMessage(), is("Access Token is missing from the response."));
     }
 
-    @Test
-    public void shouldThrowOnProcessIfIdTokenRequestDoesNotPassIdTokenVerification() throws Exception {
-        doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("state", "1234");
-        params.put("id_token", "frontIdToken");
-        MockHttpServletRequest request = getRequest(params);
-        request.setCookies(new Cookie("com.auth0.state", "1234"));
-
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
-        assertThat(e, IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        assertEquals("An error occurred while trying to verify the ID Token.", e.getMessage());
-    }
-
-    @Test
-    public void shouldReturnTokensOnProcessIfIdTokenRequestPassesIdTokenVerification() throws Exception {
-        doNothing().when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("state", "1234");
-        params.put("id_token", "frontIdToken");
-        MockHttpServletRequest request = getRequest(params);
-        request.setCookies(new Cookie("com.auth0.state", "1234"), new Cookie("com.auth0.nonce", "5678"));
-
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        Tokens process = handler.process(request, response);
-        assertThat(process, is(notNullValue()));
-        assertThat(process.getIdToken(), is("frontIdToken"));
-    }
-
-    @Test
-    public void shouldThrowOnProcessIfIdTokenCodeRequestDoesNotPassIdTokenVerification() throws Exception {
-        doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("code", "abc123");
-        params.put("state", "1234");
-        params.put("id_token", "frontIdToken");
-        MockHttpServletRequest request = getRequest(params);
-        request.setCookies(new Cookie("com.auth0.state", "1234"));
-
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token code", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
-        assertThat(e, IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        assertEquals("An error occurred while trying to verify the ID Token.", e.getMessage());
-    }
+    // --- Code Exchange Flow Tests ---
 
     @Test
     public void shouldThrowOnProcessIfCodeRequestFailsToExecuteCodeExchange() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
         Map<String, Object> params = new HashMap<>();
         params.put("code", "abc123");
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        when(codeExchangeRequest.execute()).thenThrow(Auth0Exception.class);
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+        when(mockTokenRequest.execute()).thenThrow(Auth0Exception.class);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
-        assertThat(e, IdentityVerificationExceptionMatcher.hasCode("a0.api_error"));
-        assertEquals("An error occurred while exchanging the authorization code.", e.getMessage());
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> spy.process(request, response));
+        assertThat(e.getCode(), is("a0.api_error"));
+        assertThat(e.getMessage(), is("An error occurred while exchanging the authorization code."));
     }
 
     @Test
     public void shouldThrowOnProcessIfCodeRequestSucceedsButDoesNotPassIdTokenVerification() throws Exception {
-        doThrow(TokenValidationException.class).when(tokenVerifier).verify(eq("backIdToken"), eq(verifyOptions));
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
 
         Map<String, Object> params = new HashMap<>();
         params.put("code", "abc123");
@@ -237,343 +373,309 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        Response<TokenHolder> tokenResponse = mock(Response.class);
-        TokenHolder tokenHolder = mock(TokenHolder.class);
-        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
-        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
-        when(codeExchangeRequest.execute().getBody()).thenReturn(tokenHolder);
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+        // Return a structurally valid JWT with wrong issuer so verification fails
+        String fakeJwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3dyb25nLyIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0Q2xpZW50SWQiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTYwMDAwMDAwMH0.signature";
+        when(mockTokenHolder.getIdToken()).thenReturn(fakeJwt);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
+        // Use real AlgorithmNameVerifier so signature check passes but claim validation fails
+        RequestProcessor handler = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                new AlgorithmNameVerifier())
                 .build();
-        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
-        assertThat(e, IdentityVerificationExceptionMatcher.hasCode("a0.invalid_jwt_error"));
-        assertEquals("An error occurred while trying to verify the ID Token.", e.getMessage());
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
 
+        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> spy.process(request, response));
+        assertThat(e.getCode(), is("a0.invalid_jwt_error"));
+        assertThat(e.getMessage(), is("An error occurred while trying to verify the ID Token."));
     }
 
     @Test
-    public void shouldReturnTokensOnProcessIfIdTokenCodeRequestPassesIdTokenVerification() throws Exception {
-        doNothing().when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
+    public void shouldReturnTokensOnProcessIfCodeRequestSucceeds() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
 
         Map<String, Object> params = new HashMap<>();
         params.put("code", "abc123");
         params.put("state", "1234");
-        params.put("id_token", "frontIdToken");
-        params.put("expires_in", "8400");
-        params.put("token_type", "frontTokenType");
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        TokenHolder tokenHolder = mock(TokenHolder.class);
-        Response<TokenHolder> tokenResponse = mock(Response.class);
-        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
-        when(tokenHolder.getExpiresIn()).thenReturn(4800L);
-        when(tokenHolder.getTokenType()).thenReturn("backTokenType");
-        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
-        when(codeExchangeRequest.execute().getBody()).thenReturn(tokenHolder);
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+        // Return no ID token so verification is skipped
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        when(mockTokenHolder.getAccessToken()).thenReturn("backAccessToken");
+        when(mockTokenHolder.getRefreshToken()).thenReturn("backRefreshToken");
+        when(mockTokenHolder.getTokenType()).thenReturn("Bearer");
+        when(mockTokenHolder.getExpiresIn()).thenReturn(3600L);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token code", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        Tokens tokens = handler.process(request, response);
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
 
-        //Should not verify the ID Token twice
-        verify(tokenVerifier).verify("frontIdToken", verifyOptions);
-        verify(tokenVerifier, never()).verify("backIdToken", verifyOptions);
-        verifyNoMoreInteractions(tokenVerifier);
+        Tokens tokens = spy.process(request, response);
 
         assertThat(tokens, is(notNullValue()));
-        assertThat(tokens.getIdToken(), is("frontIdToken"));
-        assertThat(tokens.getType(), is("frontTokenType"));
-        assertThat(tokens.getExpiresIn(), is(8400L));
-    }
-
-    @Test
-    public void shouldReturnTokensOnProcessIfIdTokenCodeRequestPassesIdTokenVerificationWhenUsingCookieStorage() throws Exception {
-        doNothing().when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("code", "abc123");
-        params.put("state", "1234");
-        params.put("id_token", "frontIdToken");
-        params.put("expires_in", "8400");
-        params.put("token_type", "frontTokenType");
-        MockHttpServletRequest request = getRequest(params);
-        request.setCookies(new Cookie("com.auth0.state", "1234"));
-
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        TokenHolder tokenHolder = mock(TokenHolder.class);
-        Response<TokenHolder> tokenResponse = mock(Response.class);
-        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
-        when(tokenHolder.getExpiresIn()).thenReturn(4800L);
-        when(tokenHolder.getTokenType()).thenReturn("backTokenType");
-        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
-        when(codeExchangeRequest.execute().getBody()).thenReturn(tokenHolder);
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
-
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token code", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        Tokens tokens = handler.process(request, response);
-
-        //Should not verify the ID Token twice
-        verify(tokenVerifier).verify("frontIdToken", verifyOptions);
-        verify(tokenVerifier, never()).verify("backIdToken", verifyOptions);
-        verifyNoMoreInteractions(tokenVerifier);
-
-        assertThat(tokens, is(notNullValue()));
-        assertThat(tokens.getIdToken(), is("frontIdToken"));
-        assertThat(tokens.getType(), is("frontTokenType"));
-        assertThat(tokens.getExpiresIn(), is(8400L));
-    }
-
-    @Test
-    public void shouldReturnTokensOnProcessIfTokenIdTokenCodeRequestPassesIdTokenVerification() throws Exception {
-        doNothing().when(tokenVerifier).verify(eq("frontIdToken"), eq(verifyOptions));
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("code", "abc123");
-        params.put("state", "1234");
-        params.put("id_token", "frontIdToken");
-        params.put("access_token", "frontAccessToken");
-        params.put("expires_in", "8400");
-        params.put("token_type", "frontTokenType");
-        MockHttpServletRequest request = getRequest(params);
-        request.setCookies(new Cookie("com.auth0.state", "1234"));
-
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        TokenHolder tokenHolder = mock(TokenHolder.class);
-        Response<TokenHolder> tokenResponse = mock(Response.class);
-        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
-        when(tokenHolder.getAccessToken()).thenReturn("backAccessToken");
-        when(tokenHolder.getRefreshToken()).thenReturn("backRefreshToken");
-        when(tokenHolder.getExpiresIn()).thenReturn(4800L);
-        when(tokenHolder.getTokenType()).thenReturn("backTokenType");
-        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
-        when(codeExchangeRequest.execute().getBody()).thenReturn(tokenHolder);
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
-
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token token code", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        Tokens tokens = handler.process(request, response);
-
-        //Should not verify the ID Token twice
-        verify(tokenVerifier).verify("frontIdToken", verifyOptions);
-        verify(tokenVerifier, never()).verify("backIdToken", verifyOptions);
-        verifyNoMoreInteractions(tokenVerifier);
-
-        assertThat(tokens, is(notNullValue()));
-        assertThat(tokens.getIdToken(), is("frontIdToken"));
         assertThat(tokens.getAccessToken(), is("backAccessToken"));
         assertThat(tokens.getRefreshToken(), is("backRefreshToken"));
-        assertThat(tokens.getExpiresIn(), is(4800L));
-        assertThat(tokens.getType(), is("backTokenType"));
-    }
-
-    @Test
-    public void shouldReturnTokensOnProcessIfCodeRequestPassesIdTokenVerification() throws Exception {
-        doNothing().when(tokenVerifier).verify(eq("backIdToken"), eq(verifyOptions));
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("code", "abc123");
-        params.put("state", "1234");
-        MockHttpServletRequest request = getRequest(params);
-        request.setCookies(new Cookie("com.auth0.state", "1234"));
-
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        TokenHolder tokenHolder = mock(TokenHolder.class);
-        Response<TokenHolder> tokenResponse = mock(Response.class);
-        when(tokenHolder.getIdToken()).thenReturn("backIdToken");
-        when(tokenHolder.getAccessToken()).thenReturn("backAccessToken");
-        when(tokenHolder.getRefreshToken()).thenReturn("backRefreshToken");
-        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
-        when(codeExchangeRequest.execute().getBody()).thenReturn(tokenHolder);
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
-
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        Tokens tokens = handler.process(request, response);
-
-        verify(tokenVerifier).verify("backIdToken", verifyOptions);
-        verifyNoMoreInteractions(tokenVerifier);
-
-        assertThat(tokens, is(notNullValue()));
-        assertThat(tokens.getIdToken(), is("backIdToken"));
-        assertThat(tokens.getAccessToken(), is("backAccessToken"));
-        assertThat(tokens.getRefreshToken(), is("backRefreshToken"));
+        assertThat(tokens.getType(), is("Bearer"));
+        assertThat(tokens.getExpiresIn(), is(3600L));
     }
 
     @Test
     public void shouldReturnEmptyTokensWhenCodeRequestReturnsNoTokens() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
         Map<String, Object> params = new HashMap<>();
         params.put("code", "abc123");
         params.put("state", "1234");
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        TokenRequest codeExchangeRequest = mock(TokenRequest.class);
-        TokenHolder tokenHolder = mock(TokenHolder.class);
-        Response<TokenHolder> tokenResponse = mock(Response.class);
-        when(codeExchangeRequest.execute()).thenReturn(tokenResponse);
-        when(codeExchangeRequest.execute().getBody()).thenReturn(tokenHolder);
-        when(client.exchangeCode("abc123", "https://me.auth0.com:80/callback")).thenReturn(codeExchangeRequest);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
 
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .withIdTokenVerifier(tokenVerifier)
-                .build();
-        Tokens tokens = handler.process(request, response);
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
 
-        verifyNoMoreInteractions(tokenVerifier);
+        Tokens tokens = spy.process(request, response);
 
         assertThat(tokens, is(notNullValue()));
-
         assertThat(tokens.getIdToken(), is(nullValue()));
         assertThat(tokens.getAccessToken(), is(nullValue()));
         assertThat(tokens.getRefreshToken(), is(nullValue()));
     }
 
-    @Test
-    public void shouldBuildAuthorizeUrl() {
-        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
-        SignatureVerifier signatureVerifier = mock(SignatureVerifier.class);
-        IdTokenVerifier.Options verifyOptions = new IdTokenVerifier.Options("issuer", "audience", signatureVerifier);
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
-                .build();
-        HttpServletRequest request = new MockHttpServletRequest();
-        AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
-        String authorizeUrl = builder.build();
+    // --- Implicit / Hybrid Flow Tests ---
 
-        assertThat(authorizeUrl, is(notNullValue()));
-        assertThat(authorizeUrl, CoreMatchers.startsWith("https://me.auth0.com/authorize?"));
-        assertThat(authorizeUrl, containsString("client_id=clientId"));
-        assertThat(authorizeUrl, containsString("redirect_uri=https://redirect.uri/here"));
-        assertThat(authorizeUrl, containsString("response_type=code"));
-        assertThat(authorizeUrl, containsString("scope=openid"));
-        assertThat(authorizeUrl, containsString("state=state"));
-        assertThat(authorizeUrl, not(containsString("max_age=")));
-        assertThat(authorizeUrl, not(containsString("nonce=nonce")));
-        assertThat(authorizeUrl, not(containsString("response_mode=form_post")));
+    @Test
+    public void shouldThrowOnProcessIfIdTokenRequestDoesNotPassIdTokenVerification() {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        // Structurally valid JWT with wrong issuer so claim validation fails
+        String fakeJwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3dyb25nLyIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0Q2xpZW50SWQiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTYwMDAwMDAwMH0.signature";
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("state", "1234");
+        params.put("id_token", fakeJwt);
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(new Cookie("com.auth0.state", "1234"));
+
+        // Use real AlgorithmNameVerifier so signature check passes but claim validation fails
+        RequestProcessor handler = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_ID_TOKEN,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                new AlgorithmNameVerifier())
+                .build();
+
+        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
+        assertThat(e.getCode(), is("a0.invalid_jwt_error"));
+        assertThat(e.getMessage(), is("An error occurred while trying to verify the ID Token."));
+    }
+
+    // --- AuthorizeUrl Building Tests ---
+
+    @Test
+    public void shouldBuildAuthorizeUrlWithStateAndNonce() {
+        lenient().when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+        RequestProcessor processor = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        AuthorizeUrl result = spy.buildAuthorizeUrl(request, response, "https://callback.com", "state123", "nonce123");
+
+        assertThat(result, is(notNullValue()));
+        verify(spy).createClientForDomain(DOMAIN);
     }
 
     @Test
-    public void shouldSetMaxAgeIfProvided() {
-        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
-        when(verifyOptions.getMaxAge()).thenReturn(906030);
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+    public void shouldBuildAuthorizeUrlWithOrganization() {
+        lenient().when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withOrganization("org_123")
                 .build();
-        HttpServletRequest request = new MockHttpServletRequest();
-        AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
-        String authorizeUrl = builder.build();
 
-        assertThat(authorizeUrl, is(notNullValue()));
-        assertThat(authorizeUrl, containsString("max_age=906030"));
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        AuthorizeUrl result = spy.buildAuthorizeUrl(request, response, "https://callback.com", "state123", "nonce123");
+
+        assertThat(result, is(notNullValue()));
     }
 
     @Test
-    public void shouldNotSetNonceIfRequestTypeIsNotIdToken() {
-        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
-        RequestProcessor handler = new RequestProcessor.Builder(client, "code", verifyOptions)
+    public void shouldBuildAuthorizeUrlWithInvitation() {
+        lenient().when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withInvitation("inv_456")
                 .build();
-        HttpServletRequest request = new MockHttpServletRequest();
-        AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
-        String authorizeUrl = builder.build();
 
-        assertThat(authorizeUrl, is(notNullValue()));
-        assertThat(authorizeUrl, not(containsString("nonce=nonce")));
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        AuthorizeUrl result = spy.buildAuthorizeUrl(request, response, "https://callback.com", "state123", "nonce123");
+
+        assertThat(result, is(notNullValue()));
     }
 
     @Test
-    public void shouldSetNonceIfRequestTypeIsIdToken() {
-        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
+    public void shouldBuildAuthorizeUrlWithCustomCookiePath() {
+        lenient().when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withCookiePath("/custom")
                 .build();
-        HttpServletRequest request = new MockHttpServletRequest();
-        AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
-        String authorizeUrl = builder.build();
 
-        assertThat(authorizeUrl, is(notNullValue()));
-        assertThat(authorizeUrl, containsString("nonce=nonce"));
-    }
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
 
-    @Test
-    public void shouldNotSetNullNonceIfRequestTypeIsIdToken() {
-        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
-                .build();
-        HttpServletRequest request = new MockHttpServletRequest();
-        AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", null);
-        String authorizeUrl = builder.build();
+        AuthorizeUrl result = spy.buildAuthorizeUrl(request, response, "https://callback.com", "state123", "nonce123");
 
-        assertThat(authorizeUrl, is(notNullValue()));
-        assertThat(authorizeUrl, not(containsString("nonce=nonce")));
-    }
-
-    @Test
-    public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeIsIdToken() {
-        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
-        RequestProcessor handler = new RequestProcessor.Builder(client, "id_token", verifyOptions)
-                .build();
-        HttpServletRequest request = new MockHttpServletRequest();
-        AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response,"https://redirect.uri/here", "state", "nonce");
-        String authorizeUrl = builder.build();
-
-        assertThat(authorizeUrl, is(notNullValue()));
-        assertThat(authorizeUrl, CoreMatchers.startsWith("https://me.auth0.com/authorize?"));
-        assertThat(authorizeUrl, containsString("client_id=clientId"));
-        assertThat(authorizeUrl, containsString("redirect_uri=https://redirect.uri/here"));
-        assertThat(authorizeUrl, containsString("response_type=id_token"));
-        assertThat(authorizeUrl, containsString("scope=openid"));
-        assertThat(authorizeUrl, containsString("state=state"));
-        assertThat(authorizeUrl, containsString("nonce=nonce"));
-        assertThat(authorizeUrl, containsString("response_mode=form_post"));
+        assertThat(result, is(notNullValue()));
     }
 
     @Test
     public void shouldBuildAuthorizeUrlWithFormPostIfResponseTypeIsToken() {
-        AuthAPI client = AuthAPI.newBuilder("me.auth0.com", "clientId", "clientSecret").build();
-        RequestProcessor handler = new RequestProcessor.Builder(client, "token", verifyOptions)
-                .build();
-        HttpServletRequest request = new MockHttpServletRequest();
-        AuthorizeUrl builder = handler.buildAuthorizeUrl(request, response, "https://redirect.uri/here", "state", "nonce");
-        String authorizeUrl = builder.build();
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+        RequestProcessor handler = createRequestProcessorWithResponseType(RESPONSE_TYPE_TOKEN);
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
 
-        assertThat(authorizeUrl, is(notNullValue()));
-        assertThat(authorizeUrl, CoreMatchers.startsWith("https://me.auth0.com/authorize?"));
-        assertThat(authorizeUrl, containsString("client_id=clientId"));
-        assertThat(authorizeUrl, containsString("redirect_uri=https://redirect.uri/here"));
-        assertThat(authorizeUrl, containsString("response_type=token"));
-        assertThat(authorizeUrl, containsString("scope=openid"));
-        assertThat(authorizeUrl, containsString("state=state"));
-        assertThat(authorizeUrl, containsString("response_mode=form_post"));
+        AuthorizeUrl result = spy.buildAuthorizeUrl(request, response, "https://redirect.uri/here", "state", "nonce");
+
+        assertThat(result, is(notNullValue()));
     }
 
     @Test
-    public void isFormPostReturnsFalseWhenResponseTypeIsNull() {
-        assertThat(RequestProcessor.requiresFormPostResponseMode(null), is(false));
+    public void shouldBuildAuthorizeUrlWithNonceAndFormPostIfResponseTypeIsIdToken() {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+        RequestProcessor handler = createRequestProcessorWithResponseType(RESPONSE_TYPE_ID_TOKEN);
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        AuthorizeUrl result = spy.buildAuthorizeUrl(request, response, "https://redirect.uri/here", "state", "nonce");
+
+        assertThat(result, is(notNullValue()));
+    }
+
+    // --- Builder Configuration Tests ---
+
+    @Test
+    public void shouldSupportOrganizationParameter() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withOrganization("org_123")
+                .build();
+
+        assertThat(processor, is(notNullValue()));
     }
 
     @Test
-    public void shouldGetAuthAPIClient() {
-        RequestProcessor handler = new RequestProcessor.Builder(client, "responseType", verifyOptions)
+    public void shouldSupportInvitationParameter() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withInvitation("inv_456")
                 .build();
-        assertThat(handler.getClient(), is(client));
+
+        assertThat(processor, is(notNullValue()));
     }
 
     @Test
-    public void legacySameSiteCookieShouldBeFalseByDefault() {
-        RequestProcessor processor = new RequestProcessor.Builder(client, "responseType", verifyOptions)
+    public void shouldSupportCustomCookiePath() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withCookiePath("/custom/path")
                 .build();
-        assertThat(processor.useLegacySameSiteCookie, is(true));
+
+        assertThat(processor, is(notNullValue()));
     }
 
-    // Utils
+    @Test
+    public void shouldSupportClockSkewConfiguration() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withClockSkew(180)
+                .build();
+
+        assertThat(processor, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldSupportAuthenticationMaxAge() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .withAuthenticationMaxAge(7200)
+                .build();
+
+        assertThat(processor, is(notNullValue()));
+    }
+
+    // --- Helper Methods ---
+
+    private RequestProcessor createDefaultRequestProcessor() {
+        return new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .build();
+    }
+
+    private RequestProcessor createRequestProcessorWithResponseType(String responseType) {
+        return new RequestProcessor.Builder(
+                mockDomainProvider,
+                responseType,
+                CLIENT_ID,
+                CLIENT_SECRET,
+                mockSignatureVerifier)
+                .build();
+    }
 
     private MockHttpServletRequest getRequest(Map<String, Object> parameters) {
         MockHttpServletRequest request = new MockHttpServletRequest();

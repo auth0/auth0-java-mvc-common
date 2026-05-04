@@ -27,6 +27,8 @@ public class AuthorizeUrl {
     private String state;
     private final AuthAPI authAPI;
     private String cookiePath;
+    private String originDomain;
+    private String clientSecret;
 
     private boolean used;
     private Map<String, String> params;
@@ -137,6 +139,16 @@ public class AuthorizeUrl {
     }
 
     /**
+     * Sets the origin domain and client secret for HMAC-signed origin domain cookie storage.
+     * Called internally by RequestProcessor for MCD support.
+     */
+    AuthorizeUrl withOriginDomain(String originDomain, String clientSecret) {
+        this.originDomain = originDomain;
+        this.clientSecret = clientSecret;
+        return this;
+    }
+
+    /**
      * Sets the state value.
      *
      * @param state state to set
@@ -241,6 +253,12 @@ public class AuthorizeUrl {
 
         TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
         TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
+
+        // Store HMAC-signed origin domain with the same SameSite value as state/nonce
+        if (originDomain != null && clientSecret != null) {
+            TransientCookieStore.storeSignedOriginDomain(response, originDomain,
+                    sameSiteValue, cookiePath, setSecureCookie, clientSecret);
+        }
 
         used = true;
     }

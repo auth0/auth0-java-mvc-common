@@ -114,9 +114,9 @@ test {
 
 dependencies {
     implementation 'jakarta.servlet:jakarta.servlet-api:6.0.0'
-    implementation 'org.apache.commons:commons-lang3:3.18.0'
+    implementation 'org.apache.commons:commons-lang3:3.20.0'
     implementation 'com.google.guava:guava:32.0.1-jre'
-    implementation 'commons-codec:commons-codec:1.20.0'
+    implementation 'commons-codec:commons-codec:1.22.0'
 
     api 'com.auth0:auth0:3.3.0'
     api 'com.auth0:java-jwt:4.5.0'

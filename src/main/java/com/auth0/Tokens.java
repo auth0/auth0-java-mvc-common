@@ -22,6 +22,8 @@ public class Tokens implements Serializable {
     private final String refreshToken;
     private final String type;
     private final Long expiresIn;
+    private final String domain;
+    private final String issuer;
 
     /**
      * @param accessToken  access token for Auth0 API
@@ -31,11 +33,29 @@ public class Tokens implements Serializable {
      * @param expiresIn    token expiration
      */
     public Tokens(String accessToken, String idToken, String refreshToken, String type, Long expiresIn) {
+        this(accessToken, idToken, refreshToken, type, expiresIn, null, null);
+    }
+
+    /**
+     * Full constructor with domain information for MCD support
+     *
+     * @param accessToken  access token for Auth0 API
+     * @param idToken      identity token with user information
+     * @param refreshToken refresh token that can be used to request new tokens
+     *                     without signing in again
+     * @param type         token type
+     * @param expiresIn    token expiration
+     * @param domain       the Auth0 domain that issued these tokens
+     * @param issuer       the issuer URL from the ID token
+     */
+    public Tokens(String accessToken, String idToken, String refreshToken, String type, Long expiresIn, String domain, String issuer) {
         this.accessToken = accessToken;
         this.idToken = idToken;
         this.refreshToken = refreshToken;
         this.type = type;
         this.expiresIn = expiresIn;
+        this.domain = domain;
+        this.issuer = issuer;
     }
 
     /**
@@ -81,5 +101,28 @@ public class Tokens implements Serializable {
      */
     public Long getExpiresIn() {
         return expiresIn;
+    }
+
+
+    /**
+     * Getter for the Auth0 domain that issued these tokens.
+     * Used for domain-specific session management in Multiple Custom Domains (MCD)
+     * scenarios.
+     *
+     * @return the domain that issued these tokens, or null for non-MCD scenarios
+     */
+    public String getDomain() {
+        return domain;
+    }
+
+    /**
+     * Getter for the issuer URL from the ID token.
+     * Used for domain-specific session management in Multiple Custom Domains (MCD)
+     * scenarios.
+     *
+     * @return the issuer URL, or null for non-MCD scenarios
+     */
+    public String getIssuer() {
+        return issuer;
     }
 }

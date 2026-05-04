@@ -2,20 +2,17 @@ package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.jwk.JwkProvider;
-import com.auth0.net.client.Auth0HttpClient;
-import com.auth0.net.client.DefaultHttpClient;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-
 /**
  * Base Auth0 Authenticator class.
  * Allows to easily authenticate using the Auth0 Hosted Login Page.
  */
-@SuppressWarnings({"WeakerAccess", "UnusedReturnValue", "SameParameterValue"})
+@SuppressWarnings({ "WeakerAccess", "UnusedReturnValue", "SameParameterValue" })
 public class AuthenticationController {
 
     private final RequestProcessor requestProcessor;
@@ -44,14 +41,35 @@ public class AuthenticationController {
      * @return a new Builder instance ready to configure
      */
     public static Builder newBuilder(String domain, String clientId, String clientSecret) {
-        return new Builder(domain, clientId, clientSecret);
+        Validate.notNull(domain, "domain must not be null");
+        return new Builder(clientId, clientSecret).withDomain(domain);
     }
 
+    /**
+     * Create a new {@link Builder} instance to configure the
+     * {@link AuthenticationController} response type and algorithm used on the
+     * verification.
+     * By default it will request response type 'code' and later perform the Code
+     * Exchange, but if the response type is changed to 'token' it will handle
+     * the Implicit Grant using the HS256 algorithm with the Client Secret as
+     * secret.
+     *
+     * @param domainResolver the Auth0 domain resolver function
+     * @param clientId       the Auth0 application's client id
+     * @param clientSecret   the Auth0 application's client secret
+     * @return a new Builder instance ready to configure
+     */
+    public static Builder newBuilder(DomainResolver domainResolver,
+            String clientId,
+            String clientSecret) {
+        Validate.notNull(domainResolver, "domainResolver must not be null");
+        return new Builder(clientId, clientSecret).withDomainResolver(domainResolver);
+    }
 
     public static class Builder {
         private static final String RESPONSE_TYPE_CODE = "code";
 
-        private final String domain;
+        private String domain;
         private final String clientId;
         private final String clientSecret;
         private String responseType;
@@ -62,6 +80,7 @@ public class AuthenticationController {
         private String organization;
         private String invitation;
         private String cookiePath;
+        private DomainResolver domainResolver;
 
         Builder(String domain, String clientId, String clientSecret) {
             Validate.notNull(domain);
@@ -73,6 +92,54 @@ public class AuthenticationController {
             this.clientSecret = clientSecret;
             this.responseType = RESPONSE_TYPE_CODE;
             this.useLegacySameSiteCookie = true;
+        }
+
+        Builder(String clientId, String clientSecret) {
+            if (clientId == null) {
+                throw new IllegalArgumentException("clientId cannot be null");
+            }
+            if (clientSecret == null) {
+                throw new IllegalArgumentException("clientSecret cannot be null");
+            }
+
+            this.clientId = clientId;
+            this.clientSecret = clientSecret;
+            this.responseType = RESPONSE_TYPE_CODE;
+            this.useLegacySameSiteCookie = true;
+        }
+
+        /**
+         * Sets the Auth0 domain to use.
+         * Note: The `domainResolver` must be null when setting the `domain`.
+         *
+         * @param domain the Auth0 domain to use, a non-null value.
+         * @return this same builder instance.
+         * @throws IllegalStateException if `domainResolver` is already set.
+         */
+        public Builder withDomain(String domain) {
+            if (this.domainResolver != null) {
+                throw new IllegalStateException("Cannot specify both 'domain' and 'domainResolver'.");
+            }
+            Validate.notNull(domain, "domain must not be null");
+            this.domain = domain;
+            return this;
+        }
+
+        /**
+         * Sets the Auth0 domain resolver function to use.
+         * Note: The `domain` must be null when setting the `domainResolver`.
+         *
+         * @param domainResolver the domain resolver function to use, a non-null value.
+         * @return this same builder instance.
+         * @throws IllegalStateException if `domain` is already set.
+         */
+        public Builder withDomainResolver(DomainResolver domainResolver) {
+            if (this.domain != null) {
+                throw new IllegalStateException("Cannot specify both 'domain' and 'domainResolver'.");
+            }
+            Validate.notNull(domainResolver, "domainResolver must not be null");
+            this.domainResolver = domainResolver;
+            return this;
         }
 
         /**
@@ -183,28 +250,18 @@ public class AuthenticationController {
          * @throws UnsupportedOperationException if the Implicit Grant is chosen and the environment doesn't support UTF-8 encoding.
          */
         public AuthenticationController build() throws UnsupportedOperationException {
-            AuthAPI apiClient = createAPIClient(domain, clientId, clientSecret);
+            validateDomainConfiguration();
 
-            final boolean expectedAlgorithmIsExplicitlySetAndAsymmetric = jwkProvider != null;
-            final SignatureVerifier signatureVerifier;
-            if (expectedAlgorithmIsExplicitlySetAndAsymmetric) {
-                signatureVerifier = new AsymmetricSignatureVerifier(jwkProvider);
-            } else if (responseType.contains(RESPONSE_TYPE_CODE)) {
-                // Old behavior: To maintain backwards-compatibility when
-                // no explicit algorithm is set by the user, we
-                // must skip ID Token signature check.
-                signatureVerifier = new AlgorithmNameVerifier();
-            } else {
-                signatureVerifier = new SymmetricSignatureVerifier(clientSecret);
-            }
+            DomainProvider domainProvider = domain != null
+                    ? new StaticDomainProvider(domain)
+                    : new ResolverDomainProvider(domainResolver);
 
-            String issuer = getIssuer(domain);
-            IdTokenVerifier.Options verifyOptions = createIdTokenVerificationOptions(issuer, clientId, signatureVerifier);
-            verifyOptions.setClockSkew(clockSkew);
-            verifyOptions.setMaxAge(authenticationMaxAge);
-            verifyOptions.setOrganization(this.organization);
+            SignatureVerifier signatureVerifier = buildSignatureVerifier();
 
-            RequestProcessor processor = new RequestProcessor.Builder(apiClient, responseType, verifyOptions)
+            RequestProcessor processor = new RequestProcessor.Builder(domainProvider, responseType, clientId,
+                    clientSecret, signatureVerifier)
+                    .withClockSkew(clockSkew)
+                    .withAuthenticationMaxAge(authenticationMaxAge)
                     .withLegacySameSiteCookie(useLegacySameSiteCookie)
                     .withOrganization(organization)
                     .withInvitation(invitation)
@@ -214,28 +271,28 @@ public class AuthenticationController {
             return new AuthenticationController(processor);
         }
 
+        private void validateDomainConfiguration() {
+            if (domain == null && domainResolver == null) {
+                throw new IllegalStateException("Either domain or domainResolver must be provided.");
+            }
+            if (domain != null && domainResolver != null) {
+                throw new IllegalStateException("Cannot specify both domain and domainResolver.");
+            }
+        }
+
+        private SignatureVerifier buildSignatureVerifier() {
+            if (jwkProvider != null) {
+                return new AsymmetricSignatureVerifier(jwkProvider);
+            }
+            if (responseType.contains(RESPONSE_TYPE_CODE)) {
+                return new AlgorithmNameVerifier(); // legacy behavior
+            }
+            return new SymmetricSignatureVerifier(clientSecret);
+        }
+
         @VisibleForTesting
         IdTokenVerifier.Options createIdTokenVerificationOptions(String issuer, String audience, SignatureVerifier signatureVerifier) {
             return new IdTokenVerifier.Options(issuer, audience, signatureVerifier);
-        }
-
-        @VisibleForTesting
-        AuthAPI createAPIClient(String domain, String clientId, String clientSecret) {
-            Auth0HttpClient http = DefaultHttpClient.newBuilder()
-                    .telemetryEnabled(true)
-                    .build();
-
-
-            return AuthAPI.newBuilder(domain, clientId, clientSecret)
-                    .withHttpClient(http)
-                    .build();
-        }
-
-        @VisibleForTesting
-        String obtainPackageVersion() {
-            //Value if taken from jar's manifest file.
-            //Call will return null on dev environment (outside of a jar)
-            return getClass().getPackage().getImplementationVersion();
         }
 
         private String getIssuer(String domain) {
@@ -247,6 +304,23 @@ public class AuthenticationController {
             }
             return domain;
         }
+    }
+
+    /**
+     * Whether to enable or not the HTTP Logger for every Request and Response.
+     * Enabling this can expose sensitive information.
+     *
+     * @param enabled whether to enable the HTTP logger or not.
+     */
+    public void setLoggingEnabled(boolean enabled) {
+        requestProcessor.setLoggingEnabled(enabled);
+    }
+
+    /**
+     * Disable sending the Telemetry header on every request to the Auth0 API
+     */
+    public void doNotSendTelemetry() {
+        requestProcessor.doNotSendTelemetry();
     }
 
     /**

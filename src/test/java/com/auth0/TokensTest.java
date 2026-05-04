@@ -16,6 +16,8 @@ public class TokensTest {
         assertThat(tokens.getRefreshToken(), is("refreshToken"));
         assertThat(tokens.getType(), is("bearer"));
         assertThat(tokens.getExpiresIn(), is(360000L));
+        assertThat(tokens.getDomain(), is(nullValue()));
+        assertThat(tokens.getIssuer(), is(nullValue()));
     }
 
     @Test
@@ -26,5 +28,7 @@ public class TokensTest {
         assertThat(tokens.getRefreshToken(), is(nullValue()));
         assertThat(tokens.getType(), is(nullValue()));
         assertThat(tokens.getExpiresIn(), is(nullValue()));
+        assertThat(tokens.getDomain(), is(nullValue()));
+        assertThat(tokens.getIssuer(), is(nullValue()));
     }
 }

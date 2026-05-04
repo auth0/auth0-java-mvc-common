@@ -37,14 +37,14 @@ Add the dependency via Maven:
 <dependency>
   <groupId>com.auth0</groupId>
   <artifactId>mvc-auth-commons</artifactId>
-  <version>1.11.1</version>
+  <version>1.12.0</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:mvc-auth-commons:1.11.1'
+implementation 'com.auth0:mvc-auth-commons:1.12.0'
 ```
 
 ### Configure Auth0
@@ -128,6 +128,23 @@ public class CallbackServlet extends HttpServlet {
 ```
 
 That's it! You have authenticated the user using Auth0.
+
+### Multiple Custom Domains Support
+
+If your application needs to authenticate users against different Auth0 domains per request, use a `DomainResolver` instead of a static domain:
+
+```java
+DomainResolver domainResolver = (request) -> {
+    // resolve the Auth0 domain from the request (e.g., header, subdomain, etc.)
+    return request.getHeader("X-Tenant-Domain");
+};
+
+AuthenticationController controller = AuthenticationController
+        .newBuilder(domainResolver, clientId, clientSecret)
+        .build();
+```
+
+The library handles storing and retrieving the resolved domain throughout the authentication flow. The returned `Tokens` object includes `getDomain()` and `getIssuer()` for tenant-specific session management. See [EXAMPLES.md](./EXAMPLES.md#multiple-custom-domains-support) for more details.
 
 ## API Reference
 

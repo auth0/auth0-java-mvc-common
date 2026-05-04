@@ -10,6 +10,7 @@ class StorageUtils {
 
     static final String STATE_KEY = "com.auth0.state";
     static final String NONCE_KEY = "com.auth0.nonce";
+    static final String ORIGIN_DOMAIN_KEY = "com.auth0.origin_domain";
 
     /**
      * Generates a new random string using {@link SecureRandom}.

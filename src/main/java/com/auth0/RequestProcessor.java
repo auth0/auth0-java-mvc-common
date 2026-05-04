@@ -1,8 +1,10 @@
 package com.auth0;
 
+import com.auth0.client.LoggingOptions;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
+import com.auth0.net.client.DefaultHttpClient;
 import org.apache.commons.lang3.Validate;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,34 +34,60 @@ class RequestProcessor {
     private static final String KEY_MAX_AGE = "max_age";
 
     // Visible for testing
-    final IdTokenVerifier.Options verifyOptions;
-    final boolean useLegacySameSiteCookie;
 
+    private final DomainProvider domainProvider;
     private final String responseType;
-    private final AuthAPI client;
-    private final IdTokenVerifier tokenVerifier;
+    private final String clientId;
+    private final String clientSecret;
+    private SignatureVerifier signatureVerifier;
+
+    // Configuration values passed from Builder for creating per-request
+    // verification options
+    private final Integer clockSkew;
+    private final Integer authenticationMaxAge;
     private final String organization;
     private final String invitation;
-    private final String cookiePath;
 
+    final boolean useLegacySameSiteCookie;
+    private final IdTokenVerifier tokenVerifier;
+    private final String cookiePath;
+    private boolean loggingEnabled = false;
+    private boolean telemetryDisabled = false;
 
     static class Builder {
-        private final AuthAPI client;
+        private final DomainProvider domainProvider;
         private final String responseType;
-        private final IdTokenVerifier.Options verifyOptions;
+        private final String clientId;
+        private final String clientSecret;
+        private final SignatureVerifier signatureVerifier;
+
         private boolean useLegacySameSiteCookie = true;
-        private IdTokenVerifier tokenVerifier;
+        private Integer clockSkew;
+        private Integer authenticationMaxAge;
         private String organization;
         private String invitation;
         private String cookiePath;
 
-        Builder(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions) {
-            Validate.notNull(client);
-            Validate.notNull(responseType);
-            Validate.notNull(verifyOptions);
-            this.client = client;
+        public Builder(DomainProvider domainProvider,
+                String responseType,
+                String clientId,
+                String clientSecret,
+                SignatureVerifier signatureVerifier) {
+            this.domainProvider = domainProvider;
             this.responseType = responseType;
-            this.verifyOptions = verifyOptions;
+            this.clientId = clientId;
+            this.clientSecret = clientSecret;
+            this.signatureVerifier = signatureVerifier;
+        }
+
+        public Builder withClockSkew(Integer clockSkew) {
+            this.clockSkew = clockSkew;
+            return this;
+        }
+
+        public Builder withAuthenticationMaxAge(Integer maxAge) {
+            this.authenticationMaxAge = maxAge;
+            return this;
         }
 
         Builder withCookiePath(String cookiePath) {
@@ -69,11 +97,6 @@ class RequestProcessor {
 
         Builder withLegacySameSiteCookie(boolean useLegacySameSiteCookie) {
             this.useLegacySameSiteCookie = useLegacySameSiteCookie;
-            return this;
-        }
-
-        Builder withIdTokenVerifier(IdTokenVerifier verifier) {
-            this.tokenVerifier = verifier;
             return this;
         }
 
@@ -88,34 +111,51 @@ class RequestProcessor {
         }
 
         RequestProcessor build() {
-            return new RequestProcessor(client, responseType, verifyOptions,
-                    this.tokenVerifier == null ? new IdTokenVerifier() : this.tokenVerifier,
-                    useLegacySameSiteCookie, organization, invitation, cookiePath);
+
+            return new RequestProcessor(domainProvider, responseType, clientId, clientSecret,
+                    signatureVerifier, new IdTokenVerifier(),
+                    useLegacySameSiteCookie, clockSkew, authenticationMaxAge, organization, invitation, cookiePath);
         }
     }
 
-    private RequestProcessor(AuthAPI client, String responseType, IdTokenVerifier.Options verifyOptions, IdTokenVerifier tokenVerifier, boolean useLegacySameSiteCookie, String organization, String invitation, String cookiePath) {
-        Validate.notNull(client);
-        Validate.notNull(responseType);
-        Validate.notNull(verifyOptions);
-        this.client = client;
+    private RequestProcessor(DomainProvider domainProvider, String responseType, String clientId, String clientSecret, SignatureVerifier signatureVerifier, IdTokenVerifier tokenVerifier,
+            boolean useLegacySameSiteCookie, Integer clockSkew, Integer authenticationMaxAge,
+            String organization, String invitation, String cookiePath) {
+        this.domainProvider = domainProvider;
         this.responseType = responseType;
-        this.verifyOptions = verifyOptions;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.signatureVerifier = signatureVerifier;
         this.tokenVerifier = tokenVerifier;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
+
+        // Store individual configuration values instead of pre-built verifyOptions
+        this.clockSkew = clockSkew;
+        this.authenticationMaxAge = authenticationMaxAge;
         this.organization = organization;
         this.invitation = invitation;
         this.cookiePath = cookiePath;
     }
 
-    /**
-     * Getter for the AuthAPI client instance.
-     * Used to customize options such as Telemetry and Logging.
-     *
-     * @return the AuthAPI client.
-     */
-    AuthAPI getClient() {
-        return client;
+    void setLoggingEnabled(boolean enabled) {
+        this.loggingEnabled = enabled;
+    }
+
+    void doNotSendTelemetry() {
+        this.telemetryDisabled = true;
+    }
+
+    AuthAPI createClientForDomain(String domain) {
+        DefaultHttpClient.Builder httpBuilder = DefaultHttpClient.newBuilder()
+                .telemetryEnabled(!telemetryDisabled);
+
+        if (loggingEnabled) {
+            httpBuilder.withLogging(new LoggingOptions(LoggingOptions.LogLevel.BODY));
+        }
+
+        return AuthAPI.newBuilder(domain, clientId, clientSecret)
+                .withHttpClient(httpBuilder.build())
+                .build();
     }
 
     /**
@@ -131,6 +171,9 @@ class RequestProcessor {
     AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri,
                                    String state, String nonce) {
 
+        String originDomain = domainProvider.getDomain(request);
+        AuthAPI client = createClientForDomain(originDomain);
+
         AuthorizeUrl creator = new AuthorizeUrl(client, response, redirectUri, responseType)
                 .withState(state);
 
@@ -145,7 +188,7 @@ class RequestProcessor {
         }
 
         creator.withLegacySameSiteCookie(useLegacySameSiteCookie);
-
+        creator.withOriginDomain(originDomain, clientSecret);
 
         return getAuthorizeUrl(nonce, creator);
     }
@@ -165,7 +208,22 @@ class RequestProcessor {
         assertNoError(request);
         assertValidState(request, response);
 
-        Tokens frontChannelTokens = getFrontChannelTokens(request);
+        // Extract origin_domain from the HMAC-signed transaction state cookie.
+        // If the cookie was tampered with, getSignedOriginDomain returns null.
+        String originDomain = null;
+
+        originDomain = TransientCookieStore.getSignedOriginDomain(request, response, clientSecret);
+
+
+        // Fallback for session-based (deprecated) flow or if cookie was not set
+        if (originDomain == null) {
+            originDomain = domainProvider.getDomain(request);
+        }
+
+        // Always derive the issuer from the verified domain — never from a cookie
+        String originIssuer = constructIssuer(originDomain);
+
+        Tokens frontChannelTokens = getFrontChannelTokens(request, originDomain, originIssuer);
         List<String> responseTypeList = getResponseType();
 
         if (responseTypeList.contains(KEY_ID_TOKEN) && frontChannelTokens.getIdToken() == null) {
@@ -178,9 +236,7 @@ class RequestProcessor {
         // Nonce dynamically set and changes on every request.
         String nonce = TransientCookieStore.getNonce(request, response);
 
-        verifyOptions.setNonce(nonce);
-
-        return getVerifiedTokens(request, frontChannelTokens, responseTypeList);
+        return getVerifiedTokens(request, response, frontChannelTokens, responseTypeList, originDomain, originIssuer);
     }
 
     static boolean requiresFormPostResponseMode(List<String> responseType) {
@@ -196,26 +252,32 @@ class RequestProcessor {
      * @return a Tokens object that wraps the values obtained from the front-channel and/or the code request response.
      * @throws IdentityVerificationException
      */
-    private Tokens getVerifiedTokens(HttpServletRequest request, Tokens frontChannelTokens, List<String> responseTypeList)
+    private Tokens getVerifiedTokens(HttpServletRequest request, HttpServletResponse response, Tokens frontChannelTokens, List<String> responseTypeList, String originDomain, String originIssuer)
             throws IdentityVerificationException {
 
         String authorizationCode = request.getParameter(KEY_CODE);
         Tokens codeExchangeTokens = null;
 
+        String nonce = TransientCookieStore.getNonce(request, response);
+
+        IdTokenVerifier.Options requestVerifyOptions = createRequestVerifyOptions(originIssuer, nonce);
+
         try {
             if (responseTypeList.contains(KEY_ID_TOKEN)) {
-                // Implicit/Hybrid flow: must verify front-channel ID Token first
-                tokenVerifier.verify(frontChannelTokens.getIdToken(), verifyOptions);
+                // Implicit/Hybrid flow: must verify front-channel ID Token first.
+                // The issuer is derived from the HMAC-verified domain, so this check
+                // validates the token's iss against a trusted value.
+                tokenVerifier.verify(frontChannelTokens.getIdToken(), requestVerifyOptions);
             }
             if (responseTypeList.contains(KEY_CODE)) {
                 // Code/Hybrid flow
                 String redirectUri = request.getRequestURL().toString();
-                codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri);
+                codeExchangeTokens = exchangeCodeForTokens(authorizationCode, redirectUri, originDomain);
                 if (!responseTypeList.contains(KEY_ID_TOKEN)) {
                     // If we already verified the front-channel token, don't verify it again.
                     String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
                     if (idTokenFromCodeExchange != null) {
-                        tokenVerifier.verify(idTokenFromCodeExchange, verifyOptions);
+                        tokenVerifier.verify(idTokenFromCodeExchange, requestVerifyOptions);
                     }
                 }
             }
@@ -226,6 +288,30 @@ class RequestProcessor {
         }
         // Keep the front-channel ID Token and the code-exchange Access Token.
         return mergeTokens(frontChannelTokens, codeExchangeTokens);
+    }
+
+    /**
+     * Creates per-request verification options to avoid thread safety issues.
+     * This creates fresh options from the stored configuration values.
+     */
+    private IdTokenVerifier.Options createRequestVerifyOptions(String issuer, String nonce) {
+        // Create fresh verification options for this specific request
+        IdTokenVerifier.Options requestOptions = new IdTokenVerifier.Options(clientId, signatureVerifier);
+
+        requestOptions.setIssuer(issuer);
+        requestOptions.setNonce(nonce);
+
+        if (clockSkew != null) {
+            requestOptions.setClockSkew(clockSkew);
+        }
+        if (authenticationMaxAge != null) {
+            requestOptions.setMaxAge(authenticationMaxAge);
+        }
+        if (organization != null) {
+            requestOptions.setOrganization(organization);
+        }
+
+        return requestOptions;
     }
 
     List<String> getResponseType() {
@@ -240,8 +326,8 @@ class RequestProcessor {
         if (requiresFormPostResponseMode(responseTypeList)) {
             creator.withParameter(KEY_RESPONSE_MODE, KEY_FORM_POST);
         }
-        if (verifyOptions.getMaxAge() != null) {
-            creator.withParameter(KEY_MAX_AGE, verifyOptions.getMaxAge().toString());
+        if (authenticationMaxAge != null) {
+            creator.withParameter(KEY_MAX_AGE, authenticationMaxAge.toString());
         }
         return creator;
     }
@@ -250,11 +336,13 @@ class RequestProcessor {
      * Extract the tokens from the request parameters, present when using the Implicit or Hybrid Grant.
      *
      * @param request the request
+     * @param originDomain the domain that issued these tokens
+     * @param originIssuer the issuer that issued these tokens
      * @return a new instance of Tokens wrapping the values present in the request parameters.
      */
-    private Tokens getFrontChannelTokens(HttpServletRequest request) {
+    private Tokens getFrontChannelTokens(HttpServletRequest request, String originDomain, String originIssuer) {
         Long expiresIn = request.getParameter(KEY_EXPIRES_IN) == null ? null : Long.parseLong(request.getParameter(KEY_EXPIRES_IN));
-        return new Tokens(request.getParameter(KEY_ACCESS_TOKEN), request.getParameter(KEY_ID_TOKEN), null, request.getParameter(KEY_TOKEN_TYPE), expiresIn);
+        return new Tokens(request.getParameter(KEY_ACCESS_TOKEN), request.getParameter(KEY_ID_TOKEN), null, request.getParameter(KEY_TOKEN_TYPE), expiresIn, originDomain, originIssuer);
     }
 
     /**
@@ -306,12 +394,14 @@ class RequestProcessor {
      * @throws Auth0Exception if the request to the Auth0 server failed.
      * @see AuthAPI#exchangeCode(String, String)
      */
-    private Tokens exchangeCodeForTokens(String authorizationCode, String redirectUri) throws Auth0Exception {
+    private Tokens exchangeCodeForTokens(String authorizationCode, String redirectUri, String originDomain) throws Auth0Exception {
+        AuthAPI client = createClientForDomain(originDomain);
         TokenHolder holder = client
                 .exchangeCode(authorizationCode, redirectUri)
                 .execute()
                 .getBody();
-        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn());
+        String originIssuer = constructIssuer(originDomain);
+        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn(), originDomain, originIssuer);
     }
 
     /**
@@ -348,7 +438,23 @@ class RequestProcessor {
         // Refresh token only available from the code exchange
         String refreshToken = codeExchangeTokens.getRefreshToken();
 
-        return new Tokens(accessToken, idToken, refreshToken, type, expiresIn);
+        // Preserve domain and issuer from either token set (they should be the same)
+        String domain = frontChannelTokens.getDomain() != null ? frontChannelTokens.getDomain()
+                : codeExchangeTokens.getDomain();
+        String issuer = frontChannelTokens.getIssuer() != null ? frontChannelTokens.getIssuer()
+                : codeExchangeTokens.getIssuer();
+
+        return new Tokens(accessToken, idToken, refreshToken, type, expiresIn, domain, issuer);
+    }
+
+    private String constructIssuer(String domain) {
+        if (!domain.startsWith("http://") && !domain.startsWith("https://")) {
+            domain = "https://" + domain;
+        }
+        if (!domain.endsWith("/")) {
+            domain = domain + "/";
+        }
+        return domain;
     }
 
 }
