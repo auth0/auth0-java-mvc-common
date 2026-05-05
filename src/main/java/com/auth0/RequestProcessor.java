@@ -233,9 +233,6 @@ class RequestProcessor {
             throw new InvalidRequestException(MISSING_ACCESS_TOKEN, "Access Token is missing from the response.");
         }
 
-        // Nonce dynamically set and changes on every request.
-        String nonce = TransientCookieStore.getNonce(request, response);
-
         return getVerifiedTokens(request, response, frontChannelTokens, responseTypeList, originDomain, originIssuer);
     }
 
