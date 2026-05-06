@@ -1,6 +1,5 @@
 package com.auth0;
 
-import com.auth0.client.auth.AuthAPI;
 import com.auth0.jwk.JwkProvider;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
@@ -256,19 +255,20 @@ public class AuthenticationController {
                     ? new StaticDomainProvider(domain)
                     : new ResolverDomainProvider(domainResolver);
 
-            SignatureVerifier signatureVerifier = buildSignatureVerifier();
-
-            RequestProcessor processor = new RequestProcessor.Builder(domainProvider, responseType, clientId,
-                    clientSecret, signatureVerifier)
+            RequestProcessor.Builder builder = new RequestProcessor.Builder(
+                    domainProvider, responseType, clientId, clientSecret)
                     .withClockSkew(clockSkew)
                     .withAuthenticationMaxAge(authenticationMaxAge)
                     .withLegacySameSiteCookie(useLegacySameSiteCookie)
                     .withOrganization(organization)
                     .withInvitation(invitation)
-                    .withCookiePath(cookiePath)
-                    .build();
+                    .withCookiePath(cookiePath);
 
-            return new AuthenticationController(processor);
+            if (jwkProvider != null) {
+                builder.withJwkProvider(jwkProvider);
+            }
+
+            return new AuthenticationController(builder.build());
         }
 
         private void validateDomainConfiguration() {
@@ -278,31 +278,6 @@ public class AuthenticationController {
             if (domain != null && domainResolver != null) {
                 throw new IllegalStateException("Cannot specify both domain and domainResolver.");
             }
-        }
-
-        private SignatureVerifier buildSignatureVerifier() {
-            if (jwkProvider != null) {
-                return new AsymmetricSignatureVerifier(jwkProvider);
-            }
-            if (responseType.contains(RESPONSE_TYPE_CODE)) {
-                return new AlgorithmNameVerifier(); // legacy behavior
-            }
-            return new SymmetricSignatureVerifier(clientSecret);
-        }
-
-        @VisibleForTesting
-        IdTokenVerifier.Options createIdTokenVerificationOptions(String issuer, String audience, SignatureVerifier signatureVerifier) {
-            return new IdTokenVerifier.Options(issuer, audience, signatureVerifier);
-        }
-
-        private String getIssuer(String domain) {
-            if (!domain.startsWith("http://") && !domain.startsWith("https://")) {
-                domain = "https://" + domain;
-            }
-            if (!domain.endsWith("/")) {
-                domain = domain + "/";
-            }
-            return domain;
         }
     }
 
