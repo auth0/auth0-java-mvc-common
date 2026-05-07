@@ -3,6 +3,7 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
+import com.auth0.jwk.JwkProvider;
 import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +42,7 @@ public class RequestProcessorTest {
     @Mock
     private DomainProvider mockDomainProvider;
     @Mock
-    private SignatureVerifier mockSignatureVerifier;
+    private JwkProvider mockJwkProvider;
     @Mock
     private AuthAPI mockAuthAPI;
     @Mock
@@ -70,8 +71,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .build();
 
         assertThat(processor, is(notNullValue()));
@@ -83,8 +83,8 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
                 .withClockSkew(120)
                 .withAuthenticationMaxAge(3600)
                 .withCookiePath("/custom")
@@ -111,8 +111,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withLegacySameSiteCookie(false)
                 .build();
 
@@ -373,20 +372,20 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        // Return a structurally valid JWT with wrong issuer so verification fails
+        // Return a structurally valid JWT with invalid signature so verification fails
         String fakeJwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3dyb25nLyIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0Q2xpZW50SWQiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTYwMDAwMDAwMH0.signature";
         when(mockTokenHolder.getIdToken()).thenReturn(fakeJwt);
         when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
         when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
         when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
 
-        // Use real AlgorithmNameVerifier so signature check passes but claim validation fails
+        // Use mockJwkProvider — token has invalid signature so RS256 verification will fail
         RequestProcessor handler = new RequestProcessor.Builder(
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                new AlgorithmNameVerifier())
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
                 .build();
         RequestProcessor spy = spy(handler);
         doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
@@ -461,7 +460,7 @@ public class RequestProcessorTest {
     public void shouldThrowOnProcessIfIdTokenRequestDoesNotPassIdTokenVerification() {
         when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
 
-        // Structurally valid JWT with wrong issuer so claim validation fails
+        // Structurally valid JWT with invalid signature so verification fails
         String fakeJwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3dyb25nLyIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0Q2xpZW50SWQiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTYwMDAwMDAwMH0.signature";
 
         Map<String, Object> params = new HashMap<>();
@@ -470,13 +469,13 @@ public class RequestProcessorTest {
         MockHttpServletRequest request = getRequest(params);
         request.setCookies(new Cookie("com.auth0.state", "1234"));
 
-        // Use real AlgorithmNameVerifier so signature check passes but claim validation fails
+        // Use mockJwkProvider — token has invalid signature so RS256 verification will fail
         RequestProcessor handler = new RequestProcessor.Builder(
                 mockDomainProvider,
                 RESPONSE_TYPE_ID_TOKEN,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                new AlgorithmNameVerifier())
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
                 .build();
 
         IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> handler.process(request, response));
@@ -506,8 +505,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withOrganization("org_123")
                 .build();
 
@@ -526,8 +524,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withInvitation("inv_456")
                 .build();
 
@@ -546,8 +543,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withCookiePath("/custom")
                 .build();
 
@@ -591,8 +587,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withOrganization("org_123")
                 .build();
 
@@ -605,8 +600,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withInvitation("inv_456")
                 .build();
 
@@ -619,8 +613,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withCookiePath("/custom/path")
                 .build();
 
@@ -633,8 +626,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withClockSkew(180)
                 .build();
 
@@ -647,8 +639,7 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
                 .withAuthenticationMaxAge(7200)
                 .build();
 
@@ -662,8 +653,8 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 RESPONSE_TYPE_CODE,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
                 .build();
     }
 
@@ -672,8 +663,8 @@ public class RequestProcessorTest {
                 mockDomainProvider,
                 responseType,
                 CLIENT_ID,
-                CLIENT_SECRET,
-                mockSignatureVerifier)
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
                 .build();
     }
 

@@ -3,14 +3,26 @@ package com.auth0;
 import com.auth0.client.LoggingOptions;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
+import com.auth0.exception.IdTokenValidationException;
+import com.auth0.exception.PublicKeyProviderException;
+import com.auth0.jwt.JWT;
 import com.auth0.json.auth.TokenHolder;
+import com.auth0.jwk.Jwk;
+import com.auth0.jwk.JwkException;
+import com.auth0.jwk.JwkProvider;
+import com.auth0.jwk.UrlJwkProvider;
 import com.auth0.net.client.DefaultHttpClient;
+import com.auth0.utils.tokens.IdTokenVerifier;
+import com.auth0.utils.tokens.SignatureVerifier;
 import org.apache.commons.lang3.Validate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.security.interfaces.RSAPublicKey;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.auth0.InvalidRequestException.*;
 
@@ -33,34 +45,32 @@ class RequestProcessor {
     private static final String KEY_FORM_POST = "form_post";
     private static final String KEY_MAX_AGE = "max_age";
 
-    // Visible for testing
-
     private final DomainProvider domainProvider;
     private final String responseType;
     private final String clientId;
     private final String clientSecret;
-    private SignatureVerifier signatureVerifier;
+    private final JwkProvider jwkProvider;
 
-    // Configuration values passed from Builder for creating per-request
-    // verification options
     private final Integer clockSkew;
     private final Integer authenticationMaxAge;
     private final String organization;
     private final String invitation;
 
     final boolean useLegacySameSiteCookie;
-    private final IdTokenVerifier tokenVerifier;
     private final String cookiePath;
     private boolean loggingEnabled = false;
     private boolean telemetryDisabled = false;
+
+    // Cache JwkProviders per domain for MCD support
+    private final ConcurrentMap<String, JwkProvider> jwkProviders = new ConcurrentHashMap<>();
 
     static class Builder {
         private final DomainProvider domainProvider;
         private final String responseType;
         private final String clientId;
         private final String clientSecret;
-        private final SignatureVerifier signatureVerifier;
 
+        private JwkProvider jwkProvider;
         private boolean useLegacySameSiteCookie = true;
         private Integer clockSkew;
         private Integer authenticationMaxAge;
@@ -71,13 +81,16 @@ class RequestProcessor {
         public Builder(DomainProvider domainProvider,
                 String responseType,
                 String clientId,
-                String clientSecret,
-                SignatureVerifier signatureVerifier) {
+                String clientSecret) {
             this.domainProvider = domainProvider;
             this.responseType = responseType;
             this.clientId = clientId;
             this.clientSecret = clientSecret;
-            this.signatureVerifier = signatureVerifier;
+        }
+
+        Builder withJwkProvider(JwkProvider jwkProvider) {
+            this.jwkProvider = jwkProvider;
+            return this;
         }
 
         public Builder withClockSkew(Integer clockSkew) {
@@ -111,25 +124,22 @@ class RequestProcessor {
         }
 
         RequestProcessor build() {
-
             return new RequestProcessor(domainProvider, responseType, clientId, clientSecret,
-                    signatureVerifier, new IdTokenVerifier(),
-                    useLegacySameSiteCookie, clockSkew, authenticationMaxAge, organization, invitation, cookiePath);
+                    jwkProvider, useLegacySameSiteCookie, clockSkew, authenticationMaxAge,
+                    organization, invitation, cookiePath);
         }
     }
 
-    private RequestProcessor(DomainProvider domainProvider, String responseType, String clientId, String clientSecret, SignatureVerifier signatureVerifier, IdTokenVerifier tokenVerifier,
+    private RequestProcessor(DomainProvider domainProvider, String responseType, String clientId,
+            String clientSecret, JwkProvider jwkProvider,
             boolean useLegacySameSiteCookie, Integer clockSkew, Integer authenticationMaxAge,
             String organization, String invitation, String cookiePath) {
         this.domainProvider = domainProvider;
         this.responseType = responseType;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
-        this.signatureVerifier = signatureVerifier;
-        this.tokenVerifier = tokenVerifier;
+        this.jwkProvider = jwkProvider;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
-
-        // Store individual configuration values instead of pre-built verifyOptions
         this.clockSkew = clockSkew;
         this.authenticationMaxAge = authenticationMaxAge;
         this.organization = organization;
@@ -245,7 +255,7 @@ class RequestProcessor {
      * Obtains code request tokens (if using Code flow) and validates the ID token.
      * @param request the HTTP request
      * @param frontChannelTokens the tokens obtained from the front channel
-     * @param responseTypeList the reponse types
+     * @param responseTypeList the response types
      * @return a Tokens object that wraps the values obtained from the front-channel and/or the code request response.
      * @throws IdentityVerificationException
      */
@@ -257,14 +267,10 @@ class RequestProcessor {
 
         String nonce = TransientCookieStore.getNonce(request, response);
 
-        IdTokenVerifier.Options requestVerifyOptions = createRequestVerifyOptions(originIssuer, nonce);
-
         try {
             if (responseTypeList.contains(KEY_ID_TOKEN)) {
                 // Implicit/Hybrid flow: must verify front-channel ID Token first.
-                // The issuer is derived from the HMAC-verified domain, so this check
-                // validates the token's iss against a trusted value.
-                tokenVerifier.verify(frontChannelTokens.getIdToken(), requestVerifyOptions);
+                verifyIdToken(frontChannelTokens.getIdToken(), originIssuer, originDomain, nonce);
             }
             if (responseTypeList.contains(KEY_CODE)) {
                 // Code/Hybrid flow
@@ -274,11 +280,11 @@ class RequestProcessor {
                     // If we already verified the front-channel token, don't verify it again.
                     String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
                     if (idTokenFromCodeExchange != null) {
-                        tokenVerifier.verify(idTokenFromCodeExchange, requestVerifyOptions);
+                        verifyIdToken(idTokenFromCodeExchange, originIssuer, originDomain, nonce);
                     }
                 }
             }
-        } catch (TokenValidationException e) {
+        } catch (IdTokenValidationException e) {
             throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the ID Token.", e);
         } catch (Auth0Exception e) {
             throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the authorization code.", e);
@@ -288,27 +294,60 @@ class RequestProcessor {
     }
 
     /**
-     * Creates per-request verification options to avoid thread safety issues.
-     * This creates fresh options from the stored configuration values.
+     * Verifies an ID token using auth0-java v3's IdTokenVerifier.
+     * The signature verification strategy is determined by the token's alg header:
+     * - RS256: uses JwkProvider (customer-provided or auto-discovered per domain)
+     * - HS256: uses client secret
      */
-    private IdTokenVerifier.Options createRequestVerifyOptions(String issuer, String nonce) {
-        // Create fresh verification options for this specific request
-        IdTokenVerifier.Options requestOptions = new IdTokenVerifier.Options(clientId, signatureVerifier);
+    private void verifyIdToken(String idToken, String issuer, String domain, String nonce) throws IdTokenValidationException {
+        SignatureVerifier sigVerifier = buildSignatureVerifier(idToken, domain);
 
-        requestOptions.setIssuer(issuer);
-        requestOptions.setNonce(nonce);
+        IdTokenVerifier.Builder verifierBuilder = IdTokenVerifier.init(issuer, clientId, sigVerifier);
 
         if (clockSkew != null) {
-            requestOptions.setClockSkew(clockSkew);
-        }
-        if (authenticationMaxAge != null) {
-            requestOptions.setMaxAge(authenticationMaxAge);
+            verifierBuilder.withLeeway(clockSkew);
         }
         if (organization != null) {
-            requestOptions.setOrganization(organization);
+            verifierBuilder.withOrganization(organization);
         }
 
-        return requestOptions;
+        IdTokenVerifier verifier = verifierBuilder.build();
+        verifier.verify(idToken, nonce, authenticationMaxAge);
+    }
+
+    /**
+     * Builds the appropriate SignatureVerifier based on the token's algorithm header.
+     * - If alg is HS256: use client secret
+     * - If alg is RS256: use JwkProvider (customer-provided or auto-discovered from domain)
+     */
+    private SignatureVerifier buildSignatureVerifier(String idToken, String domain) {
+        String algorithm = JWT.decode(idToken).getAlgorithm();
+
+        if ("HS256".equals(algorithm)) {
+            return SignatureVerifier.forHS256(clientSecret);
+        }
+
+        // RS256 (default): use JwkProvider
+        JwkProvider provider = getJwkProvider(domain);
+        return SignatureVerifier.forRS256(keyId -> {
+            try {
+                Jwk jwk = provider.get(keyId);
+                return (RSAPublicKey) jwk.getPublicKey();
+            } catch (JwkException e) {
+                throw new PublicKeyProviderException("Failed to get public key for key ID: " + keyId, e);
+            }
+        });
+    }
+
+    /**
+     * Gets the JwkProvider for the given domain. If the customer provided one, it is used.
+     * Otherwise, a UrlJwkProvider is auto-created and cached per domain.
+     */
+    private JwkProvider getJwkProvider(String domain) {
+        if (jwkProvider != null) {
+            return jwkProvider;
+        }
+        return jwkProviders.computeIfAbsent(domain, d -> new UrlJwkProvider(d));
     }
 
     List<String> getResponseType() {
