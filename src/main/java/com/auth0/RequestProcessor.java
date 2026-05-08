@@ -216,16 +216,13 @@ class RequestProcessor {
      */
     Tokens process(HttpServletRequest request, HttpServletResponse response) throws IdentityVerificationException {
         assertNoError(request);
-        assertValidState(request, response);
+        String state = assertValidState(request, response);
 
-        // Extract origin_domain from the HMAC-signed transaction state cookie.
-        // If the cookie was tampered with, getSignedOriginDomain returns null.
-        String originDomain = null;
+        // Extract origin_domain from the HMAC-signed cookie, bound to this transaction's state.
+        // If the cookie was tampered with or replayed from a different transaction, returns null.
+        String originDomain = TransientCookieStore.getSignedOriginDomain(request, response, state, clientSecret);
 
-        originDomain = TransientCookieStore.getSignedOriginDomain(request, response, clientSecret);
-
-
-        // Fallback for session-based (deprecated) flow or if cookie was not set
+        // Fallback if cookie was not set (e.g., single-domain setup without MCD)
         if (originDomain == null) {
             originDomain = domainProvider.getDomain(request);
         }
@@ -403,7 +400,7 @@ class RequestProcessor {
      * @param response the response, used to remove the state cookie
      * @throws InvalidRequestException if the request contains a different state from the expected one
      */
-    private void assertValidState(HttpServletRequest request, HttpServletResponse response) throws InvalidRequestException {
+    private String assertValidState(HttpServletRequest request, HttpServletResponse response) throws InvalidRequestException {
         String stateFromRequest = request.getParameter(KEY_STATE);
 
         if (stateFromRequest == null) {
@@ -419,6 +416,8 @@ class RequestProcessor {
         if (!cookieState.equals(stateFromRequest)) {
             throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one.");
         }
+
+        return stateFromRequest;
     }
 
     /**
