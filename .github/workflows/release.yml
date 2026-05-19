@@ -18,7 +18,7 @@ jobs:
   rl-scanner:
     uses: ./.github/workflows/rl-secure.yml
     with:
-      java-version: 8
+      java-version: ${{ (github.ref == 'refs/heads/v1' || github.base_ref == 'v1') && '8' || '17' }}
       artifact-name: "auth0-java-mvc-common.tgz"
     secrets:
       RLSECURE_LICENSE: ${{ secrets.RLSECURE_LICENSE }}
@@ -32,7 +32,7 @@ jobs:
     uses: ./.github/workflows/java-release.yml
     needs: rl-scanner
     with:
-      java-version: 8.0.382-tem
+      java-version: ${{ (github.ref == 'refs/heads/v1' || github.base_ref == 'v1') && '8' || '17' }}
     secrets:
       ossr-username: ${{ secrets.OSSR_USERNAME }}
       ossr-token: ${{ secrets.OSSR_TOKEN }}
