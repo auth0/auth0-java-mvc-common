@@ -1,23 +1,34 @@
 package com.auth0;
 
-import com.auth0.client.HttpOptions;
+import com.auth0.client.LoggingOptions;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
+import com.auth0.exception.IdTokenValidationException;
+import com.auth0.exception.PublicKeyProviderException;
+import com.auth0.jwt.JWT;
 import com.auth0.json.auth.TokenHolder;
-import com.auth0.net.Telemetry;
-import com.google.common.annotations.VisibleForTesting;
+import com.auth0.jwk.Jwk;
+import com.auth0.jwk.JwkException;
+import com.auth0.jwk.JwkProvider;
+import com.auth0.jwk.UrlJwkProvider;
+import com.auth0.net.client.DefaultHttpClient;
+import com.auth0.utils.tokens.IdTokenVerifier;
+import com.auth0.utils.tokens.SignatureVerifier;
+import org.apache.commons.lang3.Validate;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.security.interfaces.RSAPublicKey;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.auth0.InvalidRequestException.*;
 
 /**
  * Main class to handle the Authorize Redirect request.
- * It will try to parse the parameters looking for tokens or an authorization
- * code to perform a Code Exchange against the Auth0 servers.
+ * It will try to parse the parameters looking for tokens or an authorization code to perform a Code Exchange against the Auth0 servers.
  */
 class RequestProcessor {
 
@@ -34,37 +45,32 @@ class RequestProcessor {
     private static final String KEY_FORM_POST = "form_post";
     private static final String KEY_MAX_AGE = "max_age";
 
-    // Visible for testing
-
     private final DomainProvider domainProvider;
     private final String responseType;
     private final String clientId;
     private final String clientSecret;
-    private final HttpOptions httpOptions;
-    private SignatureVerifier signatureVerifier;
+    private final JwkProvider jwkProvider;
 
-    // Configuration values passed from Builder for creating per-request
-    // verification options
     private final Integer clockSkew;
     private final Integer authenticationMaxAge;
     private final String organization;
     private final String invitation;
 
     final boolean useLegacySameSiteCookie;
-    private AuthAPI client;
-    private final IdTokenVerifier tokenVerifier;
     private final String cookiePath;
     private boolean loggingEnabled = false;
     private boolean telemetryDisabled = false;
+
+    // Cache JwkProviders per domain for MCD support
+    private final ConcurrentMap<String, JwkProvider> jwkProviders = new ConcurrentHashMap<>();
 
     static class Builder {
         private final DomainProvider domainProvider;
         private final String responseType;
         private final String clientId;
         private final String clientSecret;
-        private final HttpOptions httpOptions;
-        private final SignatureVerifier signatureVerifier;
 
+        private JwkProvider jwkProvider;
         private boolean useLegacySameSiteCookie = true;
         private Integer clockSkew;
         private Integer authenticationMaxAge;
@@ -75,15 +81,16 @@ class RequestProcessor {
         public Builder(DomainProvider domainProvider,
                 String responseType,
                 String clientId,
-                String clientSecret,
-                HttpOptions httpOptions,
-                SignatureVerifier signatureVerifier) {
+                String clientSecret) {
             this.domainProvider = domainProvider;
             this.responseType = responseType;
             this.clientId = clientId;
             this.clientSecret = clientSecret;
-            this.httpOptions = httpOptions;
-            this.signatureVerifier = signatureVerifier;
+        }
+
+        Builder withJwkProvider(JwkProvider jwkProvider) {
+            this.jwkProvider = jwkProvider;
+            return this;
         }
 
         public Builder withClockSkew(Integer clockSkew) {
@@ -117,27 +124,22 @@ class RequestProcessor {
         }
 
         RequestProcessor build() {
-
-            return new RequestProcessor(domainProvider, responseType, clientId, clientSecret, httpOptions,
-                    signatureVerifier, new IdTokenVerifier(),
-                    useLegacySameSiteCookie, clockSkew, authenticationMaxAge, organization, invitation, cookiePath);
+            return new RequestProcessor(domainProvider, responseType, clientId, clientSecret,
+                    jwkProvider, useLegacySameSiteCookie, clockSkew, authenticationMaxAge,
+                    organization, invitation, cookiePath);
         }
     }
 
-    private RequestProcessor(DomainProvider domainProvider, String responseType, String clientId, String clientSecret,
-            HttpOptions httpOptions, SignatureVerifier signatureVerifier, IdTokenVerifier tokenVerifier,
+    private RequestProcessor(DomainProvider domainProvider, String responseType, String clientId,
+            String clientSecret, JwkProvider jwkProvider,
             boolean useLegacySameSiteCookie, Integer clockSkew, Integer authenticationMaxAge,
             String organization, String invitation, String cookiePath) {
         this.domainProvider = domainProvider;
         this.responseType = responseType;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
-        this.httpOptions = httpOptions;
-        this.signatureVerifier = signatureVerifier;
-        this.tokenVerifier = tokenVerifier;
+        this.jwkProvider = jwkProvider;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
-
-        // Store individual configuration values instead of pre-built verifyOptions
         this.clockSkew = clockSkew;
         this.authenticationMaxAge = authenticationMaxAge;
         this.organization = organization;
@@ -153,67 +155,36 @@ class RequestProcessor {
         this.telemetryDisabled = true;
     }
 
-    /**
-     * Getter for the AuthAPI client instance.
-     * Used to customize options such as Telemetry and Logging.
-     *
-     * @return the AuthAPI client.
-     */
-    AuthAPI getClient() {
-        return client;
-    }
-
     AuthAPI createClientForDomain(String domain) {
-        final AuthAPI client;
+        DefaultHttpClient.Builder httpBuilder = DefaultHttpClient.newBuilder()
+                .telemetryEnabled(!telemetryDisabled);
 
-        if (httpOptions != null) {
-            client = new AuthAPI(domain, clientId, clientSecret, httpOptions);
-        } else {
-            client = new AuthAPI(domain, clientId, clientSecret);
+        if (loggingEnabled) {
+            httpBuilder.withLogging(new LoggingOptions(LoggingOptions.LogLevel.BODY));
         }
 
-        // Apply deferred settings
-        client.setLoggingEnabled(loggingEnabled);
-        if (telemetryDisabled) {
-            client.doNotSendTelemetry();
-        } else {
-            setupTelemetry(client);
-        }
-
-        return client;
-    }
-
-    void setupTelemetry(AuthAPI client) {
-        Telemetry telemetry = new Telemetry("auth0-java-mvc-common", obtainPackageVersion());
-        client.setTelemetry(telemetry);
-    }
-
-    @VisibleForTesting
-    String obtainPackageVersion() {
-        return getClass().getPackage().getImplementationVersion();
+        return AuthAPI.newBuilder(domain, clientId, clientSecret)
+                .withHttpClient(httpBuilder.build())
+                .build();
     }
 
     /**
-     * Pre builds an Auth0 Authorize Url with the given redirect URI, state and
-     * nonce parameters.
+     * Pre builds an Auth0 Authorize Url with the given redirect URI, state and nonce parameters.
      *
-     * @param request     the request, used to store state and nonce in the Session
-     * @param response    the response, used to set state and nonce as cookies. If
-     *                    null, session will be used instead.
+     * @param request     the HTTP request.
+     * @param response    the HTTP response, used to set state and nonce as cookies.
      * @param redirectUri the url to call with the authentication result.
      * @param state       a valid state value.
-     * @param nonce       the nonce value that will be used if the response type
-     *                    contains 'id_token'. Can be null.
-     * @return the authorize url builder to continue any further parameter
-     *         customization.
+     * @param nonce       the nonce value that will be used if the response type contains 'id_token'. Can be null.
+     * @return the authorize url builder to continue any further parameter customization.
      */
     AuthorizeUrl buildAuthorizeUrl(HttpServletRequest request, HttpServletResponse response, String redirectUri,
-            String state, String nonce) {
+                                   String state, String nonce) {
 
         String originDomain = domainProvider.getDomain(request);
         AuthAPI client = createClientForDomain(originDomain);
 
-        AuthorizeUrl creator = new AuthorizeUrl(client, request, response, redirectUri, responseType)
+        AuthorizeUrl creator = new AuthorizeUrl(client, response, redirectUri, responseType)
                 .withState(state);
 
         if (this.organization != null) {
@@ -226,12 +197,8 @@ class RequestProcessor {
             creator.withCookiePath(this.cookiePath);
         }
 
-        // null response means state and nonce will be stored in session, so legacy
-        // cookie flag does not apply and origin domain cookie cannot be set
-        if (response != null) {
-            creator.withLegacySameSiteCookie(useLegacySameSiteCookie);
-            creator.withOriginDomain(originDomain, clientSecret);
-        }
+        creator.withLegacySameSiteCookie(useLegacySameSiteCookie);
+        creator.withOriginDomain(originDomain, clientSecret);
 
         return getAuthorizeUrl(nonce, creator);
     }
@@ -240,27 +207,22 @@ class RequestProcessor {
      * Entrypoint for HTTP request
      * <p>
      * 1). Responsible for validating the request.
-     * 2). Exchanging the authorization code received with this HTTP request for
-     * Auth0 tokens.
+     * 2). Exchanging the authorization code received with this HTTP request for Auth0 tokens.
      * 3). Validating the ID Token.
      * 4). Clearing the stored state, nonce and max_age values.
      * 5). Handling success and any failure outcomes.
      *
-     * @throws IdentityVerificationException if an error occurred while processing
-     *                                       the request
+     * @throws IdentityVerificationException if an error occurred while processing the request
      */
     Tokens process(HttpServletRequest request, HttpServletResponse response) throws IdentityVerificationException {
         assertNoError(request);
-        assertValidState(request, response);
+        String state = assertValidState(request, response);
 
-        // Extract origin_domain from the HMAC-signed transaction state cookie.
-        // If the cookie was tampered with, getSignedOriginDomain returns null.
-        String originDomain = null;
-        if (response != null) {
-            originDomain = TransientCookieStore.getSignedOriginDomain(request, response, clientSecret);
-        }
+        // Extract origin_domain from the HMAC-signed cookie, bound to this transaction's state.
+        // If the cookie was tampered with or replayed from a different transaction, returns null.
+        String originDomain = TransientCookieStore.getSignedOriginDomain(request, response, state, clientSecret);
 
-        // Fallback for session-based (deprecated) flow or if cookie was not set
+        // Fallback if cookie was not set (e.g., single-domain setup without MCD)
         if (originDomain == null) {
             originDomain = domainProvider.getDomain(request);
         }
@@ -288,45 +250,24 @@ class RequestProcessor {
 
     /**
      * Obtains code request tokens (if using Code flow) and validates the ID token.
-     * 
-     * @param request            the HTTP request
-     * @param response           the HTTP response
+     * @param request the HTTP request
      * @param frontChannelTokens the tokens obtained from the front channel
-     * @param responseTypeList   the reponse types
-     * @param originDomain       the domain for this specific request
-     * @param originIssuer       the issuer for this specific request
-     * @return a Tokens object that wraps the values obtained from the front-channel
-     *         and/or the code request response.
+     * @param responseTypeList the response types
+     * @return a Tokens object that wraps the values obtained from the front-channel and/or the code request response.
      * @throws IdentityVerificationException
      */
-    private Tokens getVerifiedTokens(HttpServletRequest request, HttpServletResponse response,
-            Tokens frontChannelTokens,
-            List<String> responseTypeList, String originDomain, String originIssuer)
+    private Tokens getVerifiedTokens(HttpServletRequest request, HttpServletResponse response, Tokens frontChannelTokens, List<String> responseTypeList, String originDomain, String originIssuer)
             throws IdentityVerificationException {
 
         String authorizationCode = request.getParameter(KEY_CODE);
         Tokens codeExchangeTokens = null;
 
-        // Get nonce for this specific request
-        String nonce;
-        if (response != null) {
-            nonce = TransientCookieStore.getNonce(request, response);
-            // Fallback to session if cookie was not set (deprecated API path)
-            if (nonce == null) {
-                nonce = RandomStorage.removeSessionNonce(request);
-            }
-        } else {
-            nonce = RandomStorage.removeSessionNonce(request);
-        }
-
-        IdTokenVerifier.Options requestVerifyOptions = createRequestVerifyOptions(originIssuer, nonce);
+        String nonce = TransientCookieStore.getNonce(request, response);
 
         try {
             if (responseTypeList.contains(KEY_ID_TOKEN)) {
                 // Implicit/Hybrid flow: must verify front-channel ID Token first.
-                // The issuer is derived from the HMAC-verified domain, so this check
-                // validates the token's iss against a trusted value.
-                tokenVerifier.verify(frontChannelTokens.getIdToken(), requestVerifyOptions);
+                verifyIdToken(frontChannelTokens.getIdToken(), originIssuer, originDomain, nonce);
             }
             if (responseTypeList.contains(KEY_CODE)) {
                 // Code/Hybrid flow
@@ -336,43 +277,74 @@ class RequestProcessor {
                     // If we already verified the front-channel token, don't verify it again.
                     String idTokenFromCodeExchange = codeExchangeTokens.getIdToken();
                     if (idTokenFromCodeExchange != null) {
-                        tokenVerifier.verify(idTokenFromCodeExchange, requestVerifyOptions);
+                        verifyIdToken(idTokenFromCodeExchange, originIssuer, originDomain, nonce);
                     }
                 }
             }
-        } catch (TokenValidationException e) {
-            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR,
-                    "An error occurred while trying to verify the ID Token.", e);
+        } catch (IdTokenValidationException e) {
+            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the ID Token.", e);
         } catch (Auth0Exception e) {
-            throw new IdentityVerificationException(API_ERROR,
-                    "An error occurred while exchanging the authorization code.", e);
+            throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the authorization code.", e);
         }
         // Keep the front-channel ID Token and the code-exchange Access Token.
         return mergeTokens(frontChannelTokens, codeExchangeTokens);
     }
 
     /**
-     * Creates per-request verification options to avoid thread safety issues.
-     * This creates fresh options from the stored configuration values.
+     * Verifies an ID token using auth0-java v3's IdTokenVerifier.
+     * The signature verification strategy is determined by the token's alg header:
+     * - RS256: uses JwkProvider (customer-provided or auto-discovered per domain)
+     * - HS256: uses client secret
      */
-    private IdTokenVerifier.Options createRequestVerifyOptions(String issuer, String nonce) {
-        // Create fresh verification options for this specific request
-        IdTokenVerifier.Options requestOptions = new IdTokenVerifier.Options(clientId, signatureVerifier);
+    private void verifyIdToken(String idToken, String issuer, String domain, String nonce) throws IdTokenValidationException {
+        SignatureVerifier sigVerifier = buildSignatureVerifier(idToken, domain);
 
-        requestOptions.setIssuer(issuer);
-        requestOptions.setNonce(nonce);
+        IdTokenVerifier.Builder verifierBuilder = IdTokenVerifier.init(issuer, clientId, sigVerifier);
 
         if (clockSkew != null) {
-            requestOptions.setClockSkew(clockSkew);
-        }
-        if (authenticationMaxAge != null) {
-            requestOptions.setMaxAge(authenticationMaxAge);
+            verifierBuilder.withLeeway(clockSkew);
         }
         if (organization != null) {
-            requestOptions.setOrganization(organization);
+            verifierBuilder.withOrganization(organization);
         }
 
-        return requestOptions;
+        IdTokenVerifier verifier = verifierBuilder.build();
+        verifier.verify(idToken, nonce, authenticationMaxAge);
+    }
+
+    /**
+     * Builds the appropriate SignatureVerifier based on the token's algorithm header.
+     * - If alg is HS256: use client secret
+     * - If alg is RS256: use JwkProvider (customer-provided or auto-discovered from domain)
+     */
+    private SignatureVerifier buildSignatureVerifier(String idToken, String domain) {
+        String algorithm = JWT.decode(idToken).getAlgorithm();
+
+        if ("HS256".equals(algorithm)) {
+            return SignatureVerifier.forHS256(clientSecret);
+        }
+
+        // RS256 (default): use JwkProvider
+        JwkProvider provider = getJwkProvider(domain);
+        return SignatureVerifier.forRS256(keyId -> {
+            try {
+                Jwk jwk = provider.get(keyId);
+                return (RSAPublicKey) jwk.getPublicKey();
+            } catch (JwkException e) {
+                throw new PublicKeyProviderException("Failed to get public key for key ID: " + keyId, e);
+            }
+        });
+    }
+
+    /**
+     * Gets the JwkProvider for the given domain. If the customer provided one, it is used.
+     * Otherwise, a UrlJwkProvider is auto-created and cached per domain.
+     */
+    private JwkProvider getJwkProvider(String domain) {
+        if (jwkProvider != null) {
+            return jwkProvider;
+        }
+        return jwkProviders.computeIfAbsent(domain, d -> new UrlJwkProvider(d));
     }
 
     List<String> getResponseType() {
@@ -394,20 +366,16 @@ class RequestProcessor {
     }
 
     /**
-     * Extract the tokens from the request parameters, present when using the
-     * Implicit or Hybrid Grant.
+     * Extract the tokens from the request parameters, present when using the Implicit or Hybrid Grant.
      *
-     * @param request      the request
+     * @param request the request
      * @param originDomain the domain that issued these tokens
      * @param originIssuer the issuer that issued these tokens
-     * @return a new instance of Tokens wrapping the values present in the request
-     *         parameters.
+     * @return a new instance of Tokens wrapping the values present in the request parameters.
      */
     private Tokens getFrontChannelTokens(HttpServletRequest request, String originDomain, String originIssuer) {
-        Long expiresIn = request.getParameter(KEY_EXPIRES_IN) == null ? null
-                : Long.parseLong(request.getParameter(KEY_EXPIRES_IN));
-        return new Tokens(request.getParameter(KEY_ACCESS_TOKEN), request.getParameter(KEY_ID_TOKEN), null,
-                request.getParameter(KEY_TOKEN_TYPE), expiresIn, originDomain, originIssuer);
+        Long expiresIn = request.getParameter(KEY_EXPIRES_IN) == null ? null : Long.parseLong(request.getParameter(KEY_EXPIRES_IN));
+        return new Tokens(request.getParameter(KEY_ACCESS_TOKEN), request.getParameter(KEY_ID_TOKEN), null, request.getParameter(KEY_TOKEN_TYPE), expiresIn, originDomain, originIssuer);
     }
 
     /**
@@ -425,63 +393,31 @@ class RequestProcessor {
     }
 
     /**
-     * Checks whether the state received in the request parameters is the same as
-     * the one in the state cookie or session
+     * Checks whether the state received in the request parameters is the same as the one in the state cookie
      * for this request.
      *
-     * @param request the request
-     * @throws InvalidRequestException if the request contains a different state
-     *                                 from the expected one
+     * @param request  the request
+     * @param response the response, used to remove the state cookie
+     * @throws InvalidRequestException if the request contains a different state from the expected one
      */
-    private void assertValidState(HttpServletRequest request, HttpServletResponse response)
-            throws InvalidRequestException {
-        // TODO in v2:
-        // - only store state/nonce in cookies, remove session storage
-        // - create specific exception classes for various state validation failures
-        // (missing from auth response, missing
-        // state cookie, mismatch)
-
+    private String assertValidState(HttpServletRequest request, HttpServletResponse response) throws InvalidRequestException {
         String stateFromRequest = request.getParameter(KEY_STATE);
 
         if (stateFromRequest == null) {
-            throw new InvalidRequestException(INVALID_STATE_ERROR,
-                    "The received state doesn't match the expected one. No state parameter was found on the authorization response.");
-        }
-
-        // If response is null, check the Session.
-        // This can happen when the deprecated handle method that only takes the request
-        // parameter is called
-        if (response == null) {
-            checkSessionState(request, stateFromRequest);
-            return;
+            throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one. No state parameter was found on the authorization response.");
         }
 
         String cookieState = TransientCookieStore.getState(request, response);
 
-        // Just in case state was stored in Session by building auth URL with deprecated
-        // method, but then called the
-        // supported handle method with the request and response
         if (cookieState == null) {
-            if (SessionUtils.get(request, StorageUtils.STATE_KEY) == null) {
-                throw new InvalidRequestException(INVALID_STATE_ERROR,
-                        "The received state doesn't match the expected one. No state cookie or state session attribute found. Check that you are using non-deprecated methods and that cookies are not being removed on the server.");
-            }
-            checkSessionState(request, stateFromRequest);
-            return;
+            throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one. No state cookie found. Check that cookies are not being removed on the server.");
         }
 
         if (!cookieState.equals(stateFromRequest)) {
-            throw new InvalidRequestException(INVALID_STATE_ERROR,
-                    "The received state doesn't match the expected one.");
+            throw new InvalidRequestException(INVALID_STATE_ERROR, "The received state doesn't match the expected one.");
         }
-    }
 
-    private void checkSessionState(HttpServletRequest request, String stateFromRequest) throws InvalidRequestException {
-        boolean valid = RandomStorage.checkSessionState(request, stateFromRequest);
-        if (!valid) {
-            throw new InvalidRequestException(INVALID_STATE_ERROR,
-                    "The received state doesn't match the expected one.");
-        }
+        return stateFromRequest;
     }
 
     /**
@@ -489,26 +425,23 @@ class RequestProcessor {
      *
      * @param authorizationCode the code received on the login response.
      * @param redirectUri       the redirect uri used on login request.
-     * @param originDomain      the domain that issued these tokens.
      * @return a new instance of {@link Tokens} with the received credentials.
      * @throws Auth0Exception if the request to the Auth0 server failed.
      * @see AuthAPI#exchangeCode(String, String)
      */
-    private Tokens exchangeCodeForTokens(String authorizationCode, String redirectUri, String originDomain)
-            throws Auth0Exception {
+    private Tokens exchangeCodeForTokens(String authorizationCode, String redirectUri, String originDomain) throws Auth0Exception {
         AuthAPI client = createClientForDomain(originDomain);
         TokenHolder holder = client
                 .exchangeCode(authorizationCode, redirectUri)
-                .execute();
+                .execute()
+                .getBody();
         String originIssuer = constructIssuer(originDomain);
-        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(),
-                holder.getExpiresIn(), originDomain, originIssuer);
+        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn(), originDomain, originIssuer);
     }
 
     /**
      * Used to keep the best version of each token.
-     * It will prioritize the ID Token received in the front-channel, and the Access
-     * Token received in the code exchange request.
+     * It will prioritize the ID Token received in the front-channel, and the Access Token received in the code exchange request.
      *
      * @param frontChannelTokens the front-channel obtained tokens.
      * @param codeExchangeTokens the code-exchange obtained tokens.
@@ -535,8 +468,7 @@ class RequestProcessor {
         }
 
         // Prefer ID token from the front-channel
-        String idToken = frontChannelTokens.getIdToken() != null ? frontChannelTokens.getIdToken()
-                : codeExchangeTokens.getIdToken();
+        String idToken = frontChannelTokens.getIdToken() != null ? frontChannelTokens.getIdToken() : codeExchangeTokens.getIdToken();
 
         // Refresh token only available from the code exchange
         String refreshToken = codeExchangeTokens.getRefreshToken();

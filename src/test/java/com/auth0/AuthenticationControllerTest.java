@@ -1,6 +1,5 @@
 package com.auth0;
 
-import com.auth0.client.HttpOptions;
 import com.auth0.jwk.JwkProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,8 +8,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
@@ -30,8 +29,6 @@ public class AuthenticationControllerTest {
     @Mock
     private JwkProvider mockJwkProvider;
     @Mock
-    private HttpOptions mockHttpOptions;
-    @Mock
     private DomainResolver mockDomainResolver;
     @Mock
     private Tokens mockTokens;
@@ -41,7 +38,7 @@ public class AuthenticationControllerTest {
 
     @BeforeEach
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
+        MockitoAnnotations.openMocks(this);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
     }
@@ -90,7 +87,6 @@ public class AuthenticationControllerTest {
                 .withLegacySameSiteCookie(false)
                 .withOrganization("org_123")
                 .withInvitation("inv_456")
-                .withHttpOptions(mockHttpOptions)
                 .withCookiePath("/custom")
                 .build();
 
@@ -139,7 +135,6 @@ public class AuthenticationControllerTest {
         assertThrows(NullPointerException.class, () -> builder.withAuthenticationMaxAge(null));
         assertThrows(NullPointerException.class, () -> builder.withOrganization(null));
         assertThrows(NullPointerException.class, () -> builder.withInvitation(null));
-        assertThrows(NullPointerException.class, () -> builder.withHttpOptions(null));
         assertThrows(NullPointerException.class, () -> builder.withCookiePath(null));
     }
 
@@ -321,15 +316,6 @@ public class AuthenticationControllerTest {
     public void shouldBuildWithDomainResolver() {
         AuthenticationController controller = AuthenticationController
                 .newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET)
-                .build();
-
-        assertThat(controller, is(notNullValue()));
-    }
-
-    @Test
-    public void shouldBuildWithCustomHttpOptions() {
-        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
-                .withHttpOptions(mockHttpOptions)
                 .build();
 
         assertThat(controller, is(notNullValue()));
