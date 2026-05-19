@@ -2,9 +2,10 @@ name: auth0/auth0-java-mvc-common/build-and-test
 
 on:
   pull_request:
+    branches: ["master", "v2"]
   merge_group:
   push:
-    branches: ["master", "v1", "v2"]
+    branches: ["master"]
 
 jobs:
   gradle:
@@ -14,7 +15,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: ${{ (github.ref == 'refs/heads/v1' || github.base_ref == 'v1') && '8' || '17' }}
+          java-version: 17
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
