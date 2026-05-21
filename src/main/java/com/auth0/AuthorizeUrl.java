@@ -252,7 +252,7 @@ public class AuthorizeUrl {
         SameSite sameSiteValue = containsFormPost() ? SameSite.NONE : SameSite.LAX;
 
         TransientCookieStore.storeState(response, state, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
-        TransientCookieStore.storeNonce(response, nonce, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
+        TransientCookieStore.storeNonce(response, nonce, state, sameSiteValue, useLegacySameSiteCookie, setSecureCookie, cookiePath);
 
         // Store HMAC-signed origin domain bound to this transaction's state
         if (originDomain != null && clientSecret != null && state != null) {

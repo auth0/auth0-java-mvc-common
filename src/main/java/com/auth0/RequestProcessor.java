@@ -240,7 +240,7 @@ class RequestProcessor {
             throw new InvalidRequestException(MISSING_ACCESS_TOKEN, "Access Token is missing from the response.");
         }
 
-        return getVerifiedTokens(request, response, frontChannelTokens, responseTypeList, originDomain, originIssuer);
+        return getVerifiedTokens(request, response, frontChannelTokens, responseTypeList, originDomain, originIssuer, state);
     }
 
     static boolean requiresFormPostResponseMode(List<String> responseType) {
@@ -256,13 +256,13 @@ class RequestProcessor {
      * @return a Tokens object that wraps the values obtained from the front-channel and/or the code request response.
      * @throws IdentityVerificationException
      */
-    private Tokens getVerifiedTokens(HttpServletRequest request, HttpServletResponse response, Tokens frontChannelTokens, List<String> responseTypeList, String originDomain, String originIssuer)
+    private Tokens getVerifiedTokens(HttpServletRequest request, HttpServletResponse response, Tokens frontChannelTokens, List<String> responseTypeList, String originDomain, String originIssuer, String state)
             throws IdentityVerificationException {
 
         String authorizationCode = request.getParameter(KEY_CODE);
         Tokens codeExchangeTokens = null;
 
-        String nonce = TransientCookieStore.getNonce(request, response);
+        String nonce = TransientCookieStore.getNonce(request, response, state);
 
         try {
             if (responseTypeList.contains(KEY_ID_TOKEN)) {
