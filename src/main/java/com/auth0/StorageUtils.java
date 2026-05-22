@@ -13,12 +13,6 @@ class StorageUtils {
     static final String ORIGIN_DOMAIN_KEY = "com.auth0.origin_domain";
 
     /**
-     * Max-Age for transaction cookies in seconds (10 minutes).
-     * Orphaned cookies from abandoned login flows will auto-expire.
-     */
-    static final int TRANSACTION_COOKIE_MAX_AGE = 600;
-
-    /**
      * Constructs a transaction-keyed state cookie name.
      * Each login transaction gets its own cookie, preventing multi-tab overwrites.
      *

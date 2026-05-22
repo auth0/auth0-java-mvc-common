@@ -343,6 +343,98 @@ public class TransientCookieStoreTest {
         assertThat(deletedCookies[0].getMaxAge(), is(0));
     }
 
+    // --- Nonce multi-tab isolation tests ---
+
+    @Test
+    public void shouldIsolateMultipleNonceTransactionsOnRetrieval() {
+        // Both nonce cookies exist (two concurrent tabs)
+        Cookie nonceA = new Cookie("com.auth0.nonce.stateA", "nonceA");
+        Cookie nonceB = new Cookie("com.auth0.nonce.stateB", "nonceB");
+        request.setCookies(nonceA, nonceB);
+
+        // Retrieve nonce for Tab A — should get nonceA without touching nonceB
+        String resultA = TransientCookieStore.getNonce(request, response, "stateA");
+        assertThat(resultA, is("nonceA"));
+
+        // Only stateA's nonce cookie should be deleted
+        Cookie[] deletedCookies = response.getCookies();
+        assertThat(deletedCookies.length, is(1));
+        assertThat(deletedCookies[0].getName(), is("com.auth0.nonce.stateA"));
+        assertThat(deletedCookies[0].getMaxAge(), is(0));
+
+        // Tab B can still retrieve its nonce independently (new request)
+        MockHttpServletRequest requestB = new MockHttpServletRequest();
+        MockHttpServletResponse responseB = new MockHttpServletResponse();
+        requestB.setCookies(nonceA, nonceB);
+
+        String resultB = TransientCookieStore.getNonce(requestB, responseB, "stateB");
+        assertThat(resultB, is("nonceB"));
+    }
+
+    @Test
+    public void shouldPreferTransactionKeyedNonceOverLegacyAndNotDeleteLegacy() {
+        Cookie txCookie = new Cookie("com.auth0.nonce.stateA", "txNonce");
+        Cookie legacyCookie = new Cookie("com.auth0.nonce", "legacyNonce");
+        request.setCookies(txCookie, legacyCookie);
+
+        String nonce = TransientCookieStore.getNonce(request, response, "stateA");
+        assertThat(nonce, is("txNonce"));
+
+        // Transaction-keyed cookie was consumed; legacy cookie should NOT be deleted
+        // (it may belong to another in-flight flow upgrading from v1)
+        Cookie[] deletedCookies = response.getCookies();
+        assertThat(deletedCookies.length, is(1));
+        assertThat(deletedCookies[0].getName(), is("com.auth0.nonce.stateA"));
+    }
+
+    @Test
+    public void shouldRetrieveCorrectStateAndNonceForEachTabEndToEnd() {
+        // Simulate two concurrent login flows storing state + nonce
+        MockHttpServletResponse storeResponse = new MockHttpServletResponse();
+        TransientCookieStore.storeState(storeResponse, "stateA", SameSite.LAX, false, false, null);
+        TransientCookieStore.storeNonce(storeResponse, "nonceA", "stateA", SameSite.LAX, false, false, null);
+        TransientCookieStore.storeState(storeResponse, "stateB", SameSite.LAX, false, false, null);
+        TransientCookieStore.storeNonce(storeResponse, "nonceB", "stateB", SameSite.LAX, false, false, null);
+
+        // Tab A callback
+        MockHttpServletRequest requestA = new MockHttpServletRequest();
+        MockHttpServletResponse responseA = new MockHttpServletResponse();
+        requestA.setCookies(
+                new Cookie("com.auth0.state.stateA", "stateA"),
+                new Cookie("com.auth0.nonce.stateA", "nonceA"),
+                new Cookie("com.auth0.state.stateB", "stateB"),
+                new Cookie("com.auth0.nonce.stateB", "nonceB")
+        );
+        requestA.setParameter("state", "stateA");
+
+        String stateA = TransientCookieStore.getState(requestA, responseA);
+        String nonceA = TransientCookieStore.getNonce(requestA, responseA, "stateA");
+        assertThat(stateA, is("stateA"));
+        assertThat(nonceA, is("nonceA"));
+
+        // Tab B callback
+        MockHttpServletRequest requestB = new MockHttpServletRequest();
+        MockHttpServletResponse responseB = new MockHttpServletResponse();
+        requestB.setCookies(
+                new Cookie("com.auth0.state.stateA", "stateA"),
+                new Cookie("com.auth0.nonce.stateA", "nonceA"),
+                new Cookie("com.auth0.state.stateB", "stateB"),
+                new Cookie("com.auth0.nonce.stateB", "nonceB")
+        );
+        requestB.setParameter("state", "stateB");
+
+        String stateB = TransientCookieStore.getState(requestB, responseB);
+        String nonceB = TransientCookieStore.getNonce(requestB, responseB, "stateB");
+        assertThat(stateB, is("stateB"));
+        assertThat(nonceB, is("nonceB"));
+
+        // Verify Tab A's retrieval didn't affect Tab B's cookies
+        Cookie[] deletedByA = responseA.getCookies();
+        for (Cookie c : deletedByA) {
+            assertThat(c.getName(), not(containsString("stateB")));
+        }
+    }
+
     // --- Origin domain tests ---
 
     private static final String TEST_SECRET = "testClientSecret123";
