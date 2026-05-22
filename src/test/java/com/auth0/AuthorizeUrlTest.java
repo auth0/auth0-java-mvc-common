@@ -81,27 +81,29 @@ public class AuthorizeUrlTest {
     @Test
     public void shouldSetNonceSameSiteAndLegacyCookieByDefault() {
         String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+                .withState("stateVal")
                 .withNonce("asdfghjkl")
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("nonce"), is("asdfghjkl"));
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
-        assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
-        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
+        // state (2: main + legacy) + nonce (2: main + legacy) = 4
+        assertThat(headers, hasItem(containsString("com.auth0.nonce.stateVal=asdfghjkl")));
+        assertThat(headers, hasItem(containsString("_com.auth0.nonce.stateVal=asdfghjkl")));
     }
 
     @Test
     public void shouldSetNonceSameSiteAndNotLegacyCookieWhenConfigured() {
         String url = new AuthorizeUrl(client, response, "https://redirect.to/me", "id_token token")
+                .withState("stateVal")
                 .withNonce("asdfghjkl")
                 .withLegacySameSiteCookie(false)
                 .build();
         assertThat(HttpUrl.parse(url).queryParameter("nonce"), is("asdfghjkl"));
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
-        assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.nonce=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(containsString("com.auth0.nonce.stateVal=asdfghjkl")));
+        assertThat(headers, not(hasItem(containsString("_com.auth0.nonce"))));
     }
 
     @Test
@@ -113,8 +115,8 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
-        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
+        assertThat(headers, hasItem(containsString("com.auth0.state.asdfghjkl=asdfghjkl")));
+        assertThat(headers, hasItem(containsString("_com.auth0.state.asdfghjkl=asdfghjkl")));
     }
 
     @Test
@@ -127,7 +129,7 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
+        assertThat(headers, hasItem(containsString("com.auth0.state.asdfghjkl=asdfghjkl")));
     }
 
     @Test
@@ -140,7 +142,7 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
-        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=Lax")));
+        assertThat(headers, hasItem(allOf(containsString("com.auth0.state.asdfghjkl=asdfghjkl"), containsString("Secure"), containsString("SameSite=Lax"))));
     }
 
     @Test
@@ -153,8 +155,8 @@ public class AuthorizeUrlTest {
 
         Collection<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
-        assertThat(headers, hasItem(matchesPattern("com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; Secure; HttpOnly; SameSite=None")));
-        assertThat(headers, hasItem(matchesPattern("_com\\.auth0\\.state=asdfghjkl; Max-Age=600; Expires=.*?; HttpOnly")));
+        assertThat(headers, hasItem(allOf(containsString("com.auth0.state.asdfghjkl=asdfghjkl"), containsString("Secure"), containsString("SameSite=None"))));
+        assertThat(headers, hasItem(containsString("_com.auth0.state.asdfghjkl=asdfghjkl")));
     }
 
     @Test

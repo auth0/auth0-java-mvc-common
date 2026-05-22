@@ -10,7 +10,10 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Allows storage and retrieval/removal of cookies.
+ * Allows storage and retrieval/removal of transient cookies used during the OAuth transaction.
+ *
+ * <p>Each login transaction gets its own uniquely-named cookies (keyed by state value),
+ * preventing multi-tab race conditions where concurrent logins would overwrite each other's state.</p>
  */
 class TransientCookieStore {
 
@@ -19,50 +22,91 @@ class TransientCookieStore {
 
 
     /**
-     * Stores a state value as a cookie on the response.
+     * Stores a state value as a transaction-keyed cookie on the response.
+     * The cookie name includes the state value itself, ensuring each login flow
+     * gets its own isolated cookie (e.g., "com.auth0.state.{state_value}").
      *
      * @param response the response object to set the cookie on
      * @param state the value for the state cookie. If null, no cookie will be set.
      * @param sameSite the value for the SameSite attribute on the cookie
      * @param useLegacySameSiteCookie whether to set a fallback cookie or not
      * @param isSecureCookie whether to always set the Secure cookie attribute or not
+     * @param cookiePath the path for the cookie
      */
     static void storeState(HttpServletResponse response, String state, SameSite sameSite, boolean useLegacySameSiteCookie, boolean isSecureCookie, String cookiePath) {
-        store(response, StorageUtils.STATE_KEY, state, sameSite, useLegacySameSiteCookie, isSecureCookie, cookiePath);
+        if (state == null) {
+            return;
+        }
+        store(response, StorageUtils.transactionStateKey(state), state, sameSite, useLegacySameSiteCookie, isSecureCookie, cookiePath);
     }
 
     /**
-     * Stores a nonce value as a cookie on the response.
+     * Stores a nonce value as a transaction-keyed cookie on the response.
+     * The cookie is keyed by the state value (not the nonce), so it can be
+     * retrieved during callback using the state parameter from the URL.
      *
      * @param response the response object to set the cookie on
      * @param nonce the value for the nonce cookie. If null, no cookie will be set.
+     * @param state the state value for this transaction (used as key in cookie name)
      * @param sameSite the value for the SameSite attribute on the cookie
      * @param useLegacySameSiteCookie whether to set a fallback cookie or not
      * @param isSecureCookie whether to always set the Secure cookie attribute or not
+     * @param cookiePath the path for the cookie
      */
-    static void storeNonce(HttpServletResponse response, String nonce, SameSite sameSite, boolean useLegacySameSiteCookie, boolean isSecureCookie, String cookiePath) {
-        store(response, StorageUtils.NONCE_KEY, nonce, sameSite, useLegacySameSiteCookie, isSecureCookie, cookiePath);
+    static void storeNonce(HttpServletResponse response, String nonce, String state, SameSite sameSite, boolean useLegacySameSiteCookie, boolean isSecureCookie, String cookiePath) {
+        if (nonce == null || state == null) {
+            return;
+        }
+        store(response, StorageUtils.transactionNonceKey(state), nonce, sameSite, useLegacySameSiteCookie, isSecureCookie, cookiePath);
     }
 
     /**
-     * Gets the value associated with the state cookie and removes it.
+     * Gets the value associated with the state cookie for this transaction and removes it.
+     * Uses the state parameter from the callback request to look up the correct transaction cookie.
+     * Falls back to the legacy fixed-name cookie for backward compatibility during rolling upgrades.
      *
      * @param request the request object
      * @param response the response object
      * @return the value of the state cookie, if it exists
      */
     static String getState(HttpServletRequest request, HttpServletResponse response) {
+        String stateParam = request.getParameter("state");
+        if (stateParam == null) {
+            return null;
+        }
+
+        // Try transaction-keyed cookie first (new behavior)
+        String value = getOnce(StorageUtils.transactionStateKey(stateParam), request, response);
+        if (value != null) {
+            return value;
+        }
+
+        // Fallback: legacy fixed-name cookie (for in-flight transactions during upgrade from v1)
         return getOnce(StorageUtils.STATE_KEY, request, response);
     }
 
     /**
-     * Gets the value associated with the nonce cookie and removes it.
+     * Gets the value associated with the nonce cookie for this transaction and removes it.
+     * Uses the state parameter to look up the correct transaction-keyed nonce cookie.
+     * Falls back to the legacy fixed-name cookie for backward compatibility.
      *
      * @param request the request object
      * @param response the response object
+     * @param state the state value from the callback (used to find the correct nonce cookie)
      * @return the value of the nonce cookie, if it exists
      */
-    static String getNonce(HttpServletRequest request, HttpServletResponse response) {
+    static String getNonce(HttpServletRequest request, HttpServletResponse response, String state) {
+        if (state == null) {
+            return null;
+        }
+
+        // Try transaction-keyed cookie first (new behavior)
+        String value = getOnce(StorageUtils.transactionNonceKey(state), request, response);
+        if (value != null) {
+            return value;
+        }
+
+        // Fallback: legacy fixed-name cookie (for in-flight transactions during upgrade from v1)
         return getOnce(StorageUtils.NONCE_KEY, request, response);
     }
 
