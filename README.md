@@ -19,15 +19,20 @@
 - [Quickstart](https://auth0.com/docs/quickstart/webapp/java) - our interactive guide for quickly adding login, logout and user information to a Java Servlet application using Auth0.
 - [Sample App](https://github.com/auth0-samples/auth0-servlet-sample/tree/master/01-Login) - a sample Java Servlet application integrated with Auth0.
 - [Examples](./EXAMPLES.md) - code samples for common scenarios.
+- [Migration Guide](./MIGRATION_GUIDE.md) - migrating from v1.x to v2.0.0.
 - [Docs site](https://www.auth0.com/docs) - explore our docs site and learn more about Auth0.
 
 ## Getting Started
 
 ### Requirements
 
-Java 8 or above and `javax.servlet` version 3.
+Java 17 or above and `jakarta.servlet` version 6.0 (Jakarta EE 10).
+
+Compatible containers: Tomcat 10.1+, Jetty 12+, WildFly 27+.
 
 > If you are using Spring, we recommend leveraging Spring's OIDC and OAuth2 support, as demonstrated by the [Spring Boot Quickstart](https://auth0.com/docs/quickstart/webapp/java-spring-boot).
+>
+> **Upgrading from v1.x?** See the [Migration Guide](./MIGRATION_GUIDE.md) for a complete list of breaking changes.
 
 ### Installation
 
@@ -37,14 +42,14 @@ Add the dependency via Maven:
 <dependency>
   <groupId>com.auth0</groupId>
   <artifactId>mvc-auth-commons</artifactId>
-  <version>1.12.0</version>
+  <version>2.0.0-beta.0</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:mvc-auth-commons:1.12.0'
+implementation 'com.auth0:mvc-auth-commons:2.0.0-beta.0'
 ```
 
 ### Configure Auth0
