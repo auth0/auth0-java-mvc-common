@@ -11,6 +11,7 @@ import com.auth0.jwk.Jwk;
 import com.auth0.jwk.JwkException;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.jwk.UrlJwkProvider;
+import com.auth0.net.client.Auth0HttpClient;
 import com.auth0.net.client.DefaultHttpClient;
 import com.auth0.utils.tokens.IdTokenVerifier;
 import com.auth0.utils.tokens.SignatureVerifier;
@@ -50,6 +51,7 @@ class RequestProcessor {
     private final String clientId;
     private final String clientSecret;
     private final JwkProvider jwkProvider;
+    private Auth0HttpClient httpClient;
 
     private final Integer clockSkew;
     private final Integer authenticationMaxAge;
@@ -71,6 +73,7 @@ class RequestProcessor {
         private final String clientSecret;
 
         private JwkProvider jwkProvider;
+        private Auth0HttpClient httpClient;
         private boolean useLegacySameSiteCookie = true;
         private Integer clockSkew;
         private Integer authenticationMaxAge;
@@ -90,6 +93,11 @@ class RequestProcessor {
 
         Builder withJwkProvider(JwkProvider jwkProvider) {
             this.jwkProvider = jwkProvider;
+            return this;
+        }
+
+        Builder withHttpClient(Auth0HttpClient httpClient) {
+            this.httpClient = httpClient;
             return this;
         }
 
@@ -125,13 +133,13 @@ class RequestProcessor {
 
         RequestProcessor build() {
             return new RequestProcessor(domainProvider, responseType, clientId, clientSecret,
-                    jwkProvider, useLegacySameSiteCookie, clockSkew, authenticationMaxAge,
+                    jwkProvider, httpClient, useLegacySameSiteCookie, clockSkew, authenticationMaxAge,
                     organization, invitation, cookiePath);
         }
     }
 
     private RequestProcessor(DomainProvider domainProvider, String responseType, String clientId,
-            String clientSecret, JwkProvider jwkProvider,
+            String clientSecret, JwkProvider jwkProvider, Auth0HttpClient httpClient,
             boolean useLegacySameSiteCookie, Integer clockSkew, Integer authenticationMaxAge,
             String organization, String invitation, String cookiePath) {
         this.domainProvider = domainProvider;
@@ -139,6 +147,7 @@ class RequestProcessor {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.jwkProvider = jwkProvider;
+        this.httpClient = httpClient;
         this.useLegacySameSiteCookie = useLegacySameSiteCookie;
         this.clockSkew = clockSkew;
         this.authenticationMaxAge = authenticationMaxAge;
@@ -156,16 +165,21 @@ class RequestProcessor {
     }
 
     AuthAPI createClientForDomain(String domain) {
-        DefaultHttpClient.Builder httpBuilder = DefaultHttpClient.newBuilder()
-                .telemetryEnabled(!telemetryDisabled);
-
-        if (loggingEnabled) {
-            httpBuilder.withLogging(new LoggingOptions(LoggingOptions.LogLevel.BODY));
-        }
-
         return AuthAPI.newBuilder(domain, clientId, clientSecret)
-                .withHttpClient(httpBuilder.build())
+                .withHttpClient(getHttpClient())
                 .build();
+    }
+
+    private Auth0HttpClient getHttpClient() {
+        if (this.httpClient == null) {
+            DefaultHttpClient.Builder httpBuilder = DefaultHttpClient.newBuilder()
+                    .telemetryEnabled(!telemetryDisabled);
+            if (loggingEnabled) {
+                httpBuilder.withLogging(new LoggingOptions(LoggingOptions.LogLevel.BODY));
+            }
+            this.httpClient = httpBuilder.build();
+        }
+        return this.httpClient;
     }
 
     /**

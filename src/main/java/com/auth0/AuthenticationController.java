@@ -1,6 +1,7 @@
 package com.auth0;
 
 import com.auth0.jwk.JwkProvider;
+import com.auth0.net.client.Auth0HttpClient;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.Validate;
 
@@ -73,6 +74,7 @@ public class AuthenticationController {
         private final String clientSecret;
         private String responseType;
         private JwkProvider jwkProvider;
+        private Auth0HttpClient httpClient;
         private Integer clockSkew;
         private Integer authenticationMaxAge;
         private boolean useLegacySameSiteCookie;
@@ -180,6 +182,31 @@ public class AuthenticationController {
         }
 
         /**
+         * Sets a custom {@link Auth0HttpClient} to use for all HTTP requests made by this library
+         * (token exchange, PAR, etc.). Use this to configure timeouts, proxies, or other HTTP settings.
+         *
+         * <pre>{@code
+         * Auth0HttpClient httpClient = DefaultHttpClient.newBuilder()
+         *     .withConnectTimeout(10)
+         *     .withReadTimeout(10)
+         *     .build();
+         *
+         * AuthenticationController controller = AuthenticationController
+         *     .newBuilder(domain, clientId, clientSecret)
+         *     .withHttpClient(httpClient)
+         *     .build();
+         * }</pre>
+         *
+         * @param httpClient a configured {@link Auth0HttpClient} instance.
+         * @return this same builder instance.
+         */
+        public Builder withHttpClient(Auth0HttpClient httpClient) {
+            Validate.notNull(httpClient);
+            this.httpClient = httpClient;
+            return this;
+        }
+
+        /**
          * Sets the clock-skew or leeway value to use in the ID Token verification. The value must be in seconds.
          * Defaults to 60 seconds.
          *
@@ -266,6 +293,9 @@ public class AuthenticationController {
 
             if (jwkProvider != null) {
                 builder.withJwkProvider(jwkProvider);
+            }
+            if (httpClient != null) {
+                builder.withHttpClient(httpClient);
             }
 
             return new AuthenticationController(builder.build());
