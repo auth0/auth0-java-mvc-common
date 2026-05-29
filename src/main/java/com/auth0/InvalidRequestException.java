@@ -18,15 +18,4 @@ public class InvalidRequestException extends IdentityVerificationException {
         super(code, description != null ? description : DEFAULT_DESCRIPTION, cause);
     }
 
-    /**
-     * Getter for the description of the error.
-     *
-     * @return the error description if available, null otherwise.
-     * @deprecated use {@link #getMessage()}
-     */
-    @Deprecated
-    public String getDescription() {
-        return getMessage();
-    }
-
 }

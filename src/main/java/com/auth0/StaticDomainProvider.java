@@ -1,6 +1,6 @@
 package com.auth0;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 class StaticDomainProvider implements DomainProvider {
     private final String domain;

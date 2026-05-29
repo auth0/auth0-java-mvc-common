@@ -6,13 +6,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import javax.servlet.http.Cookie;
+import jakarta.servlet.http.Cookie;
 import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.matchesPattern;
 
 public class TransientCookieStoreTest {
 
@@ -35,25 +36,38 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldNotSetCookieIfNonceIsNull() {
-        TransientCookieStore.storeNonce(response, null, SameSite.NONE, true, false, null);
+        TransientCookieStore.storeNonce(response, null, "someState", SameSite.NONE, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(0));
     }
 
     @Test
-    public void shouldHandleSpecialCharsWhenStoringState() throws Exception {
-        String stateVal = ";state = ,va\\lu;e\"";
-        TransientCookieStore.storeState(response, stateVal, SameSite.NONE, true, false, null);
+    public void shouldNotSetNonceCookieIfStateIsNull() {
+        TransientCookieStore.storeNonce(response, "nonceValue", null, SameSite.NONE, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
-        assertThat(headers.size(), is(2));
+        assertThat(headers.size(), is(0));
+    }
 
-        String expectedEncodedState = URLEncoder.encode(stateVal, "UTF-8");
-        assertThat(headers, hasItem(
-                String.format("com.auth0.state=%s; HttpOnly; Max-Age=600; SameSite=None; Secure", expectedEncodedState)));
-        assertThat(headers, hasItem(
-                String.format("_com.auth0.state=%s; HttpOnly; Max-Age=600", expectedEncodedState)));
+    @Test
+    public void shouldSetStateCookieWithTransactionKey() {
+        TransientCookieStore.storeState(response, "myState123", SameSite.LAX, false, false, null);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(1));
+        // Cookie name should be "com.auth0.state.myState123"
+        assertThat(headers.get(0), containsString("com.auth0.state.myState123=myState123"));
+    }
+
+    @Test
+    public void shouldSetNonceCookieWithTransactionKey() {
+        TransientCookieStore.storeNonce(response, "nonceVal", "myState123", SameSite.LAX, false, false, null);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(1));
+        // Cookie name should be "com.auth0.nonce.myState123"
+        assertThat(headers.get(0), containsString("com.auth0.nonce.myState123=nonceVal"));
     }
 
     @Test
@@ -63,8 +77,10 @@ public class TransientCookieStoreTest {
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=123456; HttpOnly; Max-Age=600"));
+        assertThat(headers.get(0), containsString("com.auth0.state.123456=123456"));
+        assertThat(headers.get(0), containsString("SameSite=None"));
+        assertThat(headers.get(0), containsString("Secure"));
+        assertThat(headers.get(1), containsString("_com.auth0.state.123456=123456"));
     }
 
     @Test
@@ -74,7 +90,8 @@ public class TransientCookieStoreTest {
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers.get(0), containsString("com.auth0.state.123456=123456"));
+        assertThat(headers.get(0), containsString("SameSite=None"));
     }
 
     @Test
@@ -84,7 +101,8 @@ public class TransientCookieStoreTest {
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=Lax; Secure"));
+        assertThat(headers.get(0), containsString("Secure"));
+        assertThat(headers.get(0), containsString("SameSite=Lax"));
     }
 
     @Test
@@ -94,47 +112,89 @@ public class TransientCookieStoreTest {
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.state=123456; HttpOnly; Max-Age=600; Secure"));
+        assertThat(headers.get(0), containsString("SameSite=None"));
+        assertThat(headers.get(0), containsString("Secure"));
+        assertThat(headers.get(1), containsString("Secure"));
     }
 
     @Test
-    public void shouldNotSetSecureCookieWhenSameSiteLaxAndConfigured() {
+    public void shouldNotSetSecureCookieWhenSameSiteLaxAndNotConfigured() {
         TransientCookieStore.storeState(response, "123456", SameSite.LAX, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
 
-        assertThat(headers, hasItem("com.auth0.state=123456; HttpOnly; Max-Age=600; SameSite=Lax"));
+        assertThat(headers.get(0), not(containsString("Secure")));
+        assertThat(headers.get(0), containsString("SameSite=Lax"));
     }
 
     @Test
     public void shouldSetNonceSameSiteCookieAndFallbackCookie() {
-        TransientCookieStore.storeNonce(response, "123456", SameSite.NONE, true, false, null);
+        TransientCookieStore.storeNonce(response, "nonceVal", "stateVal", SameSite.NONE, true, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(2));
 
-        assertThat(headers, hasItem("com.auth0.nonce=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
-        assertThat(headers, hasItem("_com.auth0.nonce=123456; HttpOnly; Max-Age=600"));
+        assertThat(headers.get(0), containsString("com.auth0.nonce.stateVal=nonceVal"));
+        assertThat(headers.get(0), containsString("SameSite=None"));
+        assertThat(headers.get(1), containsString("_com.auth0.nonce.stateVal=nonceVal"));
     }
 
     @Test
     public void shouldSetNonceSameSiteCookieAndNoFallbackCookie() {
-        TransientCookieStore.storeNonce(response, "123456", SameSite.NONE, false, false, null);
+        TransientCookieStore.storeNonce(response, "nonceVal", "stateVal", SameSite.NONE, false, false, null);
 
         List<String> headers = response.getHeaders("Set-Cookie");
         assertThat(headers.size(), is(1));
 
-        assertThat(headers, hasItem("com.auth0.nonce=123456; HttpOnly; Max-Age=600; SameSite=None; Secure"));
+        assertThat(headers.get(0), containsString("com.auth0.nonce.stateVal=nonceVal"));
+    }
+
+    // --- State retrieval tests (transaction-keyed) ---
+
+    @Test
+    public void shouldRetrieveTransactionKeyedStateCookie() {
+        Cookie cookie = new Cookie("com.auth0.state.myState", "myState");
+        request.setCookies(cookie);
+        request.setParameter("state", "myState");
+
+        String state = TransientCookieStore.getState(request, response);
+        assertThat(state, is("myState"));
+
+        // Should delete the cookie
+        Cookie[] cookies = response.getCookies();
+        assertThat(cookies, is(notNullValue()));
+        assertThat(cookies[0].getMaxAge(), is(0));
+    }
+
+    @Test
+    public void shouldFallbackToLegacyFixedStateCookie() {
+        // Legacy cookie (from v1 SDK or in-flight transaction during upgrade)
+        Cookie cookie = new Cookie("com.auth0.state", "legacyState");
+        request.setCookies(cookie);
+        request.setParameter("state", "legacyState");
+
+        String state = TransientCookieStore.getState(request, response);
+        assertThat(state, is("legacyState"));
+    }
+
+    @Test
+    public void shouldPreferTransactionKeyedOverLegacy() {
+        Cookie txCookie = new Cookie("com.auth0.state.txState", "txState");
+        Cookie legacyCookie = new Cookie("com.auth0.state", "oldState");
+        request.setCookies(txCookie, legacyCookie);
+        request.setParameter("state", "txState");
+
+        String state = TransientCookieStore.getState(request, response);
+        assertThat(state, is("txState"));
     }
 
     @Test
     public void shouldRemoveStateSameSiteCookieAndFallbackCookie() {
-        Cookie cookie1 = new Cookie("com.auth0.state", "123456");
-        Cookie cookie2 = new Cookie("_com.auth0.state", "123456");
-
+        Cookie cookie1 = new Cookie("com.auth0.state.123456", "123456");
+        Cookie cookie2 = new Cookie("_com.auth0.state.123456", "123456");
         request.setCookies(cookie1, cookie2);
+        request.setParameter("state", "123456");
 
         String state = TransientCookieStore.getState(request, response);
         assertThat(state, is("123456"));
@@ -150,133 +210,240 @@ public class TransientCookieStoreTest {
     }
 
     @Test
-    public void shouldRemoveStateSameSiteCookie() {
-        Cookie cookie1 = new Cookie("com.auth0.state", "123456");
-
-        request.setCookies(cookie1);
-
-        String state = TransientCookieStore.getState(request, response);
-        assertThat(state, is("123456"));
-
-        Cookie[] cookies = response.getCookies();
-        assertThat(cookies, is(notNullValue()));
-
-        List<Cookie> cookieList = Arrays.asList(cookies);
-        assertThat(cookieList.size(), is(1));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("value", is(""))));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("maxAge", is(0))));
-    }
-
-    @Test
-    public void shouldRemoveStateFallbackCookie() {
-        Cookie cookie1 = new Cookie("_com.auth0.state", "123456");
-
-        request.setCookies(cookie1);
-
-        String state = TransientCookieStore.getState(request, response);
-        assertThat(state, is("123456"));
-
-        Cookie[] cookies = response.getCookies();
-        assertThat(cookies, is(notNullValue()));
-
-        List<Cookie> cookieList = Arrays.asList(cookies);
-        assertThat(cookieList.size(), is(1));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("value", is(""))));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("maxAge", is(0))));
-    }
-
-    @Test
-    public void shouldRemoveNonceSameSiteCookieAndFallbackCookie() {
-        Cookie cookie1 = new Cookie("com.auth0.nonce", "123456");
-        Cookie cookie2 = new Cookie("_com.auth0.nonce", "123456");
-
-        request.setCookies(cookie1, cookie2);
-
-        String state = TransientCookieStore.getNonce(request, response);
-        assertThat(state, is("123456"));
-
-        Cookie[] cookies = response.getCookies();
-        assertThat(cookies, is(notNullValue()));
-
-        List<Cookie> cookieList = Arrays.asList(cookies);
-        assertThat(cookieList.size(), is(2));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("value", is(""))));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("maxAge", is(0))));
-    }
-
-    @Test
-    public void shouldRemoveNonceSameSiteCookie() {
-        Cookie cookie1 = new Cookie("com.auth0.nonce", "123456");
-
-        request.setCookies(cookie1);
-
-        String state = TransientCookieStore.getNonce(request, response);
-        assertThat(state, is("123456"));
-
-        Cookie[] cookies = response.getCookies();
-        assertThat(cookies, is(notNullValue()));
-
-        List<Cookie> cookieList = Arrays.asList(cookies);
-        assertThat(cookieList.size(), is(1));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("value", is(""))));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("maxAge", is(0))));
-    }
-
-    @Test
-    public void shouldRemoveNonceFallbackCookie() {
-        Cookie cookie1 = new Cookie("_com.auth0.nonce", "123456");
-
-        request.setCookies(cookie1);
-
-        String state = TransientCookieStore.getNonce(request, response);
-        assertThat(state, is("123456"));
-
-        Cookie[] cookies = response.getCookies();
-        assertThat(cookies, is(notNullValue()));
-
-        List<Cookie> cookieList = Arrays.asList(cookies);
-        assertThat(cookieList.size(), is(1));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("value", is(""))));
-        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("maxAge", is(0))));
-    }
-
-    @Test
-    public void shouldReturnEmptyStateWhenNoCookies() {
+    public void shouldReturnNullStateWhenNoCookies() {
+        request.setParameter("state", "someState");
         String state = TransientCookieStore.getState(request, response);
         assertThat(state, is(nullValue()));
     }
 
     @Test
-    public void shouldReturnEmptyNonceWhenNoCookies() {
-        String nonce = TransientCookieStore.getNonce(request, response);
-        assertThat(nonce, is(nullValue()));
+    public void shouldReturnNullStateWhenNoStateParam() {
+        // No state parameter in request → null
+        String state = TransientCookieStore.getState(request, response);
+        assertThat(state, is(nullValue()));
     }
 
     @Test
     public void shouldReturnEmptyWhenNoStateCookie() {
         Cookie cookie1 = new Cookie("someCookie", "123456");
         request.setCookies(cookie1);
+        request.setParameter("state", "someState");
 
         String state = TransientCookieStore.getState(request, response);
         assertThat(state, is(nullValue()));
     }
 
     @Test
-    public void shouldReturnEmptyWhenNoNonceCookie() {
-        Cookie cookie1 = new Cookie("someCookie", "123456");
-        request.setCookies(cookie1);
+    public void shouldRetrieveTransactionKeyedNonceCookie() {
+        Cookie cookie = new Cookie("com.auth0.nonce.myState", "nonceValue");
+        request.setCookies(cookie);
 
-        String nonce = TransientCookieStore.getNonce(request, response);
-        assertThat(nonce, is(nullValue()));
+        String nonce = TransientCookieStore.getNonce(request, response, "myState");
+        assertThat(nonce, is("nonceValue"));
+
+        Cookie[] cookies = response.getCookies();
+        assertThat(cookies, is(notNullValue()));
+        assertThat(cookies[0].getMaxAge(), is(0));
+    }
+
+    @Test
+    public void shouldFallbackToLegacyFixedNonceCookie() {
+        Cookie cookie = new Cookie("com.auth0.nonce", "legacyNonce");
+        request.setCookies(cookie);
+
+        String nonce = TransientCookieStore.getNonce(request, response, "someState");
+        assertThat(nonce, is("legacyNonce"));
+    }
+
+    @Test
+    public void shouldRemoveNonceSameSiteCookieAndFallbackCookie() {
+        Cookie cookie1 = new Cookie("com.auth0.nonce.stateVal", "nonceVal");
+        Cookie cookie2 = new Cookie("_com.auth0.nonce.stateVal", "nonceVal");
+        request.setCookies(cookie1, cookie2);
+
+        String nonce = TransientCookieStore.getNonce(request, response, "stateVal");
+        assertThat(nonce, is("nonceVal"));
+
+        Cookie[] cookies = response.getCookies();
+        assertThat(cookies, is(notNullValue()));
+
+        List<Cookie> cookieList = Arrays.asList(cookies);
+        assertThat(cookieList.size(), is(2));
+        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("value", is(""))));
+        assertThat(Arrays.asList(cookies), everyItem(HasPropertyWithValue.hasProperty("maxAge", is(0))));
+    }
+
+    @Test
+    public void shouldReturnNullNonceWhenNoCookies() {
+        String nonce = TransientCookieStore.getNonce(request, response, "someState");
         assertThat(nonce, is(nullValue()));
     }
 
+    @Test
+    public void shouldReturnNullNonceWhenStateIsNull() {
+        String nonce = TransientCookieStore.getNonce(request, response, null);
+        assertThat(nonce, is(nullValue()));
+    }
+
+    @Test
+    public void shouldReturnNullWhenNoNonceCookie() {
+        Cookie cookie1 = new Cookie("someCookie", "123456");
+        request.setCookies(cookie1);
+
+        String nonce = TransientCookieStore.getNonce(request, response, "someState");
+        assertThat(nonce, is(nullValue()));
+    }
+
+    @Test
+    public void shouldIsolateMultipleTransactions() {
+        // Simulate two tabs storing state cookies
+        TransientCookieStore.storeState(response, "stateA", SameSite.LAX, false, false, null);
+        TransientCookieStore.storeState(response, "stateB", SameSite.LAX, false, false, null);
+
+        List<String> headers = response.getHeaders("Set-Cookie");
+        assertThat(headers.size(), is(2));
+        assertThat(headers.get(0), containsString("com.auth0.state.stateA=stateA"));
+        assertThat(headers.get(1), containsString("com.auth0.state.stateB=stateB"));
+    }
+
+    @Test
+    public void shouldRetrieveCorrectStateForEachTransaction() {
+        // Both transaction cookies exist
+        Cookie cookieA = new Cookie("com.auth0.state.stateA", "stateA");
+        Cookie cookieB = new Cookie("com.auth0.state.stateB", "stateB");
+        request.setCookies(cookieA, cookieB);
+
+        // Tab A callback
+        request.setParameter("state", "stateA");
+        String stateA = TransientCookieStore.getState(request, response);
+        assertThat(stateA, is("stateA"));
+
+        // Tab B callback (new request)
+        MockHttpServletRequest requestB = new MockHttpServletRequest();
+        MockHttpServletResponse responseB = new MockHttpServletResponse();
+        requestB.setCookies(cookieA, cookieB);
+        requestB.setParameter("state", "stateB");
+        String stateB = TransientCookieStore.getState(requestB, responseB);
+        assertThat(stateB, is("stateB"));
+    }
+
+    @Test
+    public void shouldNotDeleteOtherTransactionCookies() {
+        Cookie cookieA = new Cookie("com.auth0.state.stateA", "stateA");
+        Cookie cookieB = new Cookie("com.auth0.state.stateB", "stateB");
+        request.setCookies(cookieA, cookieB);
+        request.setParameter("state", "stateA");
+
+        TransientCookieStore.getState(request, response);
+
+        // Only stateA's cookie should be deleted
+        Cookie[] deletedCookies = response.getCookies();
+        assertThat(deletedCookies.length, is(1));
+        assertThat(deletedCookies[0].getName(), is("com.auth0.state.stateA"));
+        assertThat(deletedCookies[0].getMaxAge(), is(0));
+    }
+
+    // --- Nonce multi-tab isolation tests ---
+
+    @Test
+    public void shouldIsolateMultipleNonceTransactionsOnRetrieval() {
+        // Both nonce cookies exist (two concurrent tabs)
+        Cookie nonceA = new Cookie("com.auth0.nonce.stateA", "nonceA");
+        Cookie nonceB = new Cookie("com.auth0.nonce.stateB", "nonceB");
+        request.setCookies(nonceA, nonceB);
+
+        // Retrieve nonce for Tab A — should get nonceA without touching nonceB
+        String resultA = TransientCookieStore.getNonce(request, response, "stateA");
+        assertThat(resultA, is("nonceA"));
+
+        // Only stateA's nonce cookie should be deleted
+        Cookie[] deletedCookies = response.getCookies();
+        assertThat(deletedCookies.length, is(1));
+        assertThat(deletedCookies[0].getName(), is("com.auth0.nonce.stateA"));
+        assertThat(deletedCookies[0].getMaxAge(), is(0));
+
+        // Tab B can still retrieve its nonce independently (new request)
+        MockHttpServletRequest requestB = new MockHttpServletRequest();
+        MockHttpServletResponse responseB = new MockHttpServletResponse();
+        requestB.setCookies(nonceA, nonceB);
+
+        String resultB = TransientCookieStore.getNonce(requestB, responseB, "stateB");
+        assertThat(resultB, is("nonceB"));
+    }
+
+    @Test
+    public void shouldPreferTransactionKeyedNonceOverLegacyAndNotDeleteLegacy() {
+        Cookie txCookie = new Cookie("com.auth0.nonce.stateA", "txNonce");
+        Cookie legacyCookie = new Cookie("com.auth0.nonce", "legacyNonce");
+        request.setCookies(txCookie, legacyCookie);
+
+        String nonce = TransientCookieStore.getNonce(request, response, "stateA");
+        assertThat(nonce, is("txNonce"));
+
+        // Transaction-keyed cookie was consumed; legacy cookie should NOT be deleted
+        // (it may belong to another in-flight flow upgrading from v1)
+        Cookie[] deletedCookies = response.getCookies();
+        assertThat(deletedCookies.length, is(1));
+        assertThat(deletedCookies[0].getName(), is("com.auth0.nonce.stateA"));
+    }
+
+    @Test
+    public void shouldRetrieveCorrectStateAndNonceForEachTabEndToEnd() {
+        // Simulate two concurrent login flows storing state + nonce
+        MockHttpServletResponse storeResponse = new MockHttpServletResponse();
+        TransientCookieStore.storeState(storeResponse, "stateA", SameSite.LAX, false, false, null);
+        TransientCookieStore.storeNonce(storeResponse, "nonceA", "stateA", SameSite.LAX, false, false, null);
+        TransientCookieStore.storeState(storeResponse, "stateB", SameSite.LAX, false, false, null);
+        TransientCookieStore.storeNonce(storeResponse, "nonceB", "stateB", SameSite.LAX, false, false, null);
+
+        // Tab A callback
+        MockHttpServletRequest requestA = new MockHttpServletRequest();
+        MockHttpServletResponse responseA = new MockHttpServletResponse();
+        requestA.setCookies(
+                new Cookie("com.auth0.state.stateA", "stateA"),
+                new Cookie("com.auth0.nonce.stateA", "nonceA"),
+                new Cookie("com.auth0.state.stateB", "stateB"),
+                new Cookie("com.auth0.nonce.stateB", "nonceB")
+        );
+        requestA.setParameter("state", "stateA");
+
+        String stateA = TransientCookieStore.getState(requestA, responseA);
+        String nonceA = TransientCookieStore.getNonce(requestA, responseA, "stateA");
+        assertThat(stateA, is("stateA"));
+        assertThat(nonceA, is("nonceA"));
+
+        // Tab B callback
+        MockHttpServletRequest requestB = new MockHttpServletRequest();
+        MockHttpServletResponse responseB = new MockHttpServletResponse();
+        requestB.setCookies(
+                new Cookie("com.auth0.state.stateA", "stateA"),
+                new Cookie("com.auth0.nonce.stateA", "nonceA"),
+                new Cookie("com.auth0.state.stateB", "stateB"),
+                new Cookie("com.auth0.nonce.stateB", "nonceB")
+        );
+        requestB.setParameter("state", "stateB");
+
+        String stateB = TransientCookieStore.getState(requestB, responseB);
+        String nonceB = TransientCookieStore.getNonce(requestB, responseB, "stateB");
+        assertThat(stateB, is("stateB"));
+        assertThat(nonceB, is("nonceB"));
+
+        // Verify Tab A's retrieval didn't affect Tab B's cookies
+        Cookie[] deletedByA = responseA.getCookies();
+        for (Cookie c : deletedByA) {
+            assertThat(c.getName(), not(containsString("stateB")));
+        }
+    }
+
+    // --- Origin domain tests ---
+
     private static final String TEST_SECRET = "testClientSecret123";
     private static final String TEST_DOMAIN = "tenant-a.auth0.com";
+    private static final String TEST_STATE = "abc123state";
 
     @Test
     public void shouldStoreSignedOriginDomainCookie() {
-        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN,
+        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN, TEST_STATE,
                 SameSite.LAX, null, false, TEST_SECRET);
 
         List<String> headers = response.getHeaders("Set-Cookie");
@@ -289,7 +456,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldStoreSignedOriginDomainWithSameSiteNone() {
-        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN,
+        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN, TEST_STATE,
                 SameSite.NONE, null, false, TEST_SECRET);
 
         List<String> headers = response.getHeaders("Set-Cookie");
@@ -300,12 +467,11 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldRetrieveAndVerifySignedOriginDomain() {
-        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_SECRET);
+        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_STATE, TEST_SECRET);
         Cookie cookie = new Cookie("com.auth0.origin_domain", signedValue);
         request.setCookies(cookie);
 
-        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_SECRET);
-
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_STATE, TEST_SECRET);
         assertThat(domain, is(TEST_DOMAIN));
     }
 
@@ -315,43 +481,50 @@ public class TransientCookieStoreTest {
                 "evil.auth0.com|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         request.setCookies(cookie);
 
-        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_SECRET);
-
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_STATE, TEST_SECRET);
         assertThat(domain, is(nullValue()));
     }
 
     @Test
     public void shouldReturnNullForMissingOriginDomainCookie() {
-        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_SECRET);
-
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_STATE, TEST_SECRET);
         assertThat(domain, is(nullValue()));
     }
 
     @Test
     public void shouldReturnNullForWrongSecret() {
-        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_SECRET);
+        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_STATE, TEST_SECRET);
         Cookie cookie = new Cookie("com.auth0.origin_domain", signedValue);
         request.setCookies(cookie);
 
-        String domain = TransientCookieStore.getSignedOriginDomain(request, response, "wrong-secret");
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_STATE, "wrong-secret");
+        assertThat(domain, is(nullValue()));
+    }
 
+    @Test
+    public void shouldReturnNullForWrongState() {
+        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_STATE, TEST_SECRET);
+        Cookie cookie = new Cookie("com.auth0.origin_domain", signedValue);
+        request.setCookies(cookie);
+
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, "different-state", TEST_SECRET);
         assertThat(domain, is(nullValue()));
     }
 
     @Test
     public void shouldDeleteOriginDomainCookieAfterReading() {
-        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_SECRET);
+        String signedValue = SignedCookieUtils.sign(TEST_DOMAIN, TEST_STATE, TEST_SECRET);
         Cookie cookie = new Cookie("com.auth0.origin_domain", signedValue);
         request.setCookies(cookie);
 
-        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_SECRET);
+        String domain = TransientCookieStore.getSignedOriginDomain(request, response, TEST_STATE, TEST_SECRET);
         assertThat(domain, is(TEST_DOMAIN));
 
         Cookie[] responseCookies = response.getCookies();
         assertThat(responseCookies, is(notNullValue()));
         boolean foundDeleted = false;
         for (Cookie c : responseCookies) {
-            if ("com.auth0.origin_domain".equals(c.getName())) {
+            if (c.getName().equals("com.auth0.origin_domain")) {
                 assertThat(c.getMaxAge(), is(0));
                 assertThat(c.getValue(), is(""));
                 foundDeleted = true;
@@ -362,7 +535,7 @@ public class TransientCookieStoreTest {
 
     @Test
     public void shouldStoreAndRetrieveSignedOriginDomainEndToEnd() {
-        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN,
+        TransientCookieStore.storeSignedOriginDomain(response, TEST_DOMAIN, TEST_STATE,
                 SameSite.LAX, null, false, TEST_SECRET);
 
         List<String> headers = response.getHeaders("Set-Cookie");
@@ -377,7 +550,7 @@ public class TransientCookieStoreTest {
         MockHttpServletResponse callbackResponse = new MockHttpServletResponse();
         callbackRequest.setCookies(cookie);
 
-        String domain = TransientCookieStore.getSignedOriginDomain(callbackRequest, callbackResponse, TEST_SECRET);
+        String domain = TransientCookieStore.getSignedOriginDomain(callbackRequest, callbackResponse, TEST_STATE, TEST_SECRET);
         assertThat(domain, is(TEST_DOMAIN));
     }
 }

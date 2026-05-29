@@ -1,7 +1,7 @@
 package com.auth0;
 
-import com.auth0.client.HttpOptions;
 import com.auth0.jwk.JwkProvider;
+import com.auth0.net.client.Auth0HttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -9,8 +9,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
@@ -30,9 +30,9 @@ public class AuthenticationControllerTest {
     @Mock
     private JwkProvider mockJwkProvider;
     @Mock
-    private HttpOptions mockHttpOptions;
-    @Mock
     private DomainResolver mockDomainResolver;
+    @Mock
+    private Auth0HttpClient mockHttpClient;
     @Mock
     private Tokens mockTokens;
 
@@ -41,7 +41,7 @@ public class AuthenticationControllerTest {
 
     @BeforeEach
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
+        MockitoAnnotations.openMocks(this);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
     }
@@ -85,12 +85,12 @@ public class AuthenticationControllerTest {
         AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
                 .withResponseType("id_token token")
                 .withJwkProvider(mockJwkProvider)
+                .withHttpClient(mockHttpClient)
                 .withClockSkew(120)
                 .withAuthenticationMaxAge(3600)
                 .withLegacySameSiteCookie(false)
                 .withOrganization("org_123")
                 .withInvitation("inv_456")
-                .withHttpOptions(mockHttpOptions)
                 .withCookiePath("/custom")
                 .build();
 
@@ -135,11 +135,11 @@ public class AuthenticationControllerTest {
         assertThrows(NullPointerException.class, () -> builder.withDomain(null));
         assertThrows(NullPointerException.class, () -> builder.withResponseType(null));
         assertThrows(NullPointerException.class, () -> builder.withJwkProvider(null));
+        assertThrows(NullPointerException.class, () -> builder.withHttpClient(null));
         assertThrows(NullPointerException.class, () -> builder.withClockSkew(null));
         assertThrows(NullPointerException.class, () -> builder.withAuthenticationMaxAge(null));
         assertThrows(NullPointerException.class, () -> builder.withOrganization(null));
         assertThrows(NullPointerException.class, () -> builder.withInvitation(null));
-        assertThrows(NullPointerException.class, () -> builder.withHttpOptions(null));
         assertThrows(NullPointerException.class, () -> builder.withCookiePath(null));
     }
 
@@ -327,15 +327,6 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    public void shouldBuildWithCustomHttpOptions() {
-        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
-                .withHttpOptions(mockHttpOptions)
-                .build();
-
-        assertThat(controller, is(notNullValue()));
-    }
-
-    @Test
     public void shouldBuildWithOrganizationAndInvitation() {
         AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
                 .withOrganization("org_123")
@@ -434,5 +425,44 @@ public class AuthenticationControllerTest {
                 .build();
 
         assertThat(controller, is(notNullValue()));
+    }
+
+    // --- HttpClient Configuration Tests ---
+
+    @Test
+    public void shouldBuildWithCustomHttpClient() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+        assertThat(controller.getRequestProcessor(), is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildWithCustomHttpClientAndJwkProvider() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .withJwkProvider(mockJwkProvider)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildWithCustomHttpClientAndDomainResolver() {
+        AuthenticationController controller = AuthenticationController
+                .newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenHttpClientIsNull() {
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET);
+
+        assertThrows(NullPointerException.class, () -> builder.withHttpClient(null));
     }
 }

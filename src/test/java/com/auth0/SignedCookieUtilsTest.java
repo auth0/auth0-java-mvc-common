@@ -164,4 +164,70 @@ public class SignedCookieUtilsTest {
 
         assertThat(extracted, is(nullValue()));
     }
+
+    // --- Context-bound sign/verify tests (transaction binding) ---
+
+    private static final String STATE = "randomState123";
+
+    @Test
+    public void shouldSignWithContext() {
+        String signed = SignedCookieUtils.sign(DOMAIN, STATE, SECRET);
+
+        assertThat(signed, is(notNullValue()));
+        String[] parts = signed.split("\\|");
+        assertThat(parts.length, is(2));
+        assertThat(parts[0], is(DOMAIN));
+        assertThat(parts[1].length(), is(64));
+    }
+
+    @Test
+    public void shouldVerifyWithMatchingContext() {
+        String signed = SignedCookieUtils.sign(DOMAIN, STATE, SECRET);
+
+        String extracted = SignedCookieUtils.verifyAndExtract(signed, STATE, SECRET);
+
+        assertThat(extracted, is(DOMAIN));
+    }
+
+    @Test
+    public void shouldRejectWrongContext() {
+        String signed = SignedCookieUtils.sign(DOMAIN, STATE, SECRET);
+
+        String extracted = SignedCookieUtils.verifyAndExtract(signed, "different-state", SECRET);
+
+        assertThat(extracted, is(nullValue()));
+    }
+
+    @Test
+    public void shouldProduceDifferentSignaturesForDifferentContexts() {
+        String signed1 = SignedCookieUtils.sign(DOMAIN, "state-1", SECRET);
+        String signed2 = SignedCookieUtils.sign(DOMAIN, "state-2", SECRET);
+
+        assertThat(signed1, is(not(signed2)));
+    }
+
+    @Test
+    public void shouldNotVerifyContextBoundCookieWithoutContext() {
+        // Cookie signed with context should NOT verify via the context-less overload
+        String signed = SignedCookieUtils.sign(DOMAIN, STATE, SECRET);
+
+        String extracted = SignedCookieUtils.verifyAndExtract(signed, SECRET);
+
+        assertThat(extracted, is(nullValue()));
+    }
+
+    @Test
+    public void shouldThrowWhenSigningWithNullContext() {
+        assertThrows(IllegalArgumentException.class, () ->
+                SignedCookieUtils.sign(DOMAIN, null, SECRET));
+    }
+
+    @Test
+    public void shouldReturnNullWhenVerifyingWithNullContext() {
+        String signed = SignedCookieUtils.sign(DOMAIN, STATE, SECRET);
+
+        String extracted = SignedCookieUtils.verifyAndExtract(signed, null, SECRET);
+
+        assertThat(extracted, is(nullValue()));
+    }
 }

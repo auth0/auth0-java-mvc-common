@@ -13,6 +13,27 @@ class StorageUtils {
     static final String ORIGIN_DOMAIN_KEY = "com.auth0.origin_domain";
 
     /**
+     * Constructs a transaction-keyed state cookie name.
+     * Each login transaction gets its own cookie, preventing multi-tab overwrites.
+     *
+     * @param state the state value for this transaction
+     * @return the cookie name in the form "com.auth0.state.{state}"
+     */
+    static String transactionStateKey(String state) {
+        return STATE_KEY + "." + state;
+    }
+
+    /**
+     * Constructs a transaction-keyed nonce cookie name.
+     *
+     * @param state the state value for this transaction (used as key, not the nonce itself)
+     * @return the cookie name in the form "com.auth0.nonce.{state}"
+     */
+    static String transactionNonceKey(String state) {
+        return NONCE_KEY + "." + state;
+    }
+
+    /**
      * Generates a new random string using {@link SecureRandom}.
      * The output can be used as State or Nonce values for API requests.
      *

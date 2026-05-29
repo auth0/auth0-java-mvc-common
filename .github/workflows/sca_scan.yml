@@ -4,12 +4,12 @@ on:
   push:
     branches: ["master"]
   pull_request:
-    branches: ["master"]
+    branches: ["master", "v2"]
 
 jobs:
   snyk-cli:
     uses: auth0/devsecops-tooling/.github/workflows/sca-scan.yml@main
     with:
       additional-arguments: "--exclude=README.md"
-      java-version: "8"
+      java-version: "17"
     secrets: inherit
