@@ -1,6 +1,7 @@
 package com.auth0;
 
 import com.auth0.jwk.JwkProvider;
+import com.auth0.net.client.Auth0HttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -30,6 +31,8 @@ public class AuthenticationControllerTest {
     private JwkProvider mockJwkProvider;
     @Mock
     private DomainResolver mockDomainResolver;
+    @Mock
+    private Auth0HttpClient mockHttpClient;
     @Mock
     private Tokens mockTokens;
 
@@ -82,6 +85,7 @@ public class AuthenticationControllerTest {
         AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
                 .withResponseType("id_token token")
                 .withJwkProvider(mockJwkProvider)
+                .withHttpClient(mockHttpClient)
                 .withClockSkew(120)
                 .withAuthenticationMaxAge(3600)
                 .withLegacySameSiteCookie(false)
@@ -131,6 +135,7 @@ public class AuthenticationControllerTest {
         assertThrows(NullPointerException.class, () -> builder.withDomain(null));
         assertThrows(NullPointerException.class, () -> builder.withResponseType(null));
         assertThrows(NullPointerException.class, () -> builder.withJwkProvider(null));
+        assertThrows(NullPointerException.class, () -> builder.withHttpClient(null));
         assertThrows(NullPointerException.class, () -> builder.withClockSkew(null));
         assertThrows(NullPointerException.class, () -> builder.withAuthenticationMaxAge(null));
         assertThrows(NullPointerException.class, () -> builder.withOrganization(null));
@@ -420,5 +425,44 @@ public class AuthenticationControllerTest {
                 .build();
 
         assertThat(controller, is(notNullValue()));
+    }
+
+    // --- HttpClient Configuration Tests ---
+
+    @Test
+    public void shouldBuildWithCustomHttpClient() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+        assertThat(controller.getRequestProcessor(), is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildWithCustomHttpClientAndJwkProvider() {
+        AuthenticationController controller = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .withJwkProvider(mockJwkProvider)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildWithCustomHttpClientAndDomainResolver() {
+        AuthenticationController controller = AuthenticationController
+                .newBuilder(mockDomainResolver, CLIENT_ID, CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .build();
+
+        assertThat(controller, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenHttpClientIsNull() {
+        AuthenticationController.Builder builder = AuthenticationController.newBuilder(DOMAIN, CLIENT_ID, CLIENT_SECRET);
+
+        assertThrows(NullPointerException.class, () -> builder.withHttpClient(null));
     }
 }

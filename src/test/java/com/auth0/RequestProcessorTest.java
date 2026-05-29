@@ -6,6 +6,7 @@ import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
+import com.auth0.net.client.Auth0HttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -43,6 +44,8 @@ public class RequestProcessorTest {
     private DomainProvider mockDomainProvider;
     @Mock
     private JwkProvider mockJwkProvider;
+    @Mock
+    private Auth0HttpClient mockHttpClient;
     @Mock
     private AuthAPI mockAuthAPI;
     @Mock
@@ -644,6 +647,264 @@ public class RequestProcessorTest {
                 .build();
 
         assertThat(processor, is(notNullValue()));
+    }
+
+    // --- Custom HttpClient Tests ---
+
+    @Test
+    public void shouldBuildWithCustomHttpClient() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .build();
+
+        assertThat(processor, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldCreateClientForDomainWithCustomHttpClient() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .build();
+
+        AuthAPI client = processor.createClientForDomain(DOMAIN);
+        assertThat(client, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldReuseCustomHttpClientAcrossMultipleDomains() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .build();
+
+        AuthAPI client1 = processor.createClientForDomain("domain1.auth0.com");
+        AuthAPI client2 = processor.createClientForDomain("domain2.auth0.com");
+
+        assertThat(client1, is(notNullValue()));
+        assertThat(client2, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldCreateDefaultHttpClientWhenNoneProvided() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .build();
+
+        AuthAPI client = processor.createClientForDomain(DOMAIN);
+        assertThat(client, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldReuseDefaultHttpClientAcrossMultipleCalls() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .build();
+
+        AuthAPI client1 = processor.createClientForDomain("domain1.auth0.com");
+        AuthAPI client2 = processor.createClientForDomain("domain2.auth0.com");
+
+        assertThat(client1, is(notNullValue()));
+        assertThat(client2, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildWithHttpClientAndJwkProvider() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                mockDomainProvider,
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withHttpClient(mockHttpClient)
+                .withJwkProvider(mockJwkProvider)
+                .build();
+
+        assertThat(processor, is(notNullValue()));
+    }
+
+    // --- Transaction-Keyed Cookie Tests ---
+
+    @Test
+    public void shouldValidateStateFromTransactionKeyedCookie() {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("state", "txn-state-123");
+        params.put("code", "auth-code");
+        MockHttpServletRequest request = getRequest(params);
+        // Transaction-keyed cookie: com.auth0.state.{state_value}
+        request.setCookies(new Cookie("com.auth0.state.txn-state-123", "txn-state-123"));
+
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        when(mockTokenHolder.getAccessToken()).thenReturn("access");
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        try {
+            when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        } catch (Auth0Exception e) {
+            fail("Unexpected exception");
+        }
+        when(mockAuthAPI.exchangeCode(eq("auth-code"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        assertDoesNotThrow(() -> spy.process(request, response));
+    }
+
+    @Test
+    public void shouldFallbackToLegacyStateCookieWhenTransactionKeyedMissing() {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("state", "legacy-state-456");
+        params.put("code", "auth-code");
+        MockHttpServletRequest request = getRequest(params);
+        // Legacy fixed-name cookie (v1 compatibility)
+        request.setCookies(new Cookie("com.auth0.state", "legacy-state-456"));
+
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        when(mockTokenHolder.getAccessToken()).thenReturn("access");
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        try {
+            when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        } catch (Auth0Exception e) {
+            fail("Unexpected exception");
+        }
+        when(mockAuthAPI.exchangeCode(eq("auth-code"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        assertDoesNotThrow(() -> spy.process(request, response));
+    }
+
+    @Test
+    public void shouldRejectWhenNoStateCookieExists() {
+        Map<String, Object> params = new HashMap<>();
+        params.put("state", "orphan-state");
+        MockHttpServletRequest request = getRequest(params);
+        // No cookies at all
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+
+        InvalidRequestException e = assertThrows(InvalidRequestException.class, () -> handler.process(request, response));
+        assertThat(e.getCode(), is("a0.invalid_state"));
+    }
+
+    // --- MCD Origin Domain Binding Tests ---
+
+    @Test
+    public void shouldUseDomainFromSignedCookieWhenPresent() throws Exception {
+        String state = "mcd-state-789";
+        String domain = "brand-a.auth0.com";
+
+        // Create a signed origin domain cookie
+        String signedDomain = SignedCookieUtils.sign(domain, state, CLIENT_SECRET);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("state", state);
+        params.put("code", "auth-code");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(
+                new Cookie("com.auth0.state." + state, state),
+                new Cookie("com.auth0.origin_domain", signedDomain)
+        );
+
+        when(mockDomainProvider.getDomain(any())).thenReturn("fallback.auth0.com");
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        when(mockTokenHolder.getAccessToken()).thenReturn("access");
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("auth-code"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        spy.process(request, response);
+
+        // Should use the domain from the signed cookie, not the fallback
+        verify(spy).createClientForDomain(domain);
+    }
+
+    @Test
+    public void shouldFallbackToDomainProviderWhenSignedCookieMissing() throws Exception {
+        String state = "no-cookie-state";
+        String fallbackDomain = "fallback.auth0.com";
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("state", state);
+        params.put("code", "auth-code");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(new Cookie("com.auth0.state." + state, state));
+
+        when(mockDomainProvider.getDomain(any())).thenReturn(fallbackDomain);
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        when(mockTokenHolder.getAccessToken()).thenReturn("access");
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("auth-code"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        spy.process(request, response);
+
+        // Should fall back to domainProvider when no signed origin cookie
+        verify(spy).createClientForDomain(fallbackDomain);
+    }
+
+    @Test
+    public void shouldFallbackToDomainProviderWhenSignedCookieTampered() throws Exception {
+        String state = "tampered-state";
+        String fallbackDomain = "fallback.auth0.com";
+
+        // Tampered cookie — signed with different state
+        String signedDomain = SignedCookieUtils.sign("evil.auth0.com", "different-state", CLIENT_SECRET);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("state", state);
+        params.put("code", "auth-code");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(
+                new Cookie("com.auth0.state." + state, state),
+                new Cookie("com.auth0.origin_domain", signedDomain)
+        );
+
+        when(mockDomainProvider.getDomain(any())).thenReturn(fallbackDomain);
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        when(mockTokenHolder.getAccessToken()).thenReturn("access");
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("auth-code"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        spy.process(request, response);
+
+        // Tampered cookie should be rejected, fallback to domainProvider
+        verify(spy).createClientForDomain(fallbackDomain);
     }
 
     // --- Helper Methods ---
