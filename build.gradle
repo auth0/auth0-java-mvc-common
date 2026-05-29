@@ -1,19 +1,7 @@
-buildscript {
-    repositories {
-        jcenter()
-    }
-
-    dependencies {
-        // https://github.com/melix/japicmp-gradle-plugin/issues/36
-        classpath 'com.google.guava:guava:31.1-jre'
-    }
-}
-
 plugins {
     id 'java'
     id 'java-library'
     id 'jacoco'
-    id 'me.champeau.gradle.japicmp' version '0.4.6'
     id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
 }
 
@@ -27,61 +15,7 @@ version = getVersionFromFile()
 group = GROUP
 logger.lifecycle("Using version ${version} for ${name} group $group")
 
-import me.champeau.gradle.japicmp.JapicmpTask
-
-//project.afterEvaluate {
-//    def versions = project.ext.testInJavaVersions
-//    for (pluginJavaTestVersion in versions) {
-//        def taskName = "testInJava-${pluginJavaTestVersion}"
-//        tasks.register(taskName, Test) {
-//            def versionToUse = taskName.split("-").getAt(1) as Integer
-//            description = "Runs unit tests on Java version ${versionToUse}."
-//            project.logger.quiet("Test will be running in ${versionToUse}")
-//            group = 'verification'
-//            javaLauncher.set(javaToolchains.launcherFor {
-//                languageVersion = JavaLanguageVersion.of(versionToUse)
-//            })
-//            shouldRunAfter(tasks.named('test'))
-//        }
-//        tasks.named('check') {
-//            dependsOn(taskName)
-//        }
-//    }
-//
-//    project.configure(project) {
-//        def baselineVersion = project.ext.baselineCompareVersion
-//        task('apiDiff', type: JapicmpTask, dependsOn: 'jar') {
-//            oldClasspath.from(files(getBaselineJar(project, baselineVersion)))
-//            newClasspath.from(files(jar.archiveFile))
-//            onlyModified = true
-//            failOnModification = true
-//            ignoreMissingClasses = true
-//            htmlOutputFile = file("$buildDir/reports/apiDiff/apiDiff.html")
-//            txtOutputFile = file("$buildDir/reports/apiDiff/apiDiff.txt")
-//            doLast {
-//                project.logger.quiet("Comparing against baseline version ${baselineVersion}")
-//            }
-//        }
-//    }
-//}
-//
-//private static File getBaselineJar(Project project, String baselineVersion) {
-//    // Use detached configuration: https://github.com/square/okhttp/blob/master/build.gradle#L270
-//    def group = project.group
-//    try {
-//        def baseline = "${project.group}:${project.name}:$baselineVersion"
-//        project.group = 'virtual_group_for_japicmp'
-//        def dependency = project.dependencies.create(baseline + "@jar")
-//        return project.configurations.detachedConfiguration(dependency).files.find {
-//            it.name == "${project.name}-${baselineVersion}.jar"
-//        }
-//    } finally {
-//        project.group = group
-//    }
-//}
-
 ext {
-    baselineCompareVersion = '1.5.0'
     testInJavaVersions = [17, 21]
 }
 
