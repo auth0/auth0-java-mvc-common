@@ -20,6 +20,9 @@ tasks.withType(Javadoc).configureEach {
 javadoc {
     // Specify the Java version that the project targets
     options.addStringOption('-release', "17")
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
 }
 artifacts {
     archives sourcesJar, javadocJar
@@ -86,12 +89,6 @@ signing {
     useInMemoryPgpKeys(signingKey, signingPassword)
 
     sign publishing.publications.mavenJava
-}
-
-javadoc {
-    if(JavaVersion.current().isJava9Compatible()) {
-        options.addBooleanOption('html5', true)
-    }
 }
 
 tasks.named('publish').configure {

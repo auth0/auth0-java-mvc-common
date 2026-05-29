@@ -32,7 +32,7 @@ jobs:
     uses: ./.github/workflows/java-release.yml
     needs: rl-scanner
     with:
-      java-version: 17
+      java-version: 17.0.19-tem
     secrets:
       ossr-username: ${{ secrets.OSSR_USERNAME }}
       ossr-token: ${{ secrets.OSSR_TOKEN }}
