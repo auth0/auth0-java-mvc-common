@@ -209,7 +209,7 @@ public class AuthenticationController {
          * @return this same builder instance.
          */
         public Builder withHttpClient(Auth0HttpClient httpClient) {
-            Validate.notNull(httpClient);
+            Validate.notNull(httpClient, "httpClient must not be null");
             this.httpClient = httpClient;
             return this;
         }
