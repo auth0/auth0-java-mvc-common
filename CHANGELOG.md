@@ -1,5 +1,38 @@
 # Change Log
 
+## [2.0.0-beta.0](https://github.com/auth0/auth0-java-mvc-common/tree/2.0.0-beta.0) (2026-05-29)
+
+This is the first beta release of the v2 major version. See the [Migration Guide](MIGRATION_GUIDE.md) for full upgrade instructions.
+
+**Added**
+- Jakarta EE 10 / Jakarta Servlet 6.0 support (replaces `javax.servlet`) [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- Transaction-keyed cookies to prevent multi-tab OAuth state race conditions [\#231](https://github.com/auth0/auth0-java-mvc-common/pull/231) ([tanya732](https://github.com/tanya732))
+- `withHttpClient(Auth0HttpClient)` builder method for custom HTTP client configuration [\#234](https://github.com/auth0/auth0-java-mvc-common/pull/234) ([tanya732](https://github.com/tanya732))
+- Algorithm auto-detection from token `alg` header (RS256/HS256) [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- ID Token signature is now always verified — no code path allows unverified tokens [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- MCD security fix: HMAC-signed origin domain cookies bound to state parameter [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- JPMS module support (`com.auth0.mvc.commons`) [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- ID Token validation delegated to auth0-java v3's `IdTokenVerifier` [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- Migration guide for v1 to v2 upgrade [\#233](https://github.com/auth0/auth0-java-mvc-common/pull/233) ([tanya732](https://github.com/tanya732))
+
+**Changed**
+- Minimum Java version raised from 8 to 17 [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- Upgraded auth0-java from v2 to v3.5.1 (`AuthAPI.newBuilder()` pattern) [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- Upgraded java-jwt from v3 to v4.5.0 [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- Upgraded jwks-rsa to v0.24.1 [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+
+**Removed**
+- Deprecated `handle(HttpServletRequest)` — use `handle(HttpServletRequest, HttpServletResponse)` instead [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- Deprecated `buildAuthorizeUrl(HttpServletRequest, String)` — use `buildAuthorizeUrl(HttpServletRequest, HttpServletResponse, String)` instead [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- `withHttpOptions(HttpOptions)` on Builder — use `withHttpClient(Auth0HttpClient)` instead [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- `InvalidRequestException.getDescription()` — use `getMessage()` instead [\#154](https://github.cm/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- Custom signature verifier classes: `IdTokenVerifier`, `SignatureVerifier`, `AsymmetricSignatureVerifier`, `SymmetricSignatureVerifier`, `AlgorithmNameVerifier`, `TokenValidationException` [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+- Session-based storage classes: `RandomStorage`, `SessionUtils` [\#154](https://github.com/auth0/auth0-java-mvc-common/pull/154) ([tanya732](https://github.com/tanya732))
+
+> **Note:** All deprecated endpoints from v1.x have been removed in this release. Session (HTTP Session) based state/nonce storage has been replaced with secure transient cookies — the library no longer uses `HttpSession` for OAuth state management.
+
+---
+
 ## [1.12.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.12.0) (2026-04-09)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.11.1...1.12.0)
 
