@@ -185,10 +185,18 @@ public class AuthenticationController {
          * Sets a custom {@link Auth0HttpClient} to use for all HTTP requests made by this library
          * (token exchange, PAR, etc.). Use this to configure timeouts, proxies, or other HTTP settings.
          *
+         * <p><strong>Note:</strong> When a custom {@code Auth0HttpClient} is provided, the
+         * {@link AuthenticationController#setLoggingEnabled(boolean)} and
+         * {@link AuthenticationController#doNotSendTelemetry()} settings will have no effect,
+         * as those are configured at the HTTP client level. You should configure logging and
+         * telemetry directly on the client instance before passing it here.</p>
+         *
          * <pre>{@code
          * Auth0HttpClient httpClient = DefaultHttpClient.newBuilder()
          *     .withConnectTimeout(10)
          *     .withReadTimeout(10)
+         *     .telemetryEnabled(false)
+         *     .withLogging(new LoggingOptions(LoggingOptions.LogLevel.BODY))
          *     .build();
          *
          * AuthenticationController controller = AuthenticationController
