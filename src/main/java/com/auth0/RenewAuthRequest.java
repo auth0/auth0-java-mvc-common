@@ -14,8 +14,9 @@ import com.auth0.net.TokenRequest;
  * The library remains stateless: the application owns storage of the refresh token, caching of
  * the resulting access tokens, and any concurrency control around refresh-token rotation.
  * <p>
- * Obtain an instance via {@link AuthenticationController#renewAuth(String, String)} or
- * {@link AuthenticationController#renewAuth(String)}.
+ * Obtain an instance via {@link AuthenticationController#renewAuth(String, String)},
+ * {@link AuthenticationController#renewAuth(String)}, or
+ * {@link AuthenticationController#renewAuth(String, jakarta.servlet.http.HttpServletRequest)}.
  */
 @SuppressWarnings({"UnusedReturnValue", "WeakerAccess", "unused"})
 public class RenewAuthRequest {
