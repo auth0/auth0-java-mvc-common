@@ -250,6 +250,94 @@ public class AuthenticationControllerTest {
         assertThat(exception.getMessage(), is("redirectUri must not be null"));
     }
 
+    // --- renewAuth Tests ---
+
+    @Test
+    public void shouldRenewAuthWithDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        RenewAuthRequest mockRenewAuthRequest = mock(RenewAuthRequest.class);
+        when(mockRequestProcessor.buildRenewAuthRequest("refreshToken", DOMAIN)).thenReturn(mockRenewAuthRequest);
+
+        RenewAuthRequest result = controller.renewAuth("refreshToken", DOMAIN);
+
+        assertThat(result, is(mockRenewAuthRequest));
+        verify(mockRequestProcessor).buildRenewAuthRequest("refreshToken", DOMAIN);
+    }
+
+    @Test
+    public void shouldRenewAuthWithoutDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        RenewAuthRequest mockRenewAuthRequest = mock(RenewAuthRequest.class);
+        when(mockRequestProcessor.buildRenewAuthRequest("refreshToken")).thenReturn(mockRenewAuthRequest);
+
+        RenewAuthRequest result = controller.renewAuth("refreshToken");
+
+        assertThat(result, is(mockRenewAuthRequest));
+        verify(mockRequestProcessor).buildRenewAuthRequest("refreshToken");
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenRenewAuthRefreshTokenIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.renewAuth(null, DOMAIN));
+        assertThat(exception.getMessage(), is("refreshToken must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenRenewAuthDomainIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.renewAuth("refreshToken", (String) null));
+        assertThat(exception.getMessage(), is("domain must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenNoArgRenewAuthRefreshTokenIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.renewAuth(null));
+        assertThat(exception.getMessage(), is("refreshToken must not be null"));
+    }
+
+    @Test
+    public void shouldRenewAuthWithRequest() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        RenewAuthRequest mockRenewAuthRequest = mock(RenewAuthRequest.class);
+        when(mockRequestProcessor.buildRenewAuthRequest("refreshToken", request)).thenReturn(mockRenewAuthRequest);
+
+        RenewAuthRequest result = controller.renewAuth("refreshToken", request);
+
+        assertThat(result, is(mockRenewAuthRequest));
+        verify(mockRequestProcessor).buildRenewAuthRequest("refreshToken", request);
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenRenewAuthWithRequestRefreshTokenIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.renewAuth((String) null, request));
+        assertThat(exception.getMessage(), is("refreshToken must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenRenewAuthRequestIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.renewAuth("refreshToken", (HttpServletRequest) null));
+        assertThat(exception.getMessage(), is("request must not be null"));
+    }
+
     // --- Logging and Telemetry Tests ---
 
     @Test
@@ -269,8 +357,6 @@ public class AuthenticationControllerTest {
 
         verify(mockRequestProcessor).doNotSendTelemetry();
     }
-
-    // --- Exception Propagation ---
 
     @Test
     public void shouldPropagateIdentityVerificationException() throws IdentityVerificationException {

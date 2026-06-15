@@ -383,4 +383,66 @@ public class AuthenticationController {
         return requestProcessor.buildAuthorizeUrl(request, response, redirectUri, state, nonce);
     }
 
+    /**
+     * Builds a request to exchange a refresh token for a new set of {@link Tokens}, optionally
+     * targeting a specific audience and/or scope. This exposes Auth0's refresh-token grant,
+     * enabling Multi-Resource Refresh Token (MRRT) flows where one refresh token can obtain access
+     * tokens for multiple APIs.
+     *
+     * <p>The application supplies the {@code domain} it stored from {@link Tokens#getDomain()} at
+     * login. This is required because a refresh can occur outside of an HTTP request, where the
+     * domain cannot otherwise be resolved. For applications configured with a fixed domain, the
+     * {@link AuthenticationController#renewAuth(String)} overload may be used instead.</p>
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @param domain       the Auth0 domain to target.
+     * @return a {@link RenewAuthRequest} to configure and execute.
+     */
+    public RenewAuthRequest renewAuth(String refreshToken, String domain) {
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildRenewAuthRequest(refreshToken, domain);
+    }
+
+    /**
+     * Builds a request to exchange a refresh token for a new set of {@link Tokens} using the
+     * statically configured domain. See {@link AuthenticationController#renewAuth(String, String)}
+     * for details.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call {@link AuthenticationController#renewAuth(String, String)}
+     * with the domain instead.</p>
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @return a {@link RenewAuthRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public RenewAuthRequest renewAuth(String refreshToken) {
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        return requestProcessor.buildRenewAuthRequest(refreshToken);
+    }
+
+    /**
+     * Builds a request to exchange a refresh token for a new set of {@link Tokens}, resolving the
+     * Auth0 domain from the given request via the configured domain or {@code DomainResolver}.
+     * See {@link AuthenticationController#renewAuth(String, String)} for details.
+     *
+     * <p>This overload works for both a fixed domain and a {@code DomainResolver}, and is convenient
+     * when refreshing within an active request. <strong>Note:</strong> a refresh token is bound to
+     * the domain it was issued for at login; if the resolver resolves the given request to a
+     * different domain, Auth0 will reject the grant. Use this overload only when the request
+     * resolves to the same domain as login; otherwise use
+     * {@link AuthenticationController#renewAuth(String, String)} with the domain stored from
+     * {@link Tokens#getDomain()} at login.</p>
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @param request      the current HTTP request, used to resolve the domain.
+     * @return a {@link RenewAuthRequest} to configure and execute.
+     */
+    public RenewAuthRequest renewAuth(String refreshToken, HttpServletRequest request) {
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        Validate.notNull(request, "request must not be null");
+        return requestProcessor.buildRenewAuthRequest(refreshToken, request);
+    }
+
 }
