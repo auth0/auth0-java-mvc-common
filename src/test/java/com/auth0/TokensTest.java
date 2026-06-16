@@ -31,4 +31,31 @@ public class TokensTest {
         assertThat(tokens.getDomain(), is(nullValue()));
         assertThat(tokens.getIssuer(), is(nullValue()));
     }
+
+    @Test
+    public void shouldHaveNullScopeFromFiveArgConstructor() {
+        Tokens tokens = new Tokens("accessToken", "idToken", "refreshToken", "bearer", 360000L);
+        assertThat(tokens.getScope(), is(nullValue()));
+    }
+
+    @Test
+    public void shouldHaveNullScopeFromSevenArgConstructor() {
+        Tokens tokens = new Tokens("accessToken", "idToken", "refreshToken", "bearer", 360000L, "domain.auth0.com", "https://domain.auth0.com/");
+        assertThat(tokens.getScope(), is(nullValue()));
+        assertThat(tokens.getDomain(), is("domain.auth0.com"));
+        assertThat(tokens.getIssuer(), is("https://domain.auth0.com/"));
+    }
+
+    @Test
+    public void shouldReturnScopeFromEightArgConstructor() {
+        Tokens tokens = new Tokens("accessToken", "idToken", "refreshToken", "bearer", 360000L, "openid profile", "domain.auth0.com", "https://domain.auth0.com/");
+        assertThat(tokens.getAccessToken(), is("accessToken"));
+        assertThat(tokens.getIdToken(), is("idToken"));
+        assertThat(tokens.getRefreshToken(), is("refreshToken"));
+        assertThat(tokens.getType(), is("bearer"));
+        assertThat(tokens.getExpiresIn(), is(360000L));
+        assertThat(tokens.getScope(), is("openid profile"));
+        assertThat(tokens.getDomain(), is("domain.auth0.com"));
+        assertThat(tokens.getIssuer(), is("https://domain.auth0.com/"));
+    }
 }

@@ -170,6 +170,49 @@ class RequestProcessor {
                 .build();
     }
 
+    /**
+     * Builds a {@link RenewAuthRequest} to exchange a refresh token for new tokens against the
+     * given domain. The domain is supplied explicitly because a refresh can occur outside of an
+     * HTTP request (e.g. a background refresh), where the {@link DomainProvider} cannot resolve it.
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @param domain       the Auth0 domain to target.
+     * @return a {@link RenewAuthRequest} ready to configure and execute.
+     */
+    RenewAuthRequest buildRenewAuthRequest(String refreshToken, String domain) {
+        AuthAPI client = createClientForDomain(domain);
+        String issuer = constructIssuer(domain);
+        return new RenewAuthRequest(client, refreshToken, domain, issuer);
+    }
+
+    /**
+     * Builds a {@link RenewAuthRequest} using the statically configured domain. Only valid when the
+     * controller was configured with a fixed domain; when a {@link DomainResolver} is in use there
+     * is no fixed domain to target and the domain must be supplied explicitly.
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @return a {@link RenewAuthRequest} ready to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    RenewAuthRequest buildRenewAuthRequest(String refreshToken) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call renewAuth(refreshToken, domain).");
+        }
+        return buildRenewAuthRequest(refreshToken, domainProvider.getDomain(null));
+    }
+
+    /**
+     * Builds a {@link RenewAuthRequest} resolving the domain from the given request via the
+     * configured {@link DomainProvider}. Works for both a fixed domain and a {@link DomainResolver}.
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @param request      the current HTTP request, used to resolve the domain.
+     * @return a {@link RenewAuthRequest} ready to configure and execute.
+     */
+    RenewAuthRequest buildRenewAuthRequest(String refreshToken, HttpServletRequest request) {
+        return buildRenewAuthRequest(refreshToken, domainProvider.getDomain(request));
+    }
+
     private Auth0HttpClient getHttpClient() {
         if (this.httpClient == null) {
             DefaultHttpClient.Builder httpBuilder = DefaultHttpClient.newBuilder()
@@ -450,7 +493,7 @@ class RequestProcessor {
                 .execute()
                 .getBody();
         String originIssuer = constructIssuer(originDomain);
-        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn(), originDomain, originIssuer);
+        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn(), holder.getScope(), originDomain, originIssuer);
     }
 
     /**
@@ -470,15 +513,18 @@ class RequestProcessor {
         String accessToken;
         String type;
         Long expiresIn;
+        String scope;
 
         if (codeExchangeTokens.getAccessToken() != null) {
             accessToken = codeExchangeTokens.getAccessToken();
             type = codeExchangeTokens.getType();
             expiresIn = codeExchangeTokens.getExpiresIn();
+            scope = codeExchangeTokens.getScope();
         } else {
             accessToken = frontChannelTokens.getAccessToken();
             type = frontChannelTokens.getType();
             expiresIn = frontChannelTokens.getExpiresIn();
+            scope = frontChannelTokens.getScope();
         }
 
         // Prefer ID token from the front-channel
@@ -493,7 +539,7 @@ class RequestProcessor {
         String issuer = frontChannelTokens.getIssuer() != null ? frontChannelTokens.getIssuer()
                 : codeExchangeTokens.getIssuer();
 
-        return new Tokens(accessToken, idToken, refreshToken, type, expiresIn, domain, issuer);
+        return new Tokens(accessToken, idToken, refreshToken, type, expiresIn, scope, domain, issuer);
     }
 
     private String constructIssuer(String domain) {

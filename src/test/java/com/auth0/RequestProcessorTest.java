@@ -147,6 +147,64 @@ public class RequestProcessorTest {
         assertThat(result, is(notNullValue()));
     }
 
+    // --- RenewAuth Tests ---
+
+    @Test
+    public void shouldBuildRenewAuthRequestForExplicitDomain() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        RenewAuthRequest result = spy.buildRenewAuthRequest("refreshToken", DOMAIN);
+
+        assertThat(result, is(notNullValue()));
+        verify(spy).createClientForDomain(DOMAIN);
+    }
+
+    @Test
+    public void shouldBuildRenewAuthRequestFromStaticDomain() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                new StaticDomainProvider(DOMAIN),
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
+                .build();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        RenewAuthRequest result = spy.buildRenewAuthRequest("refreshToken");
+
+        assertThat(result, is(notNullValue()));
+        verify(spy).createClientForDomain(DOMAIN);
+    }
+
+    @Test
+    public void shouldThrowOnNoArgRenewAuthWhenUsingResolver() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> processor.buildRenewAuthRequest("refreshToken"));
+        assertThat(exception.getMessage(), containsString("A domain is required when using a DomainResolver"));
+    }
+
+    @Test
+    public void shouldBuildRenewAuthRequestResolvingDomainFromRequest() {
+        String resolvedDomain = "resolved-domain.auth0.com";
+        when(mockDomainProvider.getDomain(request)).thenReturn(resolvedDomain);
+
+        RequestProcessor processor = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        RenewAuthRequest result = spy.buildRenewAuthRequest("refreshToken", request);
+
+        assertThat(result, is(notNullValue()));
+        verify(mockDomainProvider).getDomain(request);
+        verify(spy).createClientForDomain(resolvedDomain);
+    }
+
     // --- Logging and Telemetry Tests ---
 
     @Test
