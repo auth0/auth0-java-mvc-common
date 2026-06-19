@@ -6,6 +6,8 @@ import com.auth0.exception.Auth0Exception;
 import com.auth0.exception.IdTokenValidationException;
 import com.auth0.exception.PublicKeyProviderException;
 import com.auth0.jwt.JWT;
+import com.auth0.jwt.interfaces.Claim;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.Jwk;
 import com.auth0.jwk.JwkException;
@@ -21,6 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -301,7 +304,52 @@ class RequestProcessor {
             throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the authorization code.", e);
         }
         // Keep the front-channel ID Token and the code-exchange Access Token.
-        return mergeTokens(frontChannelTokens, codeExchangeTokens);
+        Tokens tokens = mergeTokens(frontChannelTokens, codeExchangeTokens);
+        return withSessionExpiry(tokens);
+    }
+
+    /**
+     * Reads the IPSIE {@code session_expiry} claim from the verified ID token and stamps it onto
+     * the returned {@link Tokens} so the application can persist it and enforce the upstream IdP
+     * session ceiling on subsequent reads.
+     * <p>
+     * The claim is an integer Unix timestamp (seconds since epoch). When it is absent the tokens
+     * are returned unchanged (no ceiling). As a lockout guard, if the ceiling is already in the
+     * past relative to the token's {@code iat}, the login is rejected rather than producing an
+     * already-expired session.
+     *
+     * @param tokens the merged tokens whose ID token is inspected.
+     * @return the same tokens augmented with {@code sessionExpiresAt}, or {@code tokens} unchanged
+     * when no {@code session_expiry} claim is present.
+     * @throws IdentityVerificationException if {@code session_expiry <= iat}.
+     */
+    private Tokens withSessionExpiry(Tokens tokens) throws IdentityVerificationException {
+        String idToken = tokens.getIdToken();
+        if (idToken == null) {
+            return tokens;
+        }
+
+        DecodedJWT decoded = JWT.decode(idToken);
+        Claim sessionExpiryClaim = decoded.getClaim("session_expiry");
+        if (sessionExpiryClaim.isMissing() || sessionExpiryClaim.isNull()) {
+            return tokens;
+        }
+
+        Long sessionExpiresAt = sessionExpiryClaim.asLong();
+        if (sessionExpiresAt == null) {
+            // Present but not a numeric value — ignore rather than fail, matching "no ceiling".
+            return tokens;
+        }
+
+        // Lockout guard: a session that is already past its ceiling at login must not be persisted.
+        Date issuedAt = decoded.getIssuedAt();
+        if (issuedAt != null && sessionExpiresAt <= Math.floorDiv(issuedAt.getTime(), 1000L)) {
+            throw new IdentityVerificationException(SESSION_EXPIRY_IN_PAST_ERROR,
+                    "The session_expiry claim is at or before the token's issued-at time; the session is already expired.");
+        }
+
+        return new Tokens(tokens.getAccessToken(), tokens.getIdToken(), tokens.getRefreshToken(),
+                tokens.getType(), tokens.getExpiresIn(), tokens.getDomain(), tokens.getIssuer(), sessionExpiresAt);
     }
 
     /**
