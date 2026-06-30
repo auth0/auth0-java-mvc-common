@@ -360,6 +360,17 @@ public class AuthenticationController {
         return requestProcessor.process(request, response);
     }
 
+    // TODO(IPSIE Req 3 — refresh-token ceiling): this branch has no renew/refresh-token API, so the
+    // session_expiry ceiling is only stamped at login (see RequestProcessor#withSessionExpiry). When
+    // the refresh-token grant (renewAuth) is merged from the MRRT work, it must:
+    //   1. Gate the refresh: refuse to exchange grant_type=refresh_token once the persisted ceiling
+    //      has passed (Tokens#isSessionExpired()) and surface a0.session_expired instead of calling
+    //      /oauth/token — the renewed access token must never outlive the IdP session ceiling.
+    //   2. Preserve the ceiling: a refresh response without a fresh session_expiry claim must carry
+    //      forward the original sessionExpiresAt rather than dropping it to null (no ceiling). Only a
+    //      newly-emitted, valid session_expiry should replace it.
+    // Until then, enforcement is login-time only; the example-app demonstrates the gate manually.
+
     /**
      * Pre builds an Auth0 Authorize Url with the given redirect URI using a random state and a random nonce if applicable.
      *

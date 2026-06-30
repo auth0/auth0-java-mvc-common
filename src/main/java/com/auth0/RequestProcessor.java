@@ -49,6 +49,12 @@ class RequestProcessor {
     private static final String KEY_FORM_POST = "form_post";
     private static final String KEY_MAX_AGE = "max_age";
 
+    // Upper bound for a valid session_expiry (Unix seconds). Anything at/above this is treated as
+    // "no ceiling": it is almost certainly a milliseconds-since-epoch value emitted by mistake,
+    // which would otherwise read as a date thousands of years out and silently disable enforcement.
+    // Per the IPSIE Decision Log, reject anything >= 10,000,000,000.
+    private static final long MAX_SESSION_EXPIRY_SECONDS = 10_000_000_000L;
+
     private final DomainProvider domainProvider;
     private final String responseType;
     private final String clientId;
@@ -314,13 +320,16 @@ class RequestProcessor {
      * session ceiling on subsequent reads.
      * <p>
      * The claim is an integer Unix timestamp (seconds since epoch). When it is absent the tokens
-     * are returned unchanged (no ceiling). As a lockout guard, if the ceiling is already in the
-     * past relative to the token's {@code iat}, the login is rejected rather than producing an
-     * already-expired session.
+     * are returned unchanged (no ceiling). The value is developer-controlled (it may be stamped by a
+     * Post-Login Action), so it is validated rather than trusted: a non-numeric value, or one large
+     * enough to be milliseconds-since-epoch ({@code >= 10_000_000_000}), is treated as "no ceiling"
+     * rather than silently disabling enforcement with a date thousands of years out. As a lockout
+     * guard, if the ceiling is already in the past relative to the token's {@code iat}, the login is
+     * rejected rather than producing an already-expired session.
      *
      * @param tokens the merged tokens whose ID token is inspected.
      * @return the same tokens augmented with {@code sessionExpiresAt}, or {@code tokens} unchanged
-     * when no {@code session_expiry} claim is present.
+     * when no usable {@code session_expiry} claim is present.
      * @throws IdentityVerificationException if {@code session_expiry <= iat}.
      */
     private Tokens withSessionExpiry(Tokens tokens) throws IdentityVerificationException {
@@ -338,6 +347,13 @@ class RequestProcessor {
         Long sessionExpiresAt = sessionExpiryClaim.asLong();
         if (sessionExpiresAt == null) {
             // Present but not a numeric value — ignore rather than fail, matching "no ceiling".
+            return tokens;
+        }
+
+        // Range guard: reject milliseconds-since-epoch (or any absurdly large value). A value
+        // accidentally emitted in milliseconds would read as a date ~thousands of years out and
+        // silently switch off enforcement, so treat anything at/above this bound as "no ceiling".
+        if (sessionExpiresAt >= MAX_SESSION_EXPIRY_SECONDS) {
             return tokens;
         }
 

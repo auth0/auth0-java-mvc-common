@@ -574,6 +574,36 @@ public class RequestProcessorTest {
         assertThat(e.isSessionExpiryError(), is(true));
     }
 
+    @Test
+    public void shouldIgnoreSessionExpiryWhenValueIsInMilliseconds() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        long iat = nowSeconds() - 60;
+        // An Action that forgot to convert to seconds: a millisecond-scale value reads as a date
+        // thousands of years out and would silently disable enforcement. Treat as "no ceiling".
+        long millisecondValue = (nowSeconds() + 3600) * 1000L;
+        String idToken = signedIdToken(iat, millisecondValue);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(new Cookie("com.auth0.state", "1234"));
+
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        Tokens tokens = spy.process(request, response);
+
+        assertThat(tokens.getSessionExpiresAt(), is(nullValue()));
+    }
+
     // --- AuthorizeUrl Building Tests ---
 
     @Test
