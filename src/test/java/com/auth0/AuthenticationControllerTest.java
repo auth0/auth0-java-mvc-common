@@ -338,6 +338,96 @@ public class AuthenticationControllerTest {
         assertThat(exception.getMessage(), is("request must not be null"));
     }
 
+    // --- customTokenExchange Tests ---
+
+    @Test
+    public void shouldCustomTokenExchangeWithDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        TokenExchangeRequest mockRequest = mock(TokenExchangeRequest.class);
+        when(mockRequestProcessor.buildTokenExchangeRequest("subjectToken", "custom:token", DOMAIN, false)).thenReturn(mockRequest);
+
+        TokenExchangeRequest result = controller.customTokenExchange("subjectToken", "custom:token", DOMAIN);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildTokenExchangeRequest("subjectToken", "custom:token", DOMAIN, false);
+    }
+
+    @Test
+    public void shouldCustomTokenExchangeWithoutDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        TokenExchangeRequest mockRequest = mock(TokenExchangeRequest.class);
+        when(mockRequestProcessor.buildTokenExchangeRequest("subjectToken", "custom:token", false)).thenReturn(mockRequest);
+
+        TokenExchangeRequest result = controller.customTokenExchange("subjectToken", "custom:token");
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildTokenExchangeRequest("subjectToken", "custom:token", false);
+    }
+
+    @Test
+    public void shouldLoginWithCustomTokenExchangeWithDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        TokenExchangeRequest mockRequest = mock(TokenExchangeRequest.class);
+        when(mockRequestProcessor.buildTokenExchangeRequest("subjectToken", "custom:token", DOMAIN, true)).thenReturn(mockRequest);
+
+        TokenExchangeRequest result = controller.loginWithCustomTokenExchange("subjectToken", "custom:token", DOMAIN);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildTokenExchangeRequest("subjectToken", "custom:token", DOMAIN, true);
+    }
+
+    @Test
+    public void shouldLoginWithCustomTokenExchangeWithoutDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        TokenExchangeRequest mockRequest = mock(TokenExchangeRequest.class);
+        when(mockRequestProcessor.buildTokenExchangeRequest("subjectToken", "custom:token", true)).thenReturn(mockRequest);
+
+        TokenExchangeRequest result = controller.loginWithCustomTokenExchange("subjectToken", "custom:token");
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildTokenExchangeRequest("subjectToken", "custom:token", true);
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenCustomTokenExchangeSubjectTokenIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.customTokenExchange(null, "custom:token", DOMAIN));
+        assertThat(exception.getMessage(), is("subjectToken must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenCustomTokenExchangeSubjectTokenTypeIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.customTokenExchange("subjectToken", null, DOMAIN));
+        assertThat(exception.getMessage(), is("subjectTokenType must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenCustomTokenExchangeDomainIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.customTokenExchange("subjectToken", "custom:token", null));
+        assertThat(exception.getMessage(), is("domain must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenLoginWithCustomTokenExchangeSubjectTokenIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.loginWithCustomTokenExchange(null, "custom:token"));
+        assertThat(exception.getMessage(), is("subjectToken must not be null"));
+    }
+
     // --- Logging and Telemetry Tests ---
 
     @Test

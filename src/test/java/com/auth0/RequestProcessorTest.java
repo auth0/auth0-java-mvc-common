@@ -205,6 +205,51 @@ public class RequestProcessorTest {
         verify(spy).createClientForDomain(resolvedDomain);
     }
 
+    // --- Custom Token Exchange Tests ---
+
+    @Test
+    public void shouldBuildTokenExchangeRequestForExplicitDomain() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        TokenExchangeRequest result = processor.buildTokenExchangeRequest("subjectToken", "custom:token", DOMAIN, false);
+
+        assertThat(result, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildLoginTokenExchangeRequestForExplicitDomain() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        TokenExchangeRequest result = processor.buildTokenExchangeRequest("subjectToken", "custom:token", DOMAIN, true);
+
+        assertThat(result, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildTokenExchangeRequestFromStaticDomain() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                new StaticDomainProvider(DOMAIN),
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
+                .build();
+
+        TokenExchangeRequest result = processor.buildTokenExchangeRequest("subjectToken", "custom:token", false);
+
+        assertThat(result, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldThrowOnNoDomainTokenExchangeWhenUsingResolver() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> processor.buildTokenExchangeRequest("subjectToken", "custom:token", false));
+        assertThat(exception.getMessage(), containsString("A domain is required when using a DomainResolver"));
+    }
+
     // --- Logging and Telemetry Tests ---
 
     @Test
