@@ -34,6 +34,7 @@ import static org.mockito.Mockito.*;
 public class RequestProcessorTest {
 
     private static final String DOMAIN = "test-domain.auth0.com";
+    private static final String ISSUER = "https://test-domain.auth0.com/";
     private static final String CLIENT_ID = "testClientId";
     private static final String CLIENT_SECRET = "testClientSecret";
     private static final String RESPONSE_TYPE_CODE = "code";
@@ -248,6 +249,108 @@ public class RequestProcessorTest {
                 IllegalStateException.class,
                 () -> processor.buildTokenExchangeRequest("subjectToken", "custom:token", false));
         assertThat(exception.getMessage(), containsString("A domain is required when using a DomainResolver"));
+    }
+
+    @Test
+    public void shouldExecuteCustomTokenExchangeViaAuthApiAndReturnTokens() throws Exception {
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        when(mockTokenHolder.getAccessToken()).thenReturn("cteAccessToken");
+        when(mockTokenHolder.getRefreshToken()).thenReturn("cteRefreshToken");
+        when(mockTokenHolder.getTokenType()).thenReturn("Bearer");
+        when(mockTokenHolder.getExpiresIn()).thenReturn(3600L);
+        when(mockTokenHolder.getScope()).thenReturn("openid profile");
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        Tokens tokens = spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", null, null, null, DOMAIN, ISSUER, false);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getAccessToken(), is("cteAccessToken"));
+        assertThat(tokens.getRefreshToken(), is("cteRefreshToken"));
+        assertThat(tokens.getType(), is("Bearer"));
+        assertThat(tokens.getExpiresIn(), is(3600L));
+        verify(mockAuthAPI).exchangeToken("subjectToken", "custom:token");
+    }
+
+    @Test
+    public void shouldForwardAudienceScopeAndOrganizationOnCustomTokenExchange() throws Exception {
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", "https://api/", "openid profile", null,
+                DOMAIN, ISSUER, false);
+
+        verify(mockTokenRequest).setAudience("https://api/");
+        verify(mockTokenRequest).setScope("openid profile");
+        verify(mockTokenRequest, never()).addParameter(eq("organization"), any());
+    }
+
+    @Test
+    public void shouldPassOrganizationOnCustomTokenExchangeWhenProvided() throws Exception {
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        // Utility path with an organization set still returns tokens; ID token verification is
+        // skipped here because the holder has no ID token.
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", null, null, "org_123",
+                DOMAIN, ISSUER, false);
+
+        verify(mockTokenRequest).addParameter("organization", "org_123");
+    }
+
+    @Test
+    public void shouldThrowMissingIdTokenOnLoginCustomTokenExchangeWhenNoIdTokenReturned() throws Exception {
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        InvalidRequestException exception = assertThrows(
+                InvalidRequestException.class,
+                () -> spy.executeCustomTokenExchange(
+                        "subjectToken", "custom:token", null, null, null,
+                        DOMAIN, ISSUER, true));
+        assertThat(exception.getCode(), is("a0.missing_id_token"));
+    }
+
+    @Test
+    public void shouldThrowOnLoginCustomTokenExchangeWhenIdTokenVerificationFails() throws Exception {
+        // Structurally valid JWT with an invalid signature so RS256 verification fails.
+        String fakeJwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3dyb25nLyIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0Q2xpZW50SWQiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTYwMDAwMDAwMH0.signature";
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(fakeJwt);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        IdentityVerificationException exception = assertThrows(
+                IdentityVerificationException.class,
+                () -> spy.executeCustomTokenExchange(
+                        "subjectToken", "custom:token", null, "openid", null,
+                        DOMAIN, ISSUER, true));
+        assertThat(exception.getCode(), is("a0.invalid_jwt_error"));
     }
 
     // --- Logging and Telemetry Tests ---
