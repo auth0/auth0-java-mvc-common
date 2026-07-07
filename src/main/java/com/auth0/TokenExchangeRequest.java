@@ -15,9 +15,11 @@ import java.net.URISyntaxException;
  * <p>
  * Obtain an instance via {@link AuthenticationController#customTokenExchange(String, String)} /
  * {@link AuthenticationController#loginWithCustomTokenExchange(String, String)} (and their
- * domain-qualified overloads). The {@code loginWith*} variants additionally verify the returned ID
- * token (including {@code org_id}/{@code org_name} claims when an organization is configured);
- * the utility variant returns the raw exchanged tokens.
+ * domain-qualified overloads). The {@code loginWith*} variants always verify the returned ID token.
+ * The utility variant returns the raw exchanged tokens without verification, except when an
+ * organization is configured: to validate the {@code org_id}/{@code org_name} claim it must verify
+ * the ID token that carries it, so a returned ID token is fully verified on either path whenever an
+ * organization is in play. See {@link #withOrganization(String)}.
  */
 @SuppressWarnings({"UnusedReturnValue", "WeakerAccess", "unused"})
 public class TokenExchangeRequest {
@@ -69,9 +71,13 @@ public class TokenExchangeRequest {
 
     /**
      * Sets the organization to associate with the exchange, overriding any client-level default
-     * configured on the {@link AuthenticationController}. When set, the returned ID token's
-     * {@code org_id}/{@code org_name} claim is validated against this value on the
-     * {@code loginWith*} path.
+     * configured on the {@link AuthenticationController}. When an organization is set, the returned
+     * ID token's {@code org_id}/{@code org_name} claim is validated against this value on both the
+     * {@code loginWith*} and the utility path (whenever the exchange returns an ID token). Because
+     * an organization claim cannot be trusted without verifying the token that carries it, the
+     * utility path performs full ID-token verification (signature, issuer, expiry) in this case, so
+     * an {@link IdentityVerificationException} may be thrown even when only an access token was
+     * wanted.
      *
      * @param organization the organization ID or name.
      * @return this request instance for fluent chaining.
@@ -106,6 +112,12 @@ public class TokenExchangeRequest {
         if (token == null || token.trim().isEmpty()) {
             throw new CustomTokenExchangeException(CustomTokenExchangeException.INVALID_TOKEN_FORMAT,
                     "The subject token must not be empty.");
+        }
+        // Reject surrounding whitespace so a stray space/newline can't slip a malformed token
+        // through (and so a leading space doesn't hide a "Bearer " prefix from the check below).
+        if (!token.equals(token.trim())) {
+            throw new CustomTokenExchangeException(CustomTokenExchangeException.INVALID_TOKEN_FORMAT,
+                    "The subject token must not contain leading or trailing whitespace.");
         }
         if (token.regionMatches(true, 0, "Bearer ", 0, 7)) {
             throw new CustomTokenExchangeException(CustomTokenExchangeException.INVALID_TOKEN_FORMAT,

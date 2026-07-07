@@ -4,6 +4,9 @@ import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTCreator;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
 import com.auth0.net.client.Auth0HttpClient;
@@ -18,6 +21,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -350,6 +354,64 @@ public class RequestProcessorTest {
                 () -> spy.executeCustomTokenExchange(
                         "subjectToken", "custom:token", null, "openid", null,
                         DOMAIN, ISSUER, true));
+        assertThat(exception.getCode(), is("a0.invalid_jwt_error"));
+    }
+
+    @Test
+    public void shouldReturnVerifiedTokensOnLoginCustomTokenExchangeWhenIdTokenValid() throws Exception {
+        String idToken = signedIdToken(null);
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenHolder.getAccessToken()).thenReturn("cteAccessToken");
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        Tokens tokens = spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", null, "openid", null, DOMAIN, ISSUER, true);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getIdToken(), is(idToken));
+        assertThat(tokens.getAccessToken(), is("cteAccessToken"));
+    }
+
+    @Test
+    public void shouldReturnTokensOnUtilityCustomTokenExchangeWhenOrgClaimMatches() throws Exception {
+        String idToken = signedIdToken("org_123");
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenHolder.getAccessToken()).thenReturn("cteAccessToken");
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        Tokens tokens = spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", null, "openid", "org_123", DOMAIN, ISSUER, false);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getAccessToken(), is("cteAccessToken"));
+        verify(mockTokenRequest).addParameter("organization", "org_123");
+    }
+
+    @Test
+    public void shouldThrowOnUtilityCustomTokenExchangeWhenOrgClaimMismatches() throws Exception {
+        String idToken = signedIdToken("org_other");
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        IdentityVerificationException exception = assertThrows(
+                IdentityVerificationException.class,
+                () -> spy.executeCustomTokenExchange(
+                        "subjectToken", "custom:token", null, "openid", "org_123", DOMAIN, ISSUER, false));
         assertThat(exception.getCode(), is("a0.invalid_jwt_error"));
     }
 
@@ -1114,6 +1176,21 @@ public class RequestProcessorTest {
     }
 
     // --- Helper Methods ---
+
+    // Builds an HS256 ID token signed with CLIENT_SECRET so the RS256/HS256-aware verifier accepts
+    // it (HS256 path uses the client secret). Pass a non-null orgId to include an org_id claim.
+    private String signedIdToken(String orgId) {
+        JWTCreator.Builder builder = JWT.create()
+                .withIssuer(ISSUER)
+                .withSubject("user123")
+                .withAudience(CLIENT_ID)
+                .withIssuedAt(new Date(System.currentTimeMillis() - 1000))
+                .withExpiresAt(new Date(System.currentTimeMillis() + 3600_000));
+        if (orgId != null) {
+            builder.withClaim("org_id", orgId);
+        }
+        return builder.sign(Algorithm.HMAC256(CLIENT_SECRET));
+    }
 
     private RequestProcessor createDefaultRequestProcessor() {
         return new RequestProcessor.Builder(

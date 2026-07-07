@@ -105,6 +105,22 @@ public class TokenExchangeRequestTest {
     }
 
     @Test
+    public void shouldThrowOnSubjectTokenWithSurroundingWhitespace() {
+        CustomTokenExchangeException exception = assertThrows(
+                CustomTokenExchangeException.class,
+                () -> newRequest(" ext-token\n", SUBJECT_TOKEN_TYPE, false).execute());
+        assertThat(exception.isInvalidTokenFormat(), is(true));
+    }
+
+    @Test
+    public void shouldThrowOnSubjectTokenWithLeadingSpaceBeforeBearerPrefix() {
+        CustomTokenExchangeException exception = assertThrows(
+                CustomTokenExchangeException.class,
+                () -> newRequest(" Bearer ext-token", SUBJECT_TOKEN_TYPE, false).execute());
+        assertThat(exception.isInvalidTokenFormat(), is(true));
+    }
+
+    @Test
     public void shouldThrowOnNonUriSubjectTokenType() {
         CustomTokenExchangeException exception = assertThrows(
                 CustomTokenExchangeException.class,
