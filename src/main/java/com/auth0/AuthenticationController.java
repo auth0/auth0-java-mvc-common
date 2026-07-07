@@ -445,4 +445,86 @@ public class AuthenticationController {
         return requestProcessor.buildRenewAuthRequest(refreshToken, request);
     }
 
+    /**
+     * Builds a request to exchange an external {@code subject_token} for a new set of
+     * {@link Tokens} via <a href="https://auth0.com/docs/authenticate/custom-token-exchange">Custom
+     * Token Exchange</a>, without login semantics. The returned tokens are not verified beyond the
+     * exchange itself, making this suitable for obtaining tokens for a downstream API.
+     *
+     * <p>The application supplies the {@code domain} to target. This is required because a token
+     * exchange can occur outside of an HTTP request, where the domain cannot otherwise be resolved.
+     * For applications configured with a fixed domain, the
+     * {@link AuthenticationController#customTokenExchange(String, String)} overload may be used
+     * instead.</p>
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the customer-defined URI describing the subject token.
+     * @param domain           the Auth0 domain to target.
+     * @return a {@link TokenExchangeRequest} to configure and execute.
+     */
+    public TokenExchangeRequest customTokenExchange(String subjectToken, String subjectTokenType, String domain) {
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, domain, false);
+    }
+
+    /**
+     * Builds a Custom Token Exchange request using the statically configured domain. See
+     * {@link AuthenticationController#customTokenExchange(String, String, String)} for details.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call the overload that accepts a domain.</p>
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the customer-defined URI describing the subject token.
+     * @return a {@link TokenExchangeRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public TokenExchangeRequest customTokenExchange(String subjectToken, String subjectTokenType) {
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, false);
+    }
+
+    /**
+     * Builds a request to exchange an external {@code subject_token} for a login-ready set of
+     * {@link Tokens} via <a href="https://auth0.com/docs/authenticate/custom-token-exchange">Custom
+     * Token Exchange</a>. Unlike {@link #customTokenExchange(String, String, String)}, the returned
+     * ID token is verified (including {@code org_id}/{@code org_name} claims when an organization is
+     * configured), yielding tokens suitable for establishing an application session.
+     *
+     * <p>The application supplies the {@code domain} to target; see
+     * {@link #customTokenExchange(String, String, String)} for why.</p>
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the customer-defined URI describing the subject token.
+     * @param domain           the Auth0 domain to target.
+     * @return a {@link TokenExchangeRequest} to configure and execute.
+     */
+    public TokenExchangeRequest loginWithCustomTokenExchange(String subjectToken, String subjectTokenType, String domain) {
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, domain, true);
+    }
+
+    /**
+     * Builds a login-shaped Custom Token Exchange request using the statically configured domain.
+     * See {@link #loginWithCustomTokenExchange(String, String, String)} for details.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call the overload that accepts a domain.</p>
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the customer-defined URI describing the subject token.
+     * @return a {@link TokenExchangeRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public TokenExchangeRequest loginWithCustomTokenExchange(String subjectToken, String subjectTokenType) {
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, true);
+    }
+
 }

@@ -7,6 +7,7 @@ import com.auth0.exception.IdTokenValidationException;
 import com.auth0.exception.PublicKeyProviderException;
 import com.auth0.jwt.JWT;
 import com.auth0.json.auth.TokenHolder;
+import com.auth0.net.TokenRequest;
 import com.auth0.jwk.Jwk;
 import com.auth0.jwk.JwkException;
 import com.auth0.jwk.JwkProvider;
@@ -213,6 +214,87 @@ class RequestProcessor {
         return buildRenewAuthRequest(refreshToken, domainProvider.getDomain(request));
     }
 
+    /**
+     * Builds a {@link TokenExchangeRequest} to exchange an external {@code subject_token} for Auth0
+     * tokens against the given domain. The domain is supplied explicitly because a token exchange
+     * can occur outside of an HTTP request, where the {@link DomainProvider} cannot resolve it.
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the (customer-defined) URI describing the subject token.
+     * @param domain           the Auth0 domain to target.
+     * @param loginSemantics   whether to verify the returned ID token (incl. organization claims).
+     * @return a {@link TokenExchangeRequest} ready to configure and execute.
+     */
+    TokenExchangeRequest buildTokenExchangeRequest(String subjectToken, String subjectTokenType, String domain, boolean loginSemantics) {
+        String issuer = constructIssuer(domain);
+        return new TokenExchangeRequest(this, subjectToken, subjectTokenType, domain, issuer, loginSemantics, this.organization);
+    }
+
+    /**
+     * Builds a {@link TokenExchangeRequest} using the statically configured domain. Only valid when
+     * the controller was configured with a fixed domain; when a {@link DomainResolver} is in use the
+     * domain must be supplied explicitly.
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the (customer-defined) URI describing the subject token.
+     * @param loginSemantics   whether to verify the returned ID token (incl. organization claims).
+     * @return a {@link TokenExchangeRequest} ready to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    TokenExchangeRequest buildTokenExchangeRequest(String subjectToken, String subjectTokenType, boolean loginSemantics) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call the customTokenExchange overload that accepts a domain.");
+        }
+        return buildTokenExchangeRequest(subjectToken, subjectTokenType, domainProvider.getDomain(null), loginSemantics);
+    }
+
+    /**
+     * Performs the Custom Token Exchange grant against Auth0 and returns the resulting tokens.
+     * <p>
+     * The request is built via {@link AuthAPI#exchangeToken(String, String)} (RFC 8693 token-exchange
+     * grant), which also applies client authentication. When {@code loginSemantics} is true the
+     * returned ID token is verified (reusing the code-flow verification path, including
+     * organization-claim validation).
+     *
+     * @throws IdentityVerificationException if the returned ID token fails verification.
+     * @throws Auth0Exception                if the request to the Auth0 server failed.
+     */
+    Tokens executeCustomTokenExchange(String subjectToken, String subjectTokenType, String audience,
+                                      String scope, String organization, String domain, String issuer,
+                                      boolean loginSemantics) throws IdentityVerificationException, Auth0Exception {
+        TokenRequest request = createClientForDomain(domain).exchangeToken(subjectToken, subjectTokenType);
+
+        if (audience != null) {
+            request.setAudience(audience);
+        }
+        if (scope != null) {
+            request.setScope(scope);
+        }
+        if (organization != null) {
+            request.addParameter("organization", organization);
+        }
+
+        TokenHolder holder = request.execute().getBody();
+
+        if (holder.getIdToken() == null) {
+            // The login path establishes a user session, so an ID token is required.
+            if (loginSemantics) {
+                throw new InvalidRequestException(MISSING_ID_TOKEN, "ID Token is missing from the token exchange response.");
+            }
+        } else if (loginSemantics || organization != null) {
+            // Verify the returned ID token on the login path; also verify (for org_id/org_name claim
+            // validation) on the utility path whenever an organization is in play.
+            try {
+                verifyIdToken(holder.getIdToken(), issuer, domain, null, organization);
+            } catch (IdTokenValidationException e) {
+                throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the ID Token.", e);
+            }
+        }
+
+        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(),
+                holder.getTokenType(), holder.getExpiresIn(), holder.getScope(), domain, issuer);
+    }
+
     private Auth0HttpClient getHttpClient() {
         if (this.httpClient == null) {
             DefaultHttpClient.Builder httpBuilder = DefaultHttpClient.newBuilder()
@@ -354,6 +436,10 @@ class RequestProcessor {
      * - HS256: uses client secret
      */
     private void verifyIdToken(String idToken, String issuer, String domain, String nonce) throws IdTokenValidationException {
+        verifyIdToken(idToken, issuer, domain, nonce, organization);
+    }
+
+    private void verifyIdToken(String idToken, String issuer, String domain, String nonce, String organization) throws IdTokenValidationException {
         SignatureVerifier sigVerifier = buildSignatureVerifier(idToken, domain);
 
         IdTokenVerifier.Builder verifierBuilder = IdTokenVerifier.init(issuer, clientId, sigVerifier);
