@@ -276,18 +276,14 @@ class RequestProcessor {
 
         TokenHolder holder = request.execute().getBody();
 
-        // The login path establishes a user session, so an ID token is required. Fail clearly if the
-        // exchange returned none (typically because the 'openid' scope was not requested), mirroring
-        // the code flow's MISSING_ID_TOKEN behavior instead of returning an unverified success.
-        if (loginSemantics && holder.getIdToken() == null) {
-            throw new InvalidRequestException(MISSING_ID_TOKEN,
-                    "ID Token is missing from the token exchange response. Request the 'openid' scope when using loginWithCustomTokenExchange.");
-        }
-
-        // Verify the returned ID token on the login path; also verify (for org_id/org_name claim
-        // validation) on the utility path whenever an organization is in play.
-        boolean shouldVerify = loginSemantics || organization != null;
-        if (shouldVerify && holder.getIdToken() != null) {
+        if (holder.getIdToken() == null) {
+            // The login path establishes a user session, so an ID token is required.
+            if (loginSemantics) {
+                throw new InvalidRequestException(MISSING_ID_TOKEN, "ID Token is missing from the token exchange response.");
+            }
+        } else if (loginSemantics || organization != null) {
+            // Verify the returned ID token on the login path; also verify (for org_id/org_name claim
+            // validation) on the utility path whenever an organization is in play.
             try {
                 verifyIdToken(holder.getIdToken(), issuer, domain, null, organization);
             } catch (IdTokenValidationException e) {
