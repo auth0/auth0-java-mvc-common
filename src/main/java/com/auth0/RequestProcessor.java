@@ -2,10 +2,12 @@ package com.auth0;
 
 import com.auth0.client.LoggingOptions;
 import com.auth0.client.auth.AuthAPI;
+import com.auth0.exception.APIException;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.exception.IdTokenValidationException;
 import com.auth0.exception.PublicKeyProviderException;
 import com.auth0.jwt.JWT;
+import com.auth0.json.auth.BackChannelTokenResponse;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.net.TokenRequest;
 import com.auth0.jwk.Jwk;
@@ -46,6 +48,7 @@ class RequestProcessor {
     private static final String KEY_RESPONSE_MODE = "response_mode";
     private static final String KEY_FORM_POST = "form_post";
     private static final String KEY_MAX_AGE = "max_age";
+    private static final String CIBA_GRANT_TYPE = "urn:openid:params:grant-type:ciba";
 
     private final DomainProvider domainProvider;
     private final String responseType;
@@ -246,6 +249,109 @@ class RequestProcessor {
             throw new IllegalStateException("A domain is required when using a DomainResolver; call the customTokenExchange overload that accepts a domain.");
         }
         return buildTokenExchangeRequest(subjectToken, subjectTokenType, domainProvider.getDomain(null), loginSemantics);
+    }
+
+    /**
+     * Builds a {@link BackChannelAuthorizeRequest} to initiate a CIBA backchannel authorization
+     * against the given domain. The domain is supplied explicitly because the subsequent poll can
+     * occur outside of the initiating HTTP request, and the application must store the domain
+     * (alongside the {@code auth_req_id}) to target the same domain when polling.
+     *
+     * @param scope          the requested scope.
+     * @param bindingMessage the human-readable message shown to the user on their device.
+     * @param loginHint      the login hint identifying the user, serialized to JSON by the SDK.
+     * @param domain         the Auth0 domain to target.
+     * @return a {@link BackChannelAuthorizeRequest} ready to configure and execute.
+     */
+    BackChannelAuthorizeRequest buildBackChannelAuthorizeRequest(String scope, String bindingMessage,
+                                                                 java.util.Map<String, Object> loginHint, String domain) {
+        AuthAPI client = createClientForDomain(domain);
+        String issuer = constructIssuer(domain);
+        return new BackChannelAuthorizeRequest(client, scope, bindingMessage, loginHint, domain, issuer);
+    }
+
+    /**
+     * Builds a {@link BackChannelAuthorizeRequest} using the statically configured domain. Only
+     * valid when the controller was configured with a fixed domain.
+     *
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    BackChannelAuthorizeRequest buildBackChannelAuthorizeRequest(String scope, String bindingMessage,
+                                                                 java.util.Map<String, Object> loginHint) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call the backChannelAuthorize overload that accepts a domain.");
+        }
+        return buildBackChannelAuthorizeRequest(scope, bindingMessage, loginHint, domainProvider.getDomain(null));
+    }
+
+    /**
+     * Builds a {@link BackChannelTokenRequest} to poll for the result of a CIBA backchannel
+     * authorization against the given domain. The domain is supplied explicitly because polling
+     * typically occurs outside of the initiating HTTP request; it must match the domain the
+     * {@code auth_req_id} was issued for.
+     *
+     * @param authReqId the {@code auth_req_id} returned from the authorize step.
+     * @param domain    the Auth0 domain to target.
+     * @return a {@link BackChannelTokenRequest} ready to execute.
+     */
+    BackChannelTokenRequest buildBackChannelTokenRequest(String authReqId, String domain) {
+        String issuer = constructIssuer(domain);
+        return new BackChannelTokenRequest(this, authReqId, domain, issuer);
+    }
+
+    /**
+     * Builds a {@link BackChannelTokenRequest} using the statically configured domain. Only valid
+     * when the controller was configured with a fixed domain.
+     *
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    BackChannelTokenRequest buildBackChannelTokenRequest(String authReqId) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call the backChannelPoll overload that accepts a domain.");
+        }
+        return buildBackChannelTokenRequest(authReqId, domainProvider.getDomain(null));
+    }
+
+    /**
+     * Polls the Auth0 token endpoint for the result of a CIBA backchannel authentication request.
+     * <p>
+     * While the user has not yet completed authentication, Auth0 responds with an OAuth error that
+     * is surfaced here as a {@link BackChannelAuthorizationException}: {@code authorization_pending}
+     * and {@code slow_down} are non-terminal (the caller should keep polling), while
+     * {@code expired_token} and {@code access_denied} are terminal. On success the returned ID
+     * token is verified (reusing the code-flow verification path, including organization-claim
+     * validation when an organization is configured).
+     *
+     * @throws BackChannelAuthorizationException if Auth0 returned a CIBA poll error.
+     * @throws IdentityVerificationException     if the returned ID token fails verification.
+     * @throws Auth0Exception                    if the request to the Auth0 server failed.
+     */
+    Tokens executeBackChannelPoll(String authReqId, String domain, String issuer)
+            throws IdentityVerificationException, Auth0Exception {
+        BackChannelTokenResponse response;
+        try {
+            response = createClientForDomain(domain)
+                    .getBackChannelLoginStatus(authReqId, CIBA_GRANT_TYPE)
+                    .execute()
+                    .getBody();
+        } catch (APIException e) {
+            // Translate the OAuth poll error codes into a typed exception so callers can drive
+            // their polling loop (pending/slow_down = keep polling; expired/denied = stop).
+            throw new BackChannelAuthorizationException(e.getError(), e.getDescription(), e);
+        }
+
+        if (response.getIdToken() == null) {
+            // CIBA establishes a user session, so an ID token is required on success.
+            throw new InvalidRequestException(MISSING_ID_TOKEN, "ID Token is missing from the CIBA token response.");
+        }
+        try {
+            verifyIdToken(response.getIdToken(), issuer, domain, null, organization);
+        } catch (IdTokenValidationException e) {
+            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the ID Token.", e);
+        }
+
+        return new Tokens(response.getAccessToken(), response.getIdToken(), null,
+                "Bearer", response.getExpiresIn(), response.getScope(), domain, issuer);
     }
 
     /**
