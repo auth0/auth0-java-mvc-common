@@ -11,10 +11,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Collections;
+import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNull.notNullValue;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -426,6 +429,167 @@ public class AuthenticationControllerTest {
                 NullPointerException.class,
                 () -> controller.loginWithCustomTokenExchange(null, "custom:token"));
         assertThat(exception.getMessage(), is("subjectToken must not be null"));
+    }
+
+    // --- backChannelAuthorize Tests ---
+
+    @Test
+    public void shouldBackChannelAuthorizeWithDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        BackChannelAuthorizeRequest mockRequest = mock(BackChannelAuthorizeRequest.class);
+        Map<String, Object> loginHint = Collections.singletonMap("format", "iss_sub");
+        when(mockRequestProcessor.buildBackChannelAuthorizeRequest("openid profile", "Approve login", loginHint, DOMAIN))
+                .thenReturn(mockRequest);
+
+        BackChannelAuthorizeRequest result = controller.backChannelAuthorize("openid profile", "Approve login", loginHint, DOMAIN);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildBackChannelAuthorizeRequest("openid profile", "Approve login", loginHint, DOMAIN);
+    }
+
+    @Test
+    public void shouldBackChannelAuthorizeWithoutDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        BackChannelAuthorizeRequest mockRequest = mock(BackChannelAuthorizeRequest.class);
+        Map<String, Object> loginHint = Collections.singletonMap("format", "iss_sub");
+        when(mockRequestProcessor.buildBackChannelAuthorizeRequest("openid profile", "Approve login", loginHint))
+                .thenReturn(mockRequest);
+
+        BackChannelAuthorizeRequest result = controller.backChannelAuthorize("openid profile", "Approve login", loginHint);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildBackChannelAuthorizeRequest("openid profile", "Approve login", loginHint);
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBackChannelAuthorizeScopeIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.backChannelAuthorize(null, "Approve login", Collections.emptyMap(), DOMAIN));
+        assertThat(exception.getMessage(), is("scope must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBackChannelAuthorizeBindingMessageIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.backChannelAuthorize("openid profile", null, Collections.emptyMap(), DOMAIN));
+        assertThat(exception.getMessage(), is("bindingMessage must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBackChannelAuthorizeLoginHintIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.backChannelAuthorize("openid profile", "Approve login", null, DOMAIN));
+        assertThat(exception.getMessage(), is("loginHint must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBackChannelAuthorizeDomainIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.backChannelAuthorize("openid profile", "Approve login", Collections.emptyMap(), null));
+        assertThat(exception.getMessage(), is("domain must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenNoDomainBackChannelAuthorizeScopeIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.backChannelAuthorize(null, "Approve login", Collections.emptyMap()));
+        assertThat(exception.getMessage(), is("scope must not be null"));
+    }
+
+    @Test
+    public void shouldPropagateIllegalStateWhenBackChannelAuthorizeWithoutDomainUsesResolver() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        Map<String, Object> loginHint = Collections.singletonMap("format", "iss_sub");
+        when(mockRequestProcessor.buildBackChannelAuthorizeRequest("openid profile", "Approve login", loginHint))
+                .thenThrow(new IllegalStateException("A domain is required when using a DomainResolver"));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> controller.backChannelAuthorize("openid profile", "Approve login", loginHint));
+        assertThat(exception.getMessage(), containsString("A domain is required when using a DomainResolver"));
+    }
+
+    // --- backChannelPoll Tests ---
+
+    @Test
+    public void shouldBackChannelPollWithDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        BackChannelTokenRequest mockRequest = mock(BackChannelTokenRequest.class);
+        when(mockRequestProcessor.buildBackChannelTokenRequest("auth-req-123", DOMAIN)).thenReturn(mockRequest);
+
+        BackChannelTokenRequest result = controller.backChannelPoll("auth-req-123", DOMAIN);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildBackChannelTokenRequest("auth-req-123", DOMAIN);
+    }
+
+    @Test
+    public void shouldBackChannelPollWithoutDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        BackChannelTokenRequest mockRequest = mock(BackChannelTokenRequest.class);
+        when(mockRequestProcessor.buildBackChannelTokenRequest("auth-req-123")).thenReturn(mockRequest);
+
+        BackChannelTokenRequest result = controller.backChannelPoll("auth-req-123");
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildBackChannelTokenRequest("auth-req-123");
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBackChannelPollAuthReqIdIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.backChannelPoll(null, DOMAIN));
+        assertThat(exception.getMessage(), is("authReqId must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenBackChannelPollDomainIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.backChannelPoll("auth-req-123", (String) null));
+        assertThat(exception.getMessage(), is("domain must not be null"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenNoDomainBackChannelPollAuthReqIdIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.backChannelPoll(null));
+        assertThat(exception.getMessage(), is("authReqId must not be null"));
+    }
+
+    @Test
+    public void shouldPropagateIllegalStateWhenBackChannelPollWithoutDomainUsesResolver() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        when(mockRequestProcessor.buildBackChannelTokenRequest("auth-req-123"))
+                .thenThrow(new IllegalStateException("A domain is required when using a DomainResolver"));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> controller.backChannelPoll("auth-req-123"));
+        assertThat(exception.getMessage(), containsString("A domain is required when using a DomainResolver"));
     }
 
     // --- Logging and Telemetry Tests ---

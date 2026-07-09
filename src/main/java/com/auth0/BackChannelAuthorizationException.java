@@ -11,6 +11,12 @@ package com.auth0;
  * the caller should sleep and retry. The terminal cases ({@link #isExpiredToken()} and {@link
  * #isAccessDenied()}) indicate the polling loop must stop.
  *
+ * <p><b>Note on the type hierarchy:</b> this extends {@link IdentityVerificationException} so a
+ * single catch clause can cover the whole CIBA poll path, but {@code authorization_pending} and
+ * {@code slow_down} are polling <em>control-flow signals</em>, not ID token verification failures.
+ * Callers should branch on the {@code isX()} helpers rather than treating every instance as a
+ * verification error.
+ *
  * @see AuthenticationController#backChannelPoll(String, String)
  */
 @SuppressWarnings("WeakerAccess")
@@ -38,8 +44,8 @@ public class BackChannelAuthorizationException extends IdentityVerificationExcep
     }
 
     /**
-     * @return true if the polling interval should be increased. The caller should sleep longer and
-     * retry.
+     * @return true if the polling interval should be increased. The caller should back off — the
+     * common convention is to add 5 seconds to the current interval — and then retry.
      */
     public boolean isSlowDown() {
         return SLOW_DOWN.equals(getCode());

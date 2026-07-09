@@ -7,6 +7,7 @@ import org.apache.commons.lang3.Validate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Map;
 
 /**
  * Base Auth0 Authenticator class.
@@ -462,10 +463,13 @@ public class AuthenticationController {
      * @param scope          the requested scope (e.g. {@code "openid profile"}).
      * @param bindingMessage the human-readable message displayed to the user on their device.
      * @param loginHint      a map identifying the user, serialized to the {@code login_hint} JSON.
+     *                       Auth0 expects the {@code iss_sub} shape, e.g.
+     *                       {@code {"format": "iss_sub", "iss": "https://your-tenant.auth0.com/",
+     *                       "sub": "auth0|abc123"}}.
      * @param domain         the Auth0 domain to target.
      * @return a {@link BackChannelAuthorizeRequest} to configure and execute.
      */
-    public BackChannelAuthorizeRequest backChannelAuthorize(String scope, String bindingMessage, java.util.Map<String, Object> loginHint, String domain) {
+    public BackChannelAuthorizeRequest backChannelAuthorize(String scope, String bindingMessage, Map<String, Object> loginHint, String domain) {
         Validate.notNull(scope, "scope must not be null");
         Validate.notNull(bindingMessage, "bindingMessage must not be null");
         Validate.notNull(loginHint, "loginHint must not be null");
@@ -486,7 +490,7 @@ public class AuthenticationController {
      * @return a {@link BackChannelAuthorizeRequest} to configure and execute.
      * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
      */
-    public BackChannelAuthorizeRequest backChannelAuthorize(String scope, String bindingMessage, java.util.Map<String, Object> loginHint) {
+    public BackChannelAuthorizeRequest backChannelAuthorize(String scope, String bindingMessage, Map<String, Object> loginHint) {
         Validate.notNull(scope, "scope must not be null");
         Validate.notNull(bindingMessage, "bindingMessage must not be null");
         Validate.notNull(loginHint, "loginHint must not be null");

@@ -1,12 +1,15 @@
 package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
+import com.auth0.exception.APIException;
 import com.auth0.exception.Auth0Exception;
+import com.auth0.json.auth.BackChannelTokenResponse;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.net.Request;
 import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
 import com.auth0.net.client.Auth0HttpClient;
@@ -413,6 +416,133 @@ public class RequestProcessorTest {
                 () -> spy.executeCustomTokenExchange(
                         "subjectToken", "custom:token", null, "openid", "org_123", DOMAIN, ISSUER, false));
         assertThat(exception.getCode(), is("a0.invalid_jwt_error"));
+    }
+
+    // --- CIBA Backchannel Poll Tests ---
+
+    @Test
+    public void shouldTranslateAuthorizationPendingIntoBackChannelException() throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestThatThrows(
+                apiException("authorization_pending", "User has not yet approved."));
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        BackChannelAuthorizationException exception = assertThrows(
+                BackChannelAuthorizationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("authorization_pending"));
+        assertThat(exception.isAuthorizationPending(), is(true));
+        assertThat(exception.isSlowDown(), is(false));
+    }
+
+    @Test
+    public void shouldTranslateSlowDownIntoBackChannelException() throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestThatThrows(
+                apiException("slow_down", "Polling too fast."));
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        BackChannelAuthorizationException exception = assertThrows(
+                BackChannelAuthorizationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("slow_down"));
+        assertThat(exception.isSlowDown(), is(true));
+    }
+
+    @Test
+    public void shouldTranslateExpiredTokenIntoBackChannelException() throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestThatThrows(
+                apiException("expired_token", "The auth_req_id expired."));
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        BackChannelAuthorizationException exception = assertThrows(
+                BackChannelAuthorizationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("expired_token"));
+        assertThat(exception.isExpiredToken(), is(true));
+    }
+
+    @Test
+    public void shouldTranslateAccessDeniedIntoBackChannelException() throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestThatThrows(
+                apiException("access_denied", "The user rejected the request."));
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        BackChannelAuthorizationException exception = assertThrows(
+                BackChannelAuthorizationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("access_denied"));
+        assertThat(exception.isAccessDenied(), is(true));
+    }
+
+    @Test
+    public void shouldThrowMissingIdTokenWhenPollResponseHasNoIdToken() throws Exception {
+        BackChannelTokenResponse body = mock(BackChannelTokenResponse.class);
+        when(body.getIdToken()).thenReturn(null);
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestReturning(body);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        InvalidRequestException exception = assertThrows(
+                InvalidRequestException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("a0.missing_id_token"));
+    }
+
+    @Test
+    public void shouldThrowWhenPollIdTokenVerificationFails() throws Exception {
+        // Structurally valid JWT with an invalid signature so verification fails.
+        String fakeJwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3dyb25nLyIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0Q2xpZW50SWQiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTYwMDAwMDAwMH0.signature";
+        BackChannelTokenResponse body = mock(BackChannelTokenResponse.class);
+        when(body.getIdToken()).thenReturn(fakeJwt);
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestReturning(body);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        IdentityVerificationException exception = assertThrows(
+                IdentityVerificationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("a0.invalid_jwt_error"));
+    }
+
+    @Test
+    public void shouldReturnVerifiedTokensOnSuccessfulPoll() throws Exception {
+        String idToken = signedIdToken(null);
+        BackChannelTokenResponse body = mock(BackChannelTokenResponse.class);
+        when(body.getIdToken()).thenReturn(idToken);
+        when(body.getAccessToken()).thenReturn("cibaAccessToken");
+        when(body.getExpiresIn()).thenReturn(86400L);
+        when(body.getScope()).thenReturn("openid profile");
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestReturning(body);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        Tokens tokens = spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getIdToken(), is(idToken));
+        assertThat(tokens.getAccessToken(), is("cibaAccessToken"));
+        assertThat(tokens.getType(), is("Bearer"));
+        assertThat(tokens.getExpiresIn(), is(86400L));
+        assertThat(tokens.getScope(), is("openid profile"));
+        // CIBA never returns a refresh token.
+        assertThat(tokens.getRefreshToken(), is(nullValue()));
     }
 
     // --- Logging and Telemetry Tests ---
@@ -1176,6 +1306,33 @@ public class RequestProcessorTest {
     }
 
     // --- Helper Methods ---
+
+    private static final String CIBA_GRANT_TYPE = "urn:openid:params:grant-type:ciba";
+
+    // Builds an APIException carrying the given OAuth error code and description, matching the
+    // wire shape Auth0 returns for a failed CIBA poll (400 with error/error_description).
+    private APIException apiException(String error, String description) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", error);
+        body.put("error_description", description);
+        return new APIException(body, 400);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Request<BackChannelTokenResponse> stubPollRequestThatThrows(APIException e) throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = mock(Request.class);
+        when(pollRequest.execute()).thenThrow(e);
+        return pollRequest;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Request<BackChannelTokenResponse> stubPollRequestReturning(BackChannelTokenResponse body) throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = mock(Request.class);
+        Response<BackChannelTokenResponse> pollResponse = mock(Response.class);
+        when(pollRequest.execute()).thenReturn(pollResponse);
+        when(pollResponse.getBody()).thenReturn(body);
+        return pollRequest;
+    }
 
     // Builds an HS256 ID token signed with CLIENT_SECRET so the RS256/HS256-aware verifier accepts
     // it (HS256 path uses the client secret). Pass a non-null orgId to include an org_id claim.
