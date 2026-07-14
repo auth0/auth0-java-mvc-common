@@ -2,11 +2,14 @@ package com.auth0;
 
 import com.auth0.client.LoggingOptions;
 import com.auth0.client.auth.AuthAPI;
+import com.auth0.exception.APIException;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.exception.IdTokenValidationException;
 import com.auth0.exception.PublicKeyProviderException;
 import com.auth0.jwt.JWT;
+import com.auth0.json.auth.BackChannelTokenResponse;
 import com.auth0.json.auth.TokenHolder;
+import com.auth0.net.TokenRequest;
 import com.auth0.jwk.Jwk;
 import com.auth0.jwk.JwkException;
 import com.auth0.jwk.JwkProvider;
@@ -45,6 +48,7 @@ class RequestProcessor {
     private static final String KEY_RESPONSE_MODE = "response_mode";
     private static final String KEY_FORM_POST = "form_post";
     private static final String KEY_MAX_AGE = "max_age";
+    private static final String CIBA_GRANT_TYPE = "urn:openid:params:grant-type:ciba";
 
     private final DomainProvider domainProvider;
     private final String responseType;
@@ -168,6 +172,233 @@ class RequestProcessor {
         return AuthAPI.newBuilder(domain, clientId, clientSecret)
                 .withHttpClient(getHttpClient())
                 .build();
+    }
+
+    /**
+     * Builds a {@link RenewAuthRequest} to exchange a refresh token for new tokens against the
+     * given domain. The domain is supplied explicitly because a refresh can occur outside of an
+     * HTTP request (e.g. a background refresh), where the {@link DomainProvider} cannot resolve it.
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @param domain       the Auth0 domain to target.
+     * @return a {@link RenewAuthRequest} ready to configure and execute.
+     */
+    RenewAuthRequest buildRenewAuthRequest(String refreshToken, String domain) {
+        AuthAPI client = createClientForDomain(domain);
+        String issuer = constructIssuer(domain);
+        return new RenewAuthRequest(client, refreshToken, domain, issuer);
+    }
+
+    /**
+     * Builds a {@link RenewAuthRequest} using the statically configured domain. Only valid when the
+     * controller was configured with a fixed domain; when a {@link DomainResolver} is in use there
+     * is no fixed domain to target and the domain must be supplied explicitly.
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @return a {@link RenewAuthRequest} ready to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    RenewAuthRequest buildRenewAuthRequest(String refreshToken) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call renewAuth(refreshToken, domain).");
+        }
+        return buildRenewAuthRequest(refreshToken, domainProvider.getDomain(null));
+    }
+
+    /**
+     * Builds a {@link RenewAuthRequest} resolving the domain from the given request via the
+     * configured {@link DomainProvider}. Works for both a fixed domain and a {@link DomainResolver}.
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @param request      the current HTTP request, used to resolve the domain.
+     * @return a {@link RenewAuthRequest} ready to configure and execute.
+     */
+    RenewAuthRequest buildRenewAuthRequest(String refreshToken, HttpServletRequest request) {
+        return buildRenewAuthRequest(refreshToken, domainProvider.getDomain(request));
+    }
+
+    /**
+     * Builds a {@link TokenExchangeRequest} to exchange an external {@code subject_token} for Auth0
+     * tokens against the given domain. The domain is supplied explicitly because a token exchange
+     * can occur outside of an HTTP request, where the {@link DomainProvider} cannot resolve it.
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the (customer-defined) URI describing the subject token.
+     * @param domain           the Auth0 domain to target.
+     * @param loginSemantics   whether to verify the returned ID token (incl. organization claims).
+     * @return a {@link TokenExchangeRequest} ready to configure and execute.
+     */
+    TokenExchangeRequest buildTokenExchangeRequest(String subjectToken, String subjectTokenType, String domain, boolean loginSemantics) {
+        String issuer = constructIssuer(domain);
+        return new TokenExchangeRequest(this, subjectToken, subjectTokenType, domain, issuer, loginSemantics, this.organization);
+    }
+
+    /**
+     * Builds a {@link TokenExchangeRequest} using the statically configured domain. Only valid when
+     * the controller was configured with a fixed domain; when a {@link DomainResolver} is in use the
+     * domain must be supplied explicitly.
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the (customer-defined) URI describing the subject token.
+     * @param loginSemantics   whether to verify the returned ID token (incl. organization claims).
+     * @return a {@link TokenExchangeRequest} ready to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    TokenExchangeRequest buildTokenExchangeRequest(String subjectToken, String subjectTokenType, boolean loginSemantics) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call the customTokenExchange overload that accepts a domain.");
+        }
+        return buildTokenExchangeRequest(subjectToken, subjectTokenType, domainProvider.getDomain(null), loginSemantics);
+    }
+
+    /**
+     * Builds a {@link BackChannelAuthorizeRequest} to initiate a CIBA backchannel authorization
+     * against the given domain. The domain is supplied explicitly because the subsequent poll can
+     * occur outside of the initiating HTTP request, and the application must store the domain
+     * (alongside the {@code auth_req_id}) to target the same domain when polling.
+     *
+     * @param scope          the requested scope.
+     * @param bindingMessage the human-readable message shown to the user on their device.
+     * @param loginHint      the login hint identifying the user, serialized to JSON by the SDK.
+     * @param domain         the Auth0 domain to target.
+     * @return a {@link BackChannelAuthorizeRequest} ready to configure and execute.
+     */
+    BackChannelAuthorizeRequest buildBackChannelAuthorizeRequest(String scope, String bindingMessage,
+                                                                 java.util.Map<String, Object> loginHint, String domain) {
+        AuthAPI client = createClientForDomain(domain);
+        String issuer = constructIssuer(domain);
+        return new BackChannelAuthorizeRequest(client, scope, bindingMessage, loginHint, domain, issuer);
+    }
+
+    /**
+     * Builds a {@link BackChannelAuthorizeRequest} using the statically configured domain. Only
+     * valid when the controller was configured with a fixed domain.
+     *
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    BackChannelAuthorizeRequest buildBackChannelAuthorizeRequest(String scope, String bindingMessage,
+                                                                 java.util.Map<String, Object> loginHint) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call the backChannelAuthorize overload that accepts a domain.");
+        }
+        return buildBackChannelAuthorizeRequest(scope, bindingMessage, loginHint, domainProvider.getDomain(null));
+    }
+
+    /**
+     * Builds a {@link BackChannelTokenRequest} to poll for the result of a CIBA backchannel
+     * authorization against the given domain. The domain is supplied explicitly because polling
+     * typically occurs outside of the initiating HTTP request; it must match the domain the
+     * {@code auth_req_id} was issued for.
+     *
+     * @param authReqId the {@code auth_req_id} returned from the authorize step.
+     * @param domain    the Auth0 domain to target.
+     * @return a {@link BackChannelTokenRequest} ready to execute.
+     */
+    BackChannelTokenRequest buildBackChannelTokenRequest(String authReqId, String domain) {
+        String issuer = constructIssuer(domain);
+        return new BackChannelTokenRequest(this, authReqId, domain, issuer);
+    }
+
+    /**
+     * Builds a {@link BackChannelTokenRequest} using the statically configured domain. Only valid
+     * when the controller was configured with a fixed domain.
+     *
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    BackChannelTokenRequest buildBackChannelTokenRequest(String authReqId) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call the backChannelPoll overload that accepts a domain.");
+        }
+        return buildBackChannelTokenRequest(authReqId, domainProvider.getDomain(null));
+    }
+
+    /**
+     * Polls the Auth0 token endpoint for the result of a CIBA backchannel authentication request.
+     * <p>
+     * While the user has not yet completed authentication, Auth0 responds with an OAuth error that
+     * is surfaced here as a {@link BackChannelAuthorizationException}: {@code authorization_pending}
+     * and {@code slow_down} are non-terminal (the caller should keep polling), while
+     * {@code expired_token} and {@code access_denied} are terminal. On success the returned ID
+     * token is verified (reusing the code-flow verification path, including organization-claim
+     * validation when an organization is configured).
+     *
+     * @throws BackChannelAuthorizationException if Auth0 returned a CIBA poll error.
+     * @throws IdentityVerificationException     if the returned ID token fails verification.
+     * @throws Auth0Exception                    if the request to the Auth0 server failed.
+     */
+    Tokens executeBackChannelPoll(String authReqId, String domain, String issuer)
+            throws IdentityVerificationException, Auth0Exception {
+        BackChannelTokenResponse response;
+        try {
+            response = createClientForDomain(domain)
+                    .getBackChannelLoginStatus(authReqId, CIBA_GRANT_TYPE)
+                    .execute()
+                    .getBody();
+        } catch (APIException e) {
+            // Translate the OAuth poll error codes into a typed exception so callers can drive
+            // their polling loop (pending/slow_down = keep polling; expired/denied = stop).
+            throw new BackChannelAuthorizationException(e.getError(), e.getDescription(), e);
+        }
+
+        if (response.getIdToken() == null) {
+            // CIBA establishes a user session, so an ID token is required on success.
+            throw new InvalidRequestException(MISSING_ID_TOKEN, "ID Token is missing from the CIBA token response.");
+        }
+        try {
+            verifyIdToken(response.getIdToken(), issuer, domain, null, organization);
+        } catch (IdTokenValidationException e) {
+            throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the ID Token.", e);
+        }
+
+        return new Tokens(response.getAccessToken(), response.getIdToken(), null,
+                "Bearer", response.getExpiresIn(), response.getScope(), domain, issuer);
+    }
+
+    /**
+     * Performs the Custom Token Exchange grant against Auth0 and returns the resulting tokens.
+     * <p>
+     * The request is built via {@link AuthAPI#exchangeToken(String, String)} (RFC 8693 token-exchange
+     * grant), which also applies client authentication. When {@code loginSemantics} is true the
+     * returned ID token is verified (reusing the code-flow verification path, including
+     * organization-claim validation).
+     *
+     * @throws IdentityVerificationException if the returned ID token fails verification.
+     * @throws Auth0Exception                if the request to the Auth0 server failed.
+     */
+    Tokens executeCustomTokenExchange(String subjectToken, String subjectTokenType, String audience,
+                                      String scope, String organization, String domain, String issuer,
+                                      boolean loginSemantics) throws IdentityVerificationException, Auth0Exception {
+        TokenRequest request = createClientForDomain(domain).exchangeToken(subjectToken, subjectTokenType);
+
+        if (audience != null) {
+            request.setAudience(audience);
+        }
+        if (scope != null) {
+            request.setScope(scope);
+        }
+        if (organization != null) {
+            request.addParameter("organization", organization);
+        }
+
+        TokenHolder holder = request.execute().getBody();
+
+        if (holder.getIdToken() == null) {
+            // The login path establishes a user session, so an ID token is required.
+            if (loginSemantics) {
+                throw new InvalidRequestException(MISSING_ID_TOKEN, "ID Token is missing from the token exchange response.");
+            }
+        } else if (loginSemantics || organization != null) {
+            // Verify the returned ID token on the login path; also verify (for org_id/org_name claim
+            // validation) on the utility path whenever an organization is in play.
+            try {
+                verifyIdToken(holder.getIdToken(), issuer, domain, null, organization);
+            } catch (IdTokenValidationException e) {
+                throw new IdentityVerificationException(JWT_VERIFICATION_ERROR, "An error occurred while trying to verify the ID Token.", e);
+            }
+        }
+
+        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(),
+                holder.getTokenType(), holder.getExpiresIn(), holder.getScope(), domain, issuer);
     }
 
     private Auth0HttpClient getHttpClient() {
@@ -311,6 +542,10 @@ class RequestProcessor {
      * - HS256: uses client secret
      */
     private void verifyIdToken(String idToken, String issuer, String domain, String nonce) throws IdTokenValidationException {
+        verifyIdToken(idToken, issuer, domain, nonce, organization);
+    }
+
+    private void verifyIdToken(String idToken, String issuer, String domain, String nonce, String organization) throws IdTokenValidationException {
         SignatureVerifier sigVerifier = buildSignatureVerifier(idToken, domain);
 
         IdTokenVerifier.Builder verifierBuilder = IdTokenVerifier.init(issuer, clientId, sigVerifier);
@@ -450,7 +685,7 @@ class RequestProcessor {
                 .execute()
                 .getBody();
         String originIssuer = constructIssuer(originDomain);
-        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn(), originDomain, originIssuer);
+        return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(), holder.getTokenType(), holder.getExpiresIn(), holder.getScope(), originDomain, originIssuer);
     }
 
     /**
@@ -470,15 +705,18 @@ class RequestProcessor {
         String accessToken;
         String type;
         Long expiresIn;
+        String scope;
 
         if (codeExchangeTokens.getAccessToken() != null) {
             accessToken = codeExchangeTokens.getAccessToken();
             type = codeExchangeTokens.getType();
             expiresIn = codeExchangeTokens.getExpiresIn();
+            scope = codeExchangeTokens.getScope();
         } else {
             accessToken = frontChannelTokens.getAccessToken();
             type = frontChannelTokens.getType();
             expiresIn = frontChannelTokens.getExpiresIn();
+            scope = frontChannelTokens.getScope();
         }
 
         // Prefer ID token from the front-channel
@@ -493,7 +731,7 @@ class RequestProcessor {
         String issuer = frontChannelTokens.getIssuer() != null ? frontChannelTokens.getIssuer()
                 : codeExchangeTokens.getIssuer();
 
-        return new Tokens(accessToken, idToken, refreshToken, type, expiresIn, domain, issuer);
+        return new Tokens(accessToken, idToken, refreshToken, type, expiresIn, scope, domain, issuer);
     }
 
     private String constructIssuer(String domain) {

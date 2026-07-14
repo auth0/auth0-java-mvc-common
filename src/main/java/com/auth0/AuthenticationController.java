@@ -7,6 +7,7 @@ import org.apache.commons.lang3.Validate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Map;
 
 /**
  * Base Auth0 Authenticator class.
@@ -381,6 +382,237 @@ public class AuthenticationController {
         String nonce = StorageUtils.secureRandomString();
 
         return requestProcessor.buildAuthorizeUrl(request, response, redirectUri, state, nonce);
+    }
+
+    /**
+     * Builds a request to exchange a refresh token for a new set of {@link Tokens}, optionally
+     * targeting a specific audience and/or scope. This exposes Auth0's refresh-token grant,
+     * enabling Multi-Resource Refresh Token (MRRT) flows where one refresh token can obtain access
+     * tokens for multiple APIs.
+     *
+     * <p>The application supplies the {@code domain} it stored from {@link Tokens#getDomain()} at
+     * login. This is required because a refresh can occur outside of an HTTP request, where the
+     * domain cannot otherwise be resolved. For applications configured with a fixed domain, the
+     * {@link AuthenticationController#renewAuth(String)} overload may be used instead.</p>
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @param domain       the Auth0 domain to target.
+     * @return a {@link RenewAuthRequest} to configure and execute.
+     */
+    public RenewAuthRequest renewAuth(String refreshToken, String domain) {
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildRenewAuthRequest(refreshToken, domain);
+    }
+
+    /**
+     * Builds a request to exchange a refresh token for a new set of {@link Tokens} using the
+     * statically configured domain. See {@link AuthenticationController#renewAuth(String, String)}
+     * for details.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call {@link AuthenticationController#renewAuth(String, String)}
+     * with the domain instead.</p>
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @return a {@link RenewAuthRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public RenewAuthRequest renewAuth(String refreshToken) {
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        return requestProcessor.buildRenewAuthRequest(refreshToken);
+    }
+
+    /**
+     * Builds a request to exchange a refresh token for a new set of {@link Tokens}, resolving the
+     * Auth0 domain from the given request via the configured domain or {@code DomainResolver}.
+     * See {@link AuthenticationController#renewAuth(String, String)} for details.
+     *
+     * <p>This overload works for both a fixed domain and a {@code DomainResolver}, and is convenient
+     * when refreshing within an active request. <strong>Note:</strong> a refresh token is bound to
+     * the domain it was issued for at login; if the resolver resolves the given request to a
+     * different domain, Auth0 will reject the grant. Use this overload only when the request
+     * resolves to the same domain as login; otherwise use
+     * {@link AuthenticationController#renewAuth(String, String)} with the domain stored from
+     * {@link Tokens#getDomain()} at login.</p>
+     *
+     * @param refreshToken the refresh token to exchange.
+     * @param request      the current HTTP request, used to resolve the domain.
+     * @return a {@link RenewAuthRequest} to configure and execute.
+     */
+    public RenewAuthRequest renewAuth(String refreshToken, HttpServletRequest request) {
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        Validate.notNull(request, "request must not be null");
+        return requestProcessor.buildRenewAuthRequest(refreshToken, request);
+    }
+
+    /**
+     * Initiates a <a href="https://auth0.com/docs/get-started/authentication-and-authorization-flow/client-initiated-backchannel-authentication-flow">Client-Initiated
+     * Backchannel Authentication</a> (CIBA) request. This is the first step of the CIBA flow: it
+     * asks Auth0 to authenticate a user out-of-band (on their own device) and returns an
+     * {@code auth_req_id} used to poll for the result via {@link #backChannelPoll(String, String)}.
+     *
+     * <p>The application supplies the {@code domain} to target; store it alongside the returned
+     * {@code auth_req_id} so the poll step can target the same domain. For applications configured
+     * with a fixed domain, {@link #backChannelAuthorize(String, String, java.util.Map)} may be used
+     * instead.</p>
+     *
+     * <p>The library remains stateless: the application owns the polling loop, honoring the
+     * {@code interval} and {@code expires_in} returned by the initiate step.</p>
+     *
+     * @param scope          the requested scope (e.g. {@code "openid profile"}).
+     * @param bindingMessage the human-readable message displayed to the user on their device.
+     * @param loginHint      a map identifying the user, serialized to the {@code login_hint} JSON.
+     *                       Auth0 expects the {@code iss_sub} shape, e.g.
+     *                       {@code {"format": "iss_sub", "iss": "https://your-tenant.auth0.com/",
+     *                       "sub": "auth0|abc123"}}.
+     * @param domain         the Auth0 domain to target.
+     * @return a {@link BackChannelAuthorizeRequest} to configure and execute.
+     */
+    public BackChannelAuthorizeRequest backChannelAuthorize(String scope, String bindingMessage, Map<String, Object> loginHint, String domain) {
+        Validate.notNull(scope, "scope must not be null");
+        Validate.notNull(bindingMessage, "bindingMessage must not be null");
+        Validate.notNull(loginHint, "loginHint must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildBackChannelAuthorizeRequest(scope, bindingMessage, loginHint, domain);
+    }
+
+    /**
+     * Initiates a CIBA backchannel authentication request using the statically configured domain.
+     * See {@link #backChannelAuthorize(String, String, java.util.Map, String)} for details.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call the overload that accepts a domain.</p>
+     *
+     * @param scope          the requested scope.
+     * @param bindingMessage the human-readable message displayed to the user on their device.
+     * @param loginHint      a map identifying the user, serialized to the {@code login_hint} JSON.
+     * @return a {@link BackChannelAuthorizeRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public BackChannelAuthorizeRequest backChannelAuthorize(String scope, String bindingMessage, Map<String, Object> loginHint) {
+        Validate.notNull(scope, "scope must not be null");
+        Validate.notNull(bindingMessage, "bindingMessage must not be null");
+        Validate.notNull(loginHint, "loginHint must not be null");
+        return requestProcessor.buildBackChannelAuthorizeRequest(scope, bindingMessage, loginHint);
+    }
+
+    /**
+     * Builds a request to poll for the result of a CIBA backchannel authentication request. This is
+     * the second step of the CIBA flow: the application calls {@link BackChannelTokenRequest#execute()}
+     * repeatedly (no more frequently than the {@code interval} returned by the authorize step) until
+     * the user approves (yielding verified {@link Tokens}) or a terminal error occurs.
+     *
+     * <p>The application supplies the {@code domain} it stored at the authorize step, since polling
+     * commonly happens outside the initiating HTTP request. For applications configured with a fixed
+     * domain, {@link #backChannelPoll(String)} may be used instead.</p>
+     *
+     * @param authReqId the {@code auth_req_id} returned from the authorize step.
+     * @param domain    the Auth0 domain to target.
+     * @return a {@link BackChannelTokenRequest} to execute.
+     */
+    public BackChannelTokenRequest backChannelPoll(String authReqId, String domain) {
+        Validate.notNull(authReqId, "authReqId must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildBackChannelTokenRequest(authReqId, domain);
+    }
+
+    /**
+     * Builds a request to poll for the result of a CIBA backchannel authentication request using the
+     * statically configured domain. See {@link #backChannelPoll(String, String)} for details.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call the overload that accepts a domain.</p>
+     *
+     * @param authReqId the {@code auth_req_id} returned from the authorize step.
+     * @return a {@link BackChannelTokenRequest} to execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public BackChannelTokenRequest backChannelPoll(String authReqId) {
+        Validate.notNull(authReqId, "authReqId must not be null");
+        return requestProcessor.buildBackChannelTokenRequest(authReqId);
+    }
+
+    /**
+     * Builds a request to exchange an external {@code subject_token} for a new set of
+     * {@link Tokens} via <a href="https://auth0.com/docs/authenticate/custom-token-exchange">Custom
+     * Token Exchange</a>, without login semantics. The returned tokens are not verified beyond the
+     * exchange itself, making this suitable for obtaining tokens for a downstream API.
+     *
+     * <p>The application supplies the {@code domain} to target. This is required because a token
+     * exchange can occur outside of an HTTP request, where the domain cannot otherwise be resolved.
+     * For applications configured with a fixed domain, the
+     * {@link AuthenticationController#customTokenExchange(String, String)} overload may be used
+     * instead.</p>
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the customer-defined URI describing the subject token.
+     * @param domain           the Auth0 domain to target.
+     * @return a {@link TokenExchangeRequest} to configure and execute.
+     */
+    public TokenExchangeRequest customTokenExchange(String subjectToken, String subjectTokenType, String domain) {
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, domain, false);
+    }
+
+    /**
+     * Builds a Custom Token Exchange request using the statically configured domain. See
+     * {@link AuthenticationController#customTokenExchange(String, String, String)} for details.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call the overload that accepts a domain.</p>
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the customer-defined URI describing the subject token.
+     * @return a {@link TokenExchangeRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public TokenExchangeRequest customTokenExchange(String subjectToken, String subjectTokenType) {
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, false);
+    }
+
+    /**
+     * Builds a request to exchange an external {@code subject_token} for a login-ready set of
+     * {@link Tokens} via <a href="https://auth0.com/docs/authenticate/custom-token-exchange">Custom
+     * Token Exchange</a>. Unlike {@link #customTokenExchange(String, String, String)}, the returned
+     * ID token is verified (including {@code org_id}/{@code org_name} claims when an organization is
+     * configured), yielding tokens suitable for establishing an application session.
+     *
+     * <p>The application supplies the {@code domain} to target; see
+     * {@link #customTokenExchange(String, String, String)} for why.</p>
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the customer-defined URI describing the subject token.
+     * @param domain           the Auth0 domain to target.
+     * @return a {@link TokenExchangeRequest} to configure and execute.
+     */
+    public TokenExchangeRequest loginWithCustomTokenExchange(String subjectToken, String subjectTokenType, String domain) {
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, domain, true);
+    }
+
+    /**
+     * Builds a login-shaped Custom Token Exchange request using the statically configured domain.
+     * See {@link #loginWithCustomTokenExchange(String, String, String)} for details.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call the overload that accepts a domain.</p>
+     *
+     * @param subjectToken     the external token to exchange.
+     * @param subjectTokenType the customer-defined URI describing the subject token.
+     * @return a {@link TokenExchangeRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public TokenExchangeRequest loginWithCustomTokenExchange(String subjectToken, String subjectTokenType) {
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, true);
     }
 
 }

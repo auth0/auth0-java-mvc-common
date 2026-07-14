@@ -1,9 +1,15 @@
 package com.auth0;
 
 import com.auth0.client.auth.AuthAPI;
+import com.auth0.exception.APIException;
 import com.auth0.exception.Auth0Exception;
+import com.auth0.json.auth.BackChannelTokenResponse;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTCreator;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.net.Request;
 import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
 import com.auth0.net.client.Auth0HttpClient;
@@ -18,6 +24,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +41,7 @@ import static org.mockito.Mockito.*;
 public class RequestProcessorTest {
 
     private static final String DOMAIN = "test-domain.auth0.com";
+    private static final String ISSUER = "https://test-domain.auth0.com/";
     private static final String CLIENT_ID = "testClientId";
     private static final String CLIENT_SECRET = "testClientSecret";
     private static final String RESPONSE_TYPE_CODE = "code";
@@ -145,6 +153,396 @@ public class RequestProcessorTest {
         AuthAPI result = processor.createClientForDomain(DOMAIN);
 
         assertThat(result, is(notNullValue()));
+    }
+
+    // --- RenewAuth Tests ---
+
+    @Test
+    public void shouldBuildRenewAuthRequestForExplicitDomain() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        RenewAuthRequest result = spy.buildRenewAuthRequest("refreshToken", DOMAIN);
+
+        assertThat(result, is(notNullValue()));
+        verify(spy).createClientForDomain(DOMAIN);
+    }
+
+    @Test
+    public void shouldBuildRenewAuthRequestFromStaticDomain() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                new StaticDomainProvider(DOMAIN),
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
+                .build();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        RenewAuthRequest result = spy.buildRenewAuthRequest("refreshToken");
+
+        assertThat(result, is(notNullValue()));
+        verify(spy).createClientForDomain(DOMAIN);
+    }
+
+    @Test
+    public void shouldThrowOnNoArgRenewAuthWhenUsingResolver() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> processor.buildRenewAuthRequest("refreshToken"));
+        assertThat(exception.getMessage(), containsString("A domain is required when using a DomainResolver"));
+    }
+
+    @Test
+    public void shouldBuildRenewAuthRequestResolvingDomainFromRequest() {
+        String resolvedDomain = "resolved-domain.auth0.com";
+        when(mockDomainProvider.getDomain(request)).thenReturn(resolvedDomain);
+
+        RequestProcessor processor = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        RenewAuthRequest result = spy.buildRenewAuthRequest("refreshToken", request);
+
+        assertThat(result, is(notNullValue()));
+        verify(mockDomainProvider).getDomain(request);
+        verify(spy).createClientForDomain(resolvedDomain);
+    }
+
+    // --- Custom Token Exchange Tests ---
+
+    @Test
+    public void shouldBuildTokenExchangeRequestForExplicitDomain() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        TokenExchangeRequest result = processor.buildTokenExchangeRequest("subjectToken", "custom:token", DOMAIN, false);
+
+        assertThat(result, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildLoginTokenExchangeRequestForExplicitDomain() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        TokenExchangeRequest result = processor.buildTokenExchangeRequest("subjectToken", "custom:token", DOMAIN, true);
+
+        assertThat(result, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldBuildTokenExchangeRequestFromStaticDomain() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                new StaticDomainProvider(DOMAIN),
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
+                .build();
+
+        TokenExchangeRequest result = processor.buildTokenExchangeRequest("subjectToken", "custom:token", false);
+
+        assertThat(result, is(notNullValue()));
+    }
+
+    @Test
+    public void shouldThrowOnNoDomainTokenExchangeWhenUsingResolver() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> processor.buildTokenExchangeRequest("subjectToken", "custom:token", false));
+        assertThat(exception.getMessage(), containsString("A domain is required when using a DomainResolver"));
+    }
+
+    @Test
+    public void shouldExecuteCustomTokenExchangeViaAuthApiAndReturnTokens() throws Exception {
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        when(mockTokenHolder.getAccessToken()).thenReturn("cteAccessToken");
+        when(mockTokenHolder.getRefreshToken()).thenReturn("cteRefreshToken");
+        when(mockTokenHolder.getTokenType()).thenReturn("Bearer");
+        when(mockTokenHolder.getExpiresIn()).thenReturn(3600L);
+        when(mockTokenHolder.getScope()).thenReturn("openid profile");
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        Tokens tokens = spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", null, null, null, DOMAIN, ISSUER, false);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getAccessToken(), is("cteAccessToken"));
+        assertThat(tokens.getRefreshToken(), is("cteRefreshToken"));
+        assertThat(tokens.getType(), is("Bearer"));
+        assertThat(tokens.getExpiresIn(), is(3600L));
+        verify(mockAuthAPI).exchangeToken("subjectToken", "custom:token");
+    }
+
+    @Test
+    public void shouldForwardAudienceScopeAndOrganizationOnCustomTokenExchange() throws Exception {
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", "https://api/", "openid profile", null,
+                DOMAIN, ISSUER, false);
+
+        verify(mockTokenRequest).setAudience("https://api/");
+        verify(mockTokenRequest).setScope("openid profile");
+        verify(mockTokenRequest, never()).addParameter(eq("organization"), any());
+    }
+
+    @Test
+    public void shouldPassOrganizationOnCustomTokenExchangeWhenProvided() throws Exception {
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        // Utility path with an organization set still returns tokens; ID token verification is
+        // skipped here because the holder has no ID token.
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", null, null, "org_123",
+                DOMAIN, ISSUER, false);
+
+        verify(mockTokenRequest).addParameter("organization", "org_123");
+    }
+
+    @Test
+    public void shouldThrowMissingIdTokenOnLoginCustomTokenExchangeWhenNoIdTokenReturned() throws Exception {
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        InvalidRequestException exception = assertThrows(
+                InvalidRequestException.class,
+                () -> spy.executeCustomTokenExchange(
+                        "subjectToken", "custom:token", null, null, null,
+                        DOMAIN, ISSUER, true));
+        assertThat(exception.getCode(), is("a0.missing_id_token"));
+    }
+
+    @Test
+    public void shouldThrowOnLoginCustomTokenExchangeWhenIdTokenVerificationFails() throws Exception {
+        // Structurally valid JWT with an invalid signature so RS256 verification fails.
+        String fakeJwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3dyb25nLyIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0Q2xpZW50SWQiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTYwMDAwMDAwMH0.signature";
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(fakeJwt);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        IdentityVerificationException exception = assertThrows(
+                IdentityVerificationException.class,
+                () -> spy.executeCustomTokenExchange(
+                        "subjectToken", "custom:token", null, "openid", null,
+                        DOMAIN, ISSUER, true));
+        assertThat(exception.getCode(), is("a0.invalid_jwt_error"));
+    }
+
+    @Test
+    public void shouldReturnVerifiedTokensOnLoginCustomTokenExchangeWhenIdTokenValid() throws Exception {
+        String idToken = signedIdToken(null);
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenHolder.getAccessToken()).thenReturn("cteAccessToken");
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        Tokens tokens = spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", null, "openid", null, DOMAIN, ISSUER, true);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getIdToken(), is(idToken));
+        assertThat(tokens.getAccessToken(), is("cteAccessToken"));
+    }
+
+    @Test
+    public void shouldReturnTokensOnUtilityCustomTokenExchangeWhenOrgClaimMatches() throws Exception {
+        String idToken = signedIdToken("org_123");
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenHolder.getAccessToken()).thenReturn("cteAccessToken");
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        Tokens tokens = spy.executeCustomTokenExchange(
+                "subjectToken", "custom:token", null, "openid", "org_123", DOMAIN, ISSUER, false);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getAccessToken(), is("cteAccessToken"));
+        verify(mockTokenRequest).addParameter("organization", "org_123");
+    }
+
+    @Test
+    public void shouldThrowOnUtilityCustomTokenExchangeWhenOrgClaimMismatches() throws Exception {
+        String idToken = signedIdToken("org_other");
+        when(mockAuthAPI.exchangeToken("subjectToken", "custom:token")).thenReturn(mockTokenRequest);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+
+        IdentityVerificationException exception = assertThrows(
+                IdentityVerificationException.class,
+                () -> spy.executeCustomTokenExchange(
+                        "subjectToken", "custom:token", null, "openid", "org_123", DOMAIN, ISSUER, false));
+        assertThat(exception.getCode(), is("a0.invalid_jwt_error"));
+    }
+
+    // --- CIBA Backchannel Poll Tests ---
+
+    @Test
+    public void shouldTranslateAuthorizationPendingIntoBackChannelException() throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestThatThrows(
+                apiException("authorization_pending", "User has not yet approved."));
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        BackChannelAuthorizationException exception = assertThrows(
+                BackChannelAuthorizationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("authorization_pending"));
+        assertThat(exception.isAuthorizationPending(), is(true));
+        assertThat(exception.isSlowDown(), is(false));
+    }
+
+    @Test
+    public void shouldTranslateSlowDownIntoBackChannelException() throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestThatThrows(
+                apiException("slow_down", "Polling too fast."));
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        BackChannelAuthorizationException exception = assertThrows(
+                BackChannelAuthorizationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("slow_down"));
+        assertThat(exception.isSlowDown(), is(true));
+    }
+
+    @Test
+    public void shouldTranslateExpiredTokenIntoBackChannelException() throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestThatThrows(
+                apiException("expired_token", "The auth_req_id expired."));
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        BackChannelAuthorizationException exception = assertThrows(
+                BackChannelAuthorizationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("expired_token"));
+        assertThat(exception.isExpiredToken(), is(true));
+    }
+
+    @Test
+    public void shouldTranslateAccessDeniedIntoBackChannelException() throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestThatThrows(
+                apiException("access_denied", "The user rejected the request."));
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        BackChannelAuthorizationException exception = assertThrows(
+                BackChannelAuthorizationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("access_denied"));
+        assertThat(exception.isAccessDenied(), is(true));
+    }
+
+    @Test
+    public void shouldThrowMissingIdTokenWhenPollResponseHasNoIdToken() throws Exception {
+        BackChannelTokenResponse body = mock(BackChannelTokenResponse.class);
+        when(body.getIdToken()).thenReturn(null);
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestReturning(body);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        InvalidRequestException exception = assertThrows(
+                InvalidRequestException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("a0.missing_id_token"));
+    }
+
+    @Test
+    public void shouldThrowWhenPollIdTokenVerificationFails() throws Exception {
+        // Structurally valid JWT with an invalid signature so verification fails.
+        String fakeJwt = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL3dyb25nLyIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0Q2xpZW50SWQiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTYwMDAwMDAwMH0.signature";
+        BackChannelTokenResponse body = mock(BackChannelTokenResponse.class);
+        when(body.getIdToken()).thenReturn(fakeJwt);
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestReturning(body);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        IdentityVerificationException exception = assertThrows(
+                IdentityVerificationException.class,
+                () -> spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER));
+        assertThat(exception.getCode(), is("a0.invalid_jwt_error"));
+    }
+
+    @Test
+    public void shouldReturnVerifiedTokensOnSuccessfulPoll() throws Exception {
+        String idToken = signedIdToken(null);
+        BackChannelTokenResponse body = mock(BackChannelTokenResponse.class);
+        when(body.getIdToken()).thenReturn(idToken);
+        when(body.getAccessToken()).thenReturn("cibaAccessToken");
+        when(body.getExpiresIn()).thenReturn(86400L);
+        when(body.getScope()).thenReturn("openid profile");
+        Request<BackChannelTokenResponse> pollRequest = stubPollRequestReturning(body);
+
+        RequestProcessor spy = spy(createDefaultRequestProcessor());
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(DOMAIN);
+        when(mockAuthAPI.getBackChannelLoginStatus("auth-req-123", CIBA_GRANT_TYPE)).thenReturn(pollRequest);
+
+        Tokens tokens = spy.executeBackChannelPoll("auth-req-123", DOMAIN, ISSUER);
+
+        assertThat(tokens, is(notNullValue()));
+        assertThat(tokens.getIdToken(), is(idToken));
+        assertThat(tokens.getAccessToken(), is("cibaAccessToken"));
+        assertThat(tokens.getType(), is("Bearer"));
+        assertThat(tokens.getExpiresIn(), is(86400L));
+        assertThat(tokens.getScope(), is("openid profile"));
+        // CIBA never returns a refresh token.
+        assertThat(tokens.getRefreshToken(), is(nullValue()));
     }
 
     // --- Logging and Telemetry Tests ---
@@ -908,6 +1306,48 @@ public class RequestProcessorTest {
     }
 
     // --- Helper Methods ---
+
+    private static final String CIBA_GRANT_TYPE = "urn:openid:params:grant-type:ciba";
+
+    // Builds an APIException carrying the given OAuth error code and description, matching the
+    // wire shape Auth0 returns for a failed CIBA poll (400 with error/error_description).
+    private APIException apiException(String error, String description) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", error);
+        body.put("error_description", description);
+        return new APIException(body, 400);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Request<BackChannelTokenResponse> stubPollRequestThatThrows(APIException e) throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = mock(Request.class);
+        when(pollRequest.execute()).thenThrow(e);
+        return pollRequest;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Request<BackChannelTokenResponse> stubPollRequestReturning(BackChannelTokenResponse body) throws Exception {
+        Request<BackChannelTokenResponse> pollRequest = mock(Request.class);
+        Response<BackChannelTokenResponse> pollResponse = mock(Response.class);
+        when(pollRequest.execute()).thenReturn(pollResponse);
+        when(pollResponse.getBody()).thenReturn(body);
+        return pollRequest;
+    }
+
+    // Builds an HS256 ID token signed with CLIENT_SECRET so the RS256/HS256-aware verifier accepts
+    // it (HS256 path uses the client secret). Pass a non-null orgId to include an org_id claim.
+    private String signedIdToken(String orgId) {
+        JWTCreator.Builder builder = JWT.create()
+                .withIssuer(ISSUER)
+                .withSubject("user123")
+                .withAudience(CLIENT_ID)
+                .withIssuedAt(new Date(System.currentTimeMillis() - 1000))
+                .withExpiresAt(new Date(System.currentTimeMillis() + 3600_000));
+        if (orgId != null) {
+            builder.withClaim("org_id", orgId);
+        }
+        return builder.sign(Algorithm.HMAC256(CLIENT_SECRET));
+    }
 
     private RequestProcessor createDefaultRequestProcessor() {
         return new RequestProcessor.Builder(
