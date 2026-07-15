@@ -42,14 +42,14 @@ Add the dependency via Maven:
 <dependency>
   <groupId>com.auth0</groupId>
   <artifactId>mvc-auth-commons</artifactId>
-  <version>2.0.0-beta.0</version>
+  <version>2.0.0-beta.1</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:mvc-auth-commons:2.0.0-beta.0'
+implementation 'com.auth0:mvc-auth-commons:2.0.0-beta.1'
 ```
 
 ### Configure Auth0
