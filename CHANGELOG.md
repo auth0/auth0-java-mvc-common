@@ -1,5 +1,17 @@
 # Change Log
 
+## [2.0.0-beta.1](https://github.com/auth0/auth0-java-mvc-common/tree/2.0.0-beta.1) (2026-07-15)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/2.0.0-beta.0...2.0.0-beta.1)
+
+**Added**
+- Refresh Token Grant (MRRT): `AuthenticationController.renewAuth(...)` exchanges a refresh token for a new set of tokens, supporting Multi-Resource Refresh Token flows via `withAudience()`/`withScope()` [\#242](https://github.com/auth0/auth0-java-mvc-common/pull/242) ([tanya732](https://github.com/tanya732))
+- Custom Token Exchange (CTE): `AuthenticationController.customTokenExchange(...)` and `loginWithCustomTokenExchange(...)` exchange an external `subject_token` for Auth0 tokens (RFC 8693) [\#253](https://github.com/auth0/auth0-java-mvc-common/pull/253) ([tanya732](https://github.com/tanya732))
+- Client-Initiated Backchannel Authentication (CIBA): `AuthenticationController.backChannelAuthorize(...)` and `backChannelPoll(...)` support the decoupled, app-owned polling flow, with `BackChannelAuthorizationException` typed helpers (`isAuthorizationPending()`, `isSlowDown()`, `isExpiredToken()`, `isAccessDenied()`) [\#254](https://github.com/auth0/auth0-java-mvc-common/pull/254) ([tanya732](https://github.com/tanya732))
+
+> All three flows are stateless and support Multiple Custom Domains (MCD) via domain-qualified overloads. Merged via [\#255](https://github.com/auth0/auth0-java-mvc-common/pull/255).
+
+---
+
 ## [2.0.0-beta.0](https://github.com/auth0/auth0-java-mvc-common/tree/2.0.0-beta.0) (2026-05-29)
 
 This is the first beta release of the v2 major version. See the [Migration Guide](MIGRATION_GUIDE.md) for full upgrade instructions.

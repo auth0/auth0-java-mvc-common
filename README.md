@@ -151,6 +151,14 @@ AuthenticationController controller = AuthenticationController
 
 The library handles storing and retrieving the resolved domain throughout the authentication flow. The returned `Tokens` object includes `getDomain()` and `getIssuer()` for tenant-specific session management. See [EXAMPLES.md](./EXAMPLES.md#multiple-custom-domains-support) for more details.
 
+### Additional authentication flows
+
+Beyond the interactive login flow above, the `AuthenticationController` supports:
+
+- **Refresh Token Grant (MRRT)** — exchange a refresh token for fresh tokens, including Multi-Resource Refresh Token flows that target multiple APIs. See [EXAMPLES.md](./EXAMPLES.md#refresh-token-grant-mrrt).
+- **Custom Token Exchange (CTE)** — exchange an external `subject_token` for Auth0 tokens (RFC 8693). See [EXAMPLES.md](./EXAMPLES.md#custom-token-exchange-cte).
+- **Client-Initiated Backchannel Authentication (CIBA)** — a decoupled flow where the user approves authentication out-of-band on a separate device. See [EXAMPLES.md](./EXAMPLES.md#client-initiated-backchannel-authentication-ciba).
+
 ## API Reference
 
 - [JavaDocs](https://javadoc.io/doc/com.auth0/mvc-auth-commons)
