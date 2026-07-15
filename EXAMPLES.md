@@ -3,6 +3,9 @@
 - [Including additional authorization parameters](#including-additional-authorization-parameters)
 - [Organizations](#organizations)
 - [Multiple Custom Domains (MCD) Support](#multiple-custom-domains-support)
+- [Refresh Token Grant (MRRT)](#refresh-token-grant-mrrt)
+- [Custom Token Exchange (CTE)](#custom-token-exchange-cte)
+- [Client-Initiated Backchannel Authentication (CIBA)](#client-initiated-backchannel-authentication-ciba)
 - [Allowing clock skew for token validation](#allow-a-clock-skew-for-token-validation)
 - [Changing the OAuth response_type](#changing-the-oauth-response_type)
 - [HTTP logging](#http-logging)
@@ -199,6 +202,156 @@ The `DomainResolver` is intended solely for multiple custom domains belonging to
 When using MCD, your application must be deployed behind a secure edge or reverse proxy (e.g., Cloudflare, Nginx, or AWS ALB). The proxy must be configured to sanitize and overwrite `Host` and `X-Forwarded-Host` headers before they reach your application.
 
 Without a trusted proxy layer to validate these headers, an attacker can manipulate the domain resolution process. This can result in malicious redirects, where users are sent to unauthorized or fraudulent endpoints during the login and logout flows.
+
+## Refresh Token Grant (MRRT)
+
+Exchange a refresh token for a fresh set of tokens using Auth0's [refresh token grant](https://auth0.com/docs/secure/tokens/refresh-tokens). This supports [Multi-Resource Refresh Token (MRRT)](https://auth0.com/docs/secure/tokens/refresh-tokens/multi-resource-refresh-token) flows, where a single refresh token can obtain access tokens for multiple APIs by varying the requested `audience` and `scope`.
+
+The library remains stateless: your application owns storage of the refresh token, caching of the resulting access tokens, and any concurrency control around refresh-token rotation.
+
+```java
+Tokens tokens = controller.renewAuth("YOUR-REFRESH-TOKEN")
+        .withAudience("https://my-api.example.com")
+        .withScope("openid profile read:messages")
+        .execute();
+
+String accessToken = tokens.getAccessToken();
+// When refresh-token rotation is enabled, a new refresh token is returned and supersedes the
+// one used here — persist it.
+String rotatedRefreshToken = tokens.getRefreshToken();
+```
+
+> **Note:** If the requested `audience` is not permitted by the application's MRRT policy, Auth0 does not error — it returns a token for the default audience instead. Always verify the `aud` claim of the returned access token.
+
+The refresh-token grant does not return an ID token, so `tokens.getIdToken()` is typically `null`.
+
+### Using MRRT with Multiple Custom Domains
+
+When using a `DomainResolver`, pass the domain explicitly so the grant targets the correct tenant. This is required because a refresh can occur outside of an HTTP request:
+
+```java
+Tokens tokens = controller.renewAuth("YOUR-REFRESH-TOKEN", "acme.auth0.com")
+        .withAudience("https://my-api.example.com")
+        .execute();
+```
+
+Alternatively, pass the `HttpServletRequest` to let the resolver derive the domain:
+
+```java
+Tokens tokens = controller.renewAuth("YOUR-REFRESH-TOKEN", request).execute();
+```
+
+## Custom Token Exchange (CTE)
+
+[Custom Token Exchange](https://auth0.com/docs/authenticate/custom-token-exchange) (RFC 8693) exchanges an external `subject_token` for a set of Auth0 tokens. There are two variants:
+
+- **`loginWithCustomTokenExchange(...)`** — applies login semantics and **always verifies** the returned ID token. Use this to establish an authenticated session.
+- **`customTokenExchange(...)`** — a utility exchange that returns the tokens without verification, suitable for obtaining tokens for a downstream API.
+
+```java
+// Login semantics: the returned ID token is verified.
+Tokens tokens = controller.loginWithCustomTokenExchange("EXTERNAL-SUBJECT-TOKEN", "urn:acme:legacy-token")
+        .withAudience("https://my-api.example.com")
+        .withScope("openid profile")
+        .execute();
+
+// Utility exchange: tokens are returned without ID token verification.
+Tokens apiTokens = controller.customTokenExchange("EXTERNAL-SUBJECT-TOKEN", "urn:acme:legacy-token")
+        .withAudience("https://my-api.example.com")
+        .execute();
+```
+
+The `subjectTokenType` is a customer-defined URI describing the external token. Configure a matching [Custom Token Exchange profile](https://auth0.com/docs/authenticate/custom-token-exchange) in the Auth0 Dashboard.
+
+### Organizations with Custom Token Exchange
+
+When an organization is configured via `withOrganization(...)`, the library validates the `org_id`/`org_name` claim. Because that claim lives in the ID token, the ID token is fully verified on either variant whenever an organization is in play:
+
+```java
+Tokens tokens = controller.loginWithCustomTokenExchange("EXTERNAL-SUBJECT-TOKEN", "urn:acme:legacy-token")
+        .withOrganization("org_123")
+        .execute();
+```
+
+### Using CTE with Multiple Custom Domains
+
+When using a `DomainResolver`, pass the domain explicitly. A token exchange can occur outside of an HTTP request, where the domain cannot otherwise be resolved:
+
+```java
+Tokens tokens = controller.loginWithCustomTokenExchange("EXTERNAL-SUBJECT-TOKEN", "urn:acme:legacy-token", "acme.auth0.com")
+        .execute();
+```
+
+## Client-Initiated Backchannel Authentication (CIBA)
+
+[CIBA](https://auth0.com/docs/get-started/authentication-and-authorization-flow/client-initiated-backchannel-authentication-flow) is a decoupled flow: the application initiates authentication and the user approves it out-of-band on a separate device (e.g., a push notification to their phone). It is a **two-step** flow:
+
+1. **Initiate** (`backChannelAuthorize`) — ask Auth0 to authenticate the user; receive an `auth_req_id`, a polling `interval`, and an `expires_in`.
+2. **Poll** (`backChannelPoll`) — poll the token endpoint until the user approves (yielding verified `Tokens`) or a terminal error occurs.
+
+The library is deliberately stateless and **the application owns the polling loop** — this keeps it safe for horizontally-scaled deployments. Honor the `interval` returned by the initiate step, and stop on terminal errors.
+
+### Step 1: Initiate
+
+The `login_hint` identifies the user. Auth0 expects the `iss_sub` shape:
+
+```java
+Map<String, Object> loginHint = new HashMap<>();
+loginHint.put("format", "iss_sub");
+loginHint.put("iss", "https://YOUR-AUTH0-DOMAIN/");
+loginHint.put("sub", "auth0|abc123");
+
+BackChannelAuthorizeResponse authorize = controller
+        .backChannelAuthorize("openid profile", "Approve login request 1234", loginHint)
+        .withAudience("https://my-api.example.com")   // optional
+        .withRequestedExpiry(300)                       // optional, seconds
+        .execute();
+
+String authReqId = authorize.getAuthReqId();
+Integer interval = authorize.getInterval();   // seconds between polls
+Long expiresIn = authorize.getExpiresIn();     // seconds until auth_req_id expires
+```
+
+### Step 2: Poll
+
+Poll no more frequently than `interval`. Use the typed helpers on `BackChannelAuthorizationException` to drive the loop — `authorization_pending` and `slow_down` are non-terminal (keep polling), while `expired_token` and `access_denied` are terminal (stop):
+
+```java
+try {
+    Tokens tokens = controller.backChannelPoll(authReqId).execute();
+    // Success — the ID token has been verified.
+    String idToken = tokens.getIdToken();
+} catch (BackChannelAuthorizationException e) {
+    if (e.isAuthorizationPending()) {
+        // User has not approved yet — wait `interval` seconds and poll again.
+    } else if (e.isSlowDown()) {
+        // Polling too fast — increase the interval (commonly by 5 seconds) and poll again.
+    } else if (e.isExpiredToken()) {
+        // Terminal — the auth_req_id expired. Start over with backChannelAuthorize.
+    } else if (e.isAccessDenied()) {
+        // Terminal — the user rejected the request.
+    }
+} catch (IdentityVerificationException e) {
+    // The returned ID token failed verification.
+}
+```
+
+> **Note:** CIBA returns no refresh token, and the token type is reported as `Bearer`. `tokens.getRefreshToken()` is `null`.
+
+### Using CIBA with Multiple Custom Domains
+
+The `auth_req_id` is bound to the domain it was issued for, so the poll **must** target that same domain. When using a `DomainResolver`, pass the domain explicitly on both steps — polling commonly happens outside the initiating HTTP request, so store the domain alongside the `auth_req_id`:
+
+```java
+BackChannelAuthorizeResponse authorize = controller
+        .backChannelAuthorize("openid profile", "Approve login", loginHint, "acme.auth0.com")
+        .execute();
+
+// ...later, on the poll timer:
+Tokens tokens = controller.backChannelPoll(authReqId, "acme.auth0.com").execute();
+```
+
+The no-domain overloads (`backChannelAuthorize(...)` / `backChannelPoll(...)`) are only valid when the controller is configured with a fixed domain; calling them on a `DomainResolver`-backed controller throws `IllegalStateException`.
 
 ## Allow a clock skew for token validation
 
