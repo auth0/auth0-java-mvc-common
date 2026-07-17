@@ -49,7 +49,7 @@ public class Tokens implements Serializable {
     /**
      * Full constructor with domain information for MCD support.
      * <p>
-     * Equivalent to calling {@link #Tokens(String, String, String, String, Long, String, String, Long)}
+     * Equivalent to calling {@link #Tokens(String, String, String, String, Long, String, String)}
      * with a {@code null} {@code sessionExpiresAt} (no upstream IdP session ceiling).
      *
      * @param accessToken  access token for Auth0 API
