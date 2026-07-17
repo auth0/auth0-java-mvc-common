@@ -3,6 +3,9 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.APIException;
 import com.auth0.exception.Auth0Exception;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTCreator;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.json.auth.BackChannelTokenResponse;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.jwk.JwkProvider;
@@ -884,6 +887,120 @@ public class RequestProcessorTest {
         assertThat(e.getMessage(), is("An error occurred while trying to verify the ID Token."));
     }
 
+    // --- IPSIE session_expiry Tests ---
+
+    @Test
+    public void shouldStampSessionExpiryFromVerifiedIdToken() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        long iat = nowSeconds() - 60;
+        long sessionExpiry = nowSeconds() + 3600;
+        String idToken = signedIdToken(iat, sessionExpiry);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(new Cookie("com.auth0.state", "1234"));
+
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenHolder.getAccessToken()).thenReturn("backAccessToken");
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        Tokens tokens = spy.process(request, response);
+
+        assertThat(tokens.getSessionExpiresAt(), is(sessionExpiry));
+    }
+
+    @Test
+    public void shouldLeaveSessionExpiryNullWhenClaimAbsent() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        String idToken = signedIdToken(nowSeconds() - 60, null);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(new Cookie("com.auth0.state", "1234"));
+
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        Tokens tokens = spy.process(request, response);
+
+        assertThat(tokens.getSessionExpiresAt(), is(nullValue()));
+    }
+
+    @Test
+    public void shouldThrowWhenSessionExpiryIsAtOrBeforeIssuedAt() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        long iat = nowSeconds() - 60;
+        String idToken = signedIdToken(iat, iat - 100);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(new Cookie("com.auth0.state", "1234"));
+
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        IdentityVerificationException e = assertThrows(IdentityVerificationException.class, () -> spy.process(request, response));
+        assertThat(e.getCode(), is("a0.session_expiry_in_past"));
+        assertThat(e.isSessionExpiryError(), is(true));
+    }
+
+    @Test
+    public void shouldIgnoreSessionExpiryWhenValueIsInMilliseconds() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        long iat = nowSeconds() - 60;
+        // An Action that forgot to convert to seconds: a millisecond-scale value reads as a date
+        // thousands of years out and would silently disable enforcement. Treat as "no ceiling".
+        long millisecondValue = (nowSeconds() + 3600) * 1000L;
+        String idToken = signedIdToken(iat, millisecondValue);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(new Cookie("com.auth0.state", "1234"));
+
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        Tokens tokens = spy.process(request, response);
+
+        assertThat(tokens.getSessionExpiresAt(), is(nullValue()));
+    }
+
     // --- AuthorizeUrl Building Tests ---
 
     @Test
@@ -1367,6 +1484,27 @@ public class RequestProcessorTest {
                 CLIENT_SECRET)
                 .withJwkProvider(mockJwkProvider)
                 .build();
+    }
+
+    private static long nowSeconds() {
+        return Math.floorDiv(System.currentTimeMillis(), 1000L);
+    }
+
+    /**
+     * Builds an HS256-signed ID token (verifiable with the client secret) carrying the standard
+     * issuer/audience the processor expects, plus an optional {@code session_expiry} claim.
+     */
+    private static String signedIdToken(long iat, Long sessionExpiry) {
+        JWTCreator.Builder builder = JWT.create()
+                .withIssuer("https://" + DOMAIN + "/")
+                .withAudience(CLIENT_ID)
+                .withSubject("user123")
+                .withIssuedAt(new Date(iat * 1000L))
+                .withExpiresAt(new Date((nowSeconds() + 3600) * 1000L));
+        if (sessionExpiry != null) {
+            builder.withClaim("session_expiry", sessionExpiry);
+        }
+        return builder.sign(Algorithm.HMAC256(CLIENT_SECRET));
     }
 
     private MockHttpServletRequest getRequest(Map<String, Object> parameters) {

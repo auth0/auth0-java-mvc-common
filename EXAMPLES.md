@@ -9,6 +9,7 @@
 - [Allowing clock skew for token validation](#allow-a-clock-skew-for-token-validation)
 - [Changing the OAuth response_type](#changing-the-oauth-response_type)
 - [HTTP logging](#http-logging)
+- [IPSIE session_expiry (upstream IdP session ceiling)](#ipsie-session_expiry-upstream-idp-session-ceiling)
 
 ## Including additional authorization parameters
 
@@ -384,3 +385,39 @@ Once you have created the instance of the `AuthenticationController`, you can en
 ```java
 authController.setLoggingEnabled(true);
 ```
+
+## IPSIE session_expiry (upstream IdP session ceiling)
+
+When an enterprise connection has **"Use ID Token for Session Expiry"**
+(`id_token_session_expiry_supported: true`) enabled, Auth0 adds a `session_expiry` claim to
+the ID token: an absolute Unix timestamp (seconds) that caps how long the session may live,
+independent of the `exp` token lifetime.
+
+This library does not own a session. It reads and validates the claim at login, exposing it
+via `Tokens.getSessionExpiresAt()` (seconds, or `null` when absent) and
+`Tokens.isSessionExpired()`. Persisting the value and enforcing the ceiling is the
+application's job.
+
+Persist it at login alongside the tokens (`null` means "no ceiling", store as-is):
+
+```java
+Tokens tokens = authenticationController.handle(request, response);
+request.getSession().setAttribute("sessionExpiresAt", tokens.getSessionExpiresAt());
+```
+
+On every session read, rebuild a `Tokens` and check the ceiling. When it returns `true`,
+drop the session and fall through to your existing redirect-to-login path:
+
+```java
+HttpSession session = request.getSession();
+Tokens tokens = new Tokens(null, null, null, "Bearer", null, null, null,
+        (Long) session.getAttribute("sessionExpiresAt"));
+
+if (tokens.isSessionExpired()) {
+    session.invalidate();
+    response.sendRedirect("/login");
+}
+```
+
+`isSessionExpired()` applies a 30s negative leeway for clock skew; pass
+`isSessionExpired(0)` for an exact comparison.
