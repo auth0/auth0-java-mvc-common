@@ -42,14 +42,14 @@ Add the dependency via Maven:
 <dependency>
   <groupId>com.auth0</groupId>
   <artifactId>mvc-auth-commons</artifactId>
-  <version>2.0.0-beta.0</version>
+  <version>2.0.0-beta.1</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```gradle
-implementation 'com.auth0:mvc-auth-commons:2.0.0-beta.0'
+implementation 'com.auth0:mvc-auth-commons:2.0.0-beta.1'
 ```
 
 ### Configure Auth0
@@ -150,6 +150,14 @@ AuthenticationController controller = AuthenticationController
 ```
 
 The library handles storing and retrieving the resolved domain throughout the authentication flow. The returned `Tokens` object includes `getDomain()` and `getIssuer()` for tenant-specific session management. See [EXAMPLES.md](./EXAMPLES.md#multiple-custom-domains-support) for more details.
+
+### Additional authentication flows
+
+Beyond the interactive login flow above, the `AuthenticationController` supports:
+
+- **Refresh Token Grant (MRRT)** — exchange a refresh token for fresh tokens, including Multi-Resource Refresh Token flows that target multiple APIs. See [EXAMPLES.md](./EXAMPLES.md#refresh-token-grant-mrrt).
+- **Custom Token Exchange (CTE)** — exchange an external `subject_token` for Auth0 tokens (RFC 8693). See [EXAMPLES.md](./EXAMPLES.md#custom-token-exchange-cte).
+- **Client-Initiated Backchannel Authentication (CIBA)** — a decoupled flow where the user approves authentication out-of-band on a separate device. See [EXAMPLES.md](./EXAMPLES.md#client-initiated-backchannel-authentication-ciba).
 
 ## API Reference
 

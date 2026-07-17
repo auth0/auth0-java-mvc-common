@@ -30,6 +30,7 @@ public class Tokens implements Serializable {
     private final String refreshToken;
     private final String type;
     private final Long expiresIn;
+    private final String scope;
     private final String domain;
     private final String issuer;
     private final Long sessionExpiresAt;
@@ -61,7 +62,27 @@ public class Tokens implements Serializable {
      * @param issuer       the issuer URL from the ID token
      */
     public Tokens(String accessToken, String idToken, String refreshToken, String type, Long expiresIn, String domain, String issuer) {
-        this(accessToken, idToken, refreshToken, type, expiresIn, domain, issuer, null);
+        this(accessToken, idToken, refreshToken, type, expiresIn, null, domain, issuer, null);
+    }
+
+    /**
+     * Full constructor including the granted scope and domain information.
+     * <p>
+     * Equivalent to calling {@link #Tokens(String, String, String, String, Long, String, String, String, Long)}
+     * with a {@code null} {@code sessionExpiresAt} (no upstream IdP session ceiling).
+     *
+     * @param accessToken  access token for Auth0 API
+     * @param idToken      identity token with user information
+     * @param refreshToken refresh token that can be used to request new tokens
+     *                     without signing in again
+     * @param type         token type
+     * @param expiresIn    token expiration
+     * @param scope        the scope granted for the access token, or null if not provided
+     * @param domain       the Auth0 domain that issued these tokens
+     * @param issuer       the issuer URL from the ID token
+     */
+    public Tokens(String accessToken, String idToken, String refreshToken, String type, Long expiresIn, String scope, String domain, String issuer) {
+        this(accessToken, idToken, refreshToken, type, expiresIn, scope, domain, issuer, null);
     }
 
     /**
@@ -73,6 +94,7 @@ public class Tokens implements Serializable {
      *                         without signing in again
      * @param type             token type
      * @param expiresIn        token expiration
+     * @param scope        the scope granted for the access token, or null if not provided
      * @param domain           the Auth0 domain that issued these tokens
      * @param issuer           the issuer URL from the ID token
      * @param sessionExpiresAt the value of the {@code session_expiry} ID token claim
@@ -80,12 +102,13 @@ public class Tokens implements Serializable {
      *                         claim is absent. A {@code null} value means "no session ceiling"
      *                         and must never be treated as an already-expired session.
      */
-    public Tokens(String accessToken, String idToken, String refreshToken, String type, Long expiresIn, String domain, String issuer, Long sessionExpiresAt) {
+    public Tokens(String accessToken, String idToken, String refreshToken, String type, Long expiresIn, String scope, String domain, String issuer, Long sessionExpiresAt) {
         this.accessToken = accessToken;
         this.idToken = idToken;
         this.refreshToken = refreshToken;
         this.type = type;
         this.expiresIn = expiresIn;
+        this.scope = scope;
         this.domain = domain;
         this.issuer = issuer;
         this.sessionExpiresAt = sessionExpiresAt;
@@ -134,6 +157,15 @@ public class Tokens implements Serializable {
      */
     public Long getExpiresIn() {
         return expiresIn;
+    }
+
+    /**
+     * Getter for the scope granted for the Access Token.
+     *
+     * @return the granted scope, or null if not provided.
+     */
+    public String getScope() {
+        return scope;
     }
 
 
