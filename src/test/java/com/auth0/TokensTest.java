@@ -100,6 +100,27 @@ public class TokensTest {
         assertThat(tokens.isSessionExpired(0), is(false));
     }
 
+    @Test
+    public void shouldClampNegativeLeewayToZeroRatherThanExtendingCeiling() {
+        // A ceiling 10s in the future. A negative leeway must not push the effective ceiling later
+        // (which would report "not expired" past the real ceiling); it is clamped to 0.
+        Tokens tokens = new Tokens("at", "it", "rt", "bearer", 3600L, "scope", "domain", "issuer", nowSeconds() + 10);
+        assertThat(tokens.isSessionExpired(-3600), is(false));
+
+        // A ceiling 10s in the past: clamped-to-0 leeway still reports expired, not extended.
+        Tokens past = new Tokens("at", "it", "rt", "bearer", 3600L, "scope", "domain", "issuer", nowSeconds() - 10);
+        assertThat(past.isSessionExpired(-3600), is(true));
+    }
+
+    @Test
+    public void staticIsSessionExpiredMatchesInstanceBehavior() {
+        assertThat(Tokens.isSessionExpired(null, 0), is(false));
+        assertThat(Tokens.isSessionExpired(nowSeconds() + 3600, Tokens.DEFAULT_SESSION_EXPIRY_LEEWAY), is(false));
+        assertThat(Tokens.isSessionExpired(nowSeconds() - 3600, Tokens.DEFAULT_SESSION_EXPIRY_LEEWAY), is(true));
+        // Negative leeway clamped to 0: a future ceiling is not reported expired.
+        assertThat(Tokens.isSessionExpired(nowSeconds() + 10, -3600), is(false));
+    }
+
     private static long nowSeconds() {
         return Math.floorDiv(System.currentTimeMillis(), 1000L);
     }

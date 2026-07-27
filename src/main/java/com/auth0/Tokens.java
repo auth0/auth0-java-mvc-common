@@ -237,17 +237,40 @@ public class Tokens implements Serializable {
      * this always returns {@code false} — absence of the claim means "no ceiling" and must never
      * be treated as an expired session. The comparison is performed entirely in integer seconds.
      *
-     * @param leewaySeconds a non-negative leeway, in seconds, applied so the session is treated
-     *                      as expired slightly before the wall-clock ceiling to absorb clock
-     *                      skew. Pass {@code 0} for an exact comparison.
+     * @param leewaySeconds a leeway, in seconds, applied so the session is treated as expired
+     *                      slightly before the wall-clock ceiling to absorb clock skew. Pass
+     *                      {@code 0} for an exact comparison. A negative value is clamped to
+     *                      {@code 0}: leeway may only move the effective ceiling <em>earlier</em>,
+     *                      never later, so it can never extend the session past its ceiling.
      * @return {@code true} if a ceiling is present and {@code now >= sessionExpiresAt - leeway},
      * {@code false} otherwise.
      */
     public boolean isSessionExpired(long leewaySeconds) {
+        return isSessionExpired(sessionExpiresAt, leewaySeconds);
+    }
+
+    /**
+     * Whether the given session ceiling has been reached, using the same rules as
+     * {@link #isSessionExpired(long)} but against a caller-supplied value rather than the ceiling
+     * held on a {@code Tokens} instance. This lets an application check a persisted
+     * {@code session_expiry} without reconstructing a {@code Tokens} — for example on a session read,
+     * or before running its own refresh-token exchange (which must not renew past the ceiling).
+     *
+     * @param sessionExpiresAt the {@code session_expiry} ceiling (Unix seconds), or {@code null} for
+     *                         "no ceiling".
+     * @param leewaySeconds    a leeway, in seconds, applied so the session is treated as expired
+     *                         slightly before the wall-clock ceiling to absorb clock skew. A negative
+     *                         value is clamped to {@code 0} so leeway can never extend the session
+     *                         past its ceiling.
+     * @return {@code true} if a ceiling is present and {@code now >= sessionExpiresAt - leeway},
+     * {@code false} otherwise (including when {@code sessionExpiresAt} is {@code null}).
+     */
+    public static boolean isSessionExpired(Long sessionExpiresAt, long leewaySeconds) {
         if (sessionExpiresAt == null) {
             return false;
         }
+        long effectiveLeeway = Math.max(0L, leewaySeconds);
         long nowSeconds = Math.floorDiv(System.currentTimeMillis(), 1000L);
-        return nowSeconds >= sessionExpiresAt - leewaySeconds;
+        return nowSeconds >= sessionExpiresAt - effectiveLeeway;
     }
 }

@@ -565,38 +565,71 @@ class RequestProcessor {
      */
     private Tokens withSessionExpiry(Tokens tokens) throws IdentityVerificationException {
         String idToken = tokens.getIdToken();
-        if (idToken == null) {
-            return tokens;
-        }
-
-        DecodedJWT decoded = JWT.decode(idToken);
-        Claim sessionExpiryClaim = decoded.getClaim("session_expiry");
-        if (sessionExpiryClaim.isMissing() || sessionExpiryClaim.isNull()) {
-            return tokens;
-        }
-
-        Long sessionExpiresAt = sessionExpiryClaim.asLong();
+        Long sessionExpiresAt = parseSessionExpiry(idToken);
         if (sessionExpiresAt == null) {
-            // Present but not a numeric value — ignore rather than fail, matching "no ceiling".
             return tokens;
         }
 
-        // Range guard: reject milliseconds-since-epoch (or any absurdly large value). A value
-        // accidentally emitted in milliseconds would read as a date ~thousands of years out and
-        // silently switch off enforcement, so treat anything at/above this bound as "no ceiling".
-        if (sessionExpiresAt >= MAX_SESSION_EXPIRY_SECONDS) {
-            return tokens;
-        }
-
-        // Lockout guard: a session that is already past its ceiling at login must not be persisted.
-        Date issuedAt = decoded.getIssuedAt();
-        if (issuedAt != null && sessionExpiresAt <= Math.floorDiv(issuedAt.getTime(), 1000L)) {
+        // Lockout guard: a session that would already be expired on its first read must not be
+        // persisted. Applies the same leeway as Tokens#isSessionExpired so a ceiling that clears
+        // login isn't immediately bounced by the very next read. When the token carries an iat we
+        // anchor the check to it (the canonical "session started at" instant); if it somehow has no
+        // iat we fall back to wall-clock now, using the same leewayed comparison, so an already-past
+        // ceiling can't slip through unguarded.
+        Date issuedAt = JWT.decode(idToken).getIssuedAt();
+        long referenceSeconds = issuedAt != null
+                ? Math.floorDiv(issuedAt.getTime(), 1000L)
+                : Math.floorDiv(System.currentTimeMillis(), 1000L);
+        if (sessionExpiresAt <= referenceSeconds + Tokens.DEFAULT_SESSION_EXPIRY_LEEWAY) {
             throw new IdentityVerificationException(SESSION_EXPIRY_IN_PAST_ERROR,
-                    "The session_expiry claim is at or before the token's issued-at time; the session is already expired.");
+                    "The session_expiry claim is within the expiry leeway of the token's issued-at time; the session is already expired.");
         }
 
         return new Tokens(tokens.getAccessToken(), tokens.getIdToken(), tokens.getRefreshToken(),
                 tokens.getType(), tokens.getExpiresIn(), tokens.getScope(), tokens.getDomain(), tokens.getIssuer(), sessionExpiresAt);
+    }
+
+    /**
+     * Reads and validates the IPSIE {@code session_expiry} claim from an ID token, returning the
+     * ceiling as a Unix timestamp in seconds, or {@code null} when there is no usable ceiling.
+     * <p>
+     * A {@code null} ID token, an absent/null/non-numeric claim, a non-positive value
+     * ({@code <= 0}), or a value large enough to be milliseconds-since-epoch
+     * ({@code >= 10_000_000_000}) all yield {@code null} — meaning "no ceiling" — rather than an
+     * exception, so a malformed or nonsensical value fails open instead of locking the user out, and
+     * absence is never mistaken for an expired session. The lockout guard (rejecting a valid ceiling
+     * already in the past at login) is applied separately by the caller, since it only applies to the
+     * login path.
+     *
+     * @param idToken the ID token to inspect, or {@code null}.
+     * @return the validated {@code session_expiry} in seconds since epoch, or {@code null}.
+     */
+    static Long parseSessionExpiry(String idToken) {
+        if (idToken == null) {
+            return null;
+        }
+        Claim sessionExpiryClaim = JWT.decode(idToken).getClaim("session_expiry");
+        if (sessionExpiryClaim.isMissing() || sessionExpiryClaim.isNull()) {
+            return null;
+        }
+        Long sessionExpiresAt = sessionExpiryClaim.asLong();
+        if (sessionExpiresAt == null) {
+            // Present but not a numeric value — ignore rather than fail, matching "no ceiling".
+            return null;
+        }
+        // Fail open on non-positive values: 0 or a negative is not a real ceiling, so treat it as
+        // "no ceiling" rather than an already-expired session that would lock the user out. This
+        // keeps every nonsensical value (malformed, out-of-range, non-positive) behaving uniformly.
+        if (sessionExpiresAt <= 0) {
+            return null;
+        }
+        // Range guard: reject milliseconds-since-epoch (or any absurdly large value). A value
+        // accidentally emitted in milliseconds would read as a date ~thousands of years out and
+        // silently switch off enforcement, so treat anything at/above this bound as "no ceiling".
+        if (sessionExpiresAt >= MAX_SESSION_EXPIRY_SECONDS) {
+            return null;
+        }
+        return sessionExpiresAt;
     }
 
     /**

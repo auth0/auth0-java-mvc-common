@@ -226,6 +226,10 @@ String rotatedRefreshToken = tokens.getRefreshToken();
 
 The refresh-token grant does not return an ID token, so `tokens.getIdToken()` is typically `null`.
 
+> **Session ceiling:** if the connection emits the IPSIE `session_expiry` claim, pass the persisted
+> ceiling via `withSessionExpiresAt(...)` so the refresh is gated against it. See
+> [IPSIE session_expiry](#ipsie-session_expiry-upstream-idp-session-ceiling).
+
 ### Using MRRT with Multiple Custom Domains
 
 When using a `DomainResolver`, pass the domain explicitly so the grant targets the correct tenant. This is required because a refresh can occur outside of an HTTP request:
@@ -395,8 +399,15 @@ independent of the `exp` token lifetime.
 
 This library does not own a session. It reads and validates the claim at login, exposing it
 via `Tokens.getSessionExpiresAt()` (seconds, or `null` when absent) and
-`Tokens.isSessionExpired()`. Persisting the value and enforcing the ceiling is the
+`Tokens.isSessionExpired(...)`. Persisting the value and enforcing the ceiling is the
 application's job.
+
+> :warning: **The claim must be an integer number of seconds since the epoch.** The value is
+> emitted by your tenant, so the most common mistake is emitting
+> **milliseconds** (a `getTime()` without the `/ 1000`). A millisecond-scale value is **not**
+> enforced as a date thousands of years out — it is out of range, so the library treats it as
+> "no ceiling" and enforcement is silently **off**. Any non-numeric, zero, or negative value is
+> likewise ignored (fails open to "no ceiling") rather than locking users out. 
 
 Persist it at login alongside the tokens (`null` means "no ceiling", store as-is):
 
@@ -405,19 +416,76 @@ Tokens tokens = authenticationController.handle(request, response);
 request.getSession().setAttribute("sessionExpiresAt", tokens.getSessionExpiresAt());
 ```
 
-On every session read, rebuild a `Tokens` and check the ceiling. When it returns `true`,
-drop the session and fall through to your existing redirect-to-login path:
+**Login can now fail on this claim.** When the connection option is on and the emitted
+`session_expiry` is at or before the token's issued-at time (already expired), `handle()` throws
+an `IdentityVerificationException` for which `isSessionExpiryError()` returns `true` — a new error
+out of `handle()` that apps enabling the option weren't previously catching. Send the user back to
+log in:
+
+```java
+try {
+    Tokens tokens = authenticationController.handle(request, response);
+    request.getSession().setAttribute("sessionExpiresAt", tokens.getSessionExpiresAt());
+} catch (IdentityVerificationException e) {
+    if (e.isSessionExpiryError()) {
+        response.sendRedirect("/login");
+        return;
+    }
+    throw e;
+}
+```
+
+On every session read, check the persisted ceiling directly with the static helper (no need to
+reconstruct a `Tokens`). When it returns `true`, drop the session and fall through to your existing
+redirect-to-login path:
 
 ```java
 HttpSession session = request.getSession();
-Tokens tokens = new Tokens(null, null, null, "Bearer", null, null, null,
-        (Long) session.getAttribute("sessionExpiresAt"));
+Long sessionExpiresAt = (Long) session.getAttribute("sessionExpiresAt");
 
-if (tokens.isSessionExpired()) {
+if (Tokens.isSessionExpired(sessionExpiresAt, Tokens.DEFAULT_SESSION_EXPIRY_LEEWAY)) {
     session.invalidate();
     response.sendRedirect("/login");
 }
 ```
 
-`isSessionExpired()` applies a 30s negative leeway for clock skew; pass
-`isSessionExpired(0)` for an exact comparison.
+The leeway is a 30s clock-skew allowance that treats the session as expired slightly *early*; pass
+`0` for an exact comparison. (When you hold a live `Tokens` instance, the instance methods
+`tokens.isSessionExpired()` / `tokens.isSessionExpired(0)` do the same thing against its own
+ceiling.)
+
+### Enforcing the ceiling on refresh
+
+The ceiling must be honored on **refresh**, not just on session reads: renewing an access token past
+the ceiling defeats the point of the upstream session limit. If you use this library's refresh-token
+grant (see [Refresh Token Grant (MRRT)](#refresh-token-grant-mrrt)), hand the persisted ceiling to
+`withSessionExpiresAt(...)` and the SDK enforces it for you — `execute()` throws
+`SessionExpiredException` **before** calling the token endpoint when the ceiling has passed, and
+carries the same ceiling forward onto the returned `Tokens` (the refresh grant returns no ID token,
+so there is no fresh `session_expiry` to re-read):
+
+```java
+Long sessionExpiresAt = (Long) session.getAttribute("sessionExpiresAt");
+try {
+    Tokens tokens = authenticationController.renewAuth(refreshToken, domain)
+            .withSessionExpiresAt(sessionExpiresAt)
+            .execute();
+    // ceiling is preserved on the result — persist it as-is for the next refresh
+    session.setAttribute("sessionExpiresAt", tokens.getSessionExpiresAt());
+} catch (SessionExpiredException e) {
+    session.invalidate();
+    response.sendRedirect("/login");
+}
+```
+
+If instead you refresh tokens **outside** this SDK, run the same check yourself **before** calling
+the token endpoint with `grant_type=refresh_token`:
+
+```java
+if (Tokens.isSessionExpired(sessionExpiresAt, Tokens.DEFAULT_SESSION_EXPIRY_LEEWAY)) {
+    // do not refresh — re-authenticate instead
+}
+```
+
+Either way, the ceiling is fixed at login and does **not** advance on refresh, so carry the original
+value forward.

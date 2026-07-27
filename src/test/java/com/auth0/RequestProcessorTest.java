@@ -1001,6 +1001,67 @@ public class RequestProcessorTest {
         assertThat(tokens.getSessionExpiresAt(), is(nullValue()));
     }
 
+    @Test
+    public void shouldIgnoreSessionExpiryWhenValueIsNotNumeric() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        // Developer-set claim: a non-numeric value (e.g. a string) must fail open to "no ceiling"
+        // rather than locking the user out.
+        String idToken = signedIdTokenWithStringSessionExpiry(nowSeconds() - 60, "not-a-number");
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("code", "abc123");
+        params.put("state", "1234");
+        MockHttpServletRequest request = getRequest(params);
+        request.setCookies(new Cookie("com.auth0.state", "1234"));
+
+        when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+        when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+        when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+        when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
+
+        RequestProcessor handler = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(handler);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        Tokens tokens = spy.process(request, response);
+
+        assertThat(tokens.getSessionExpiresAt(), is(nullValue()));
+    }
+
+    @Test
+    public void shouldIgnoreSessionExpiryWhenValueIsZeroOrNegative() throws Exception {
+        when(mockDomainProvider.getDomain(any())).thenReturn(DOMAIN);
+
+        // Zero/negative are numbers, so they pass the range check, but they are not real ceilings.
+        // They must fail open to "no ceiling" rather than throwing an already-expired lockout.
+        long iat = nowSeconds() - 60;
+
+        for (long value : new long[]{0L, -100L}) {
+            String idToken = signedIdToken(iat, value);
+
+            Map<String, Object> params = new HashMap<>();
+            params.put("code", "abc123");
+            params.put("state", "1234");
+            MockHttpServletRequest request = getRequest(params);
+            request.setCookies(new Cookie("com.auth0.state", "1234"));
+
+            when(mockTokenHolder.getIdToken()).thenReturn(idToken);
+            when(mockTokenResponse.getBody()).thenReturn(mockTokenHolder);
+            when(mockTokenRequest.execute()).thenReturn(mockTokenResponse);
+            when(mockAuthAPI.exchangeCode(eq("abc123"), anyString())).thenReturn(mockTokenRequest);
+
+            RequestProcessor handler = createDefaultRequestProcessor();
+            RequestProcessor spy = spy(handler);
+            doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+            Tokens tokens = spy.process(request, response);
+
+            assertThat("value " + value + " should fail open to no ceiling",
+                    tokens.getSessionExpiresAt(), is(nullValue()));
+        }
+    }
+
     // --- AuthorizeUrl Building Tests ---
 
     @Test
@@ -1505,6 +1566,21 @@ public class RequestProcessorTest {
             builder.withClaim("session_expiry", sessionExpiry);
         }
         return builder.sign(Algorithm.HMAC256(CLIENT_SECRET));
+    }
+
+    /**
+     * Variant of {@link #signedIdToken(long, Long)} that emits a non-numeric {@code session_expiry}
+     * claim, to exercise the malformed-value (fail-open) path.
+     */
+    private static String signedIdTokenWithStringSessionExpiry(long iat, String sessionExpiry) {
+        return JWT.create()
+                .withIssuer("https://" + DOMAIN + "/")
+                .withAudience(CLIENT_ID)
+                .withSubject("user123")
+                .withIssuedAt(new Date(iat * 1000L))
+                .withExpiresAt(new Date((nowSeconds() + 3600) * 1000L))
+                .withClaim("session_expiry", sessionExpiry)
+                .sign(Algorithm.HMAC256(CLIENT_SECRET));
     }
 
     private MockHttpServletRequest getRequest(Map<String, Object> parameters) {
