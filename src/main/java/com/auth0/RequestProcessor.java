@@ -53,10 +53,7 @@ class RequestProcessor {
     private static final String KEY_MAX_AGE = "max_age";
     private static final String CIBA_GRANT_TYPE = "urn:openid:params:grant-type:ciba";
 
-    // Upper bound for a valid session_expiry (Unix seconds). Anything at/above this is treated as
-    // "no ceiling": it is almost certainly a milliseconds-since-epoch value emitted by mistake,
-    // which would otherwise read as a date thousands of years out and silently disable enforcement.
-    // Per the IPSIE Decision Log, reject anything >= 10,000,000,000.
+    // Upper bound for a valid session_expiry (Unix seconds)
     private static final long MAX_SESSION_EXPIRY_SECONDS = 10_000_000_000L;
 
     private final DomainProvider domainProvider;
@@ -561,7 +558,7 @@ class RequestProcessor {
      * @param tokens the merged tokens whose ID token is inspected.
      * @return the same tokens augmented with {@code sessionExpiresAt}, or {@code tokens} unchanged
      * when no usable {@code session_expiry} claim is present.
-     * @throws IdentityVerificationException if {@code session_expiry <= iat}.
+     * @throws IdentityVerificationException if {@code session_expiry <= iat + leeway}.
      */
     private Tokens withSessionExpiry(Tokens tokens) throws IdentityVerificationException {
         String idToken = tokens.getIdToken();
@@ -570,12 +567,7 @@ class RequestProcessor {
             return tokens;
         }
 
-        // Lockout guard: a session that would already be expired on its first read must not be
-        // persisted. Applies the same leeway as Tokens#isSessionExpired so a ceiling that clears
-        // login isn't immediately bounced by the very next read. When the token carries an iat we
-        // anchor the check to it (the canonical "session started at" instant); if it somehow has no
-        // iat we fall back to wall-clock now, using the same leewayed comparison, so an already-past
-        // ceiling can't slip through unguarded.
+        // Applies the same leeway as Tokens#isSessionExpired so a ceiling that just clears login isn't immediately bounced by the very next read.
         Date issuedAt = JWT.decode(idToken).getIssuedAt();
         long referenceSeconds = issuedAt != null
                 ? Math.floorDiv(issuedAt.getTime(), 1000L)
@@ -595,7 +587,7 @@ class RequestProcessor {
      * <p>
      * A {@code null} ID token, an absent/null/non-numeric claim, a non-positive value
      * ({@code <= 0}), or a value large enough to be milliseconds-since-epoch
-     * ({@code >= 10_000_000_000}) all yield {@code null} — meaning "no ceiling" — rather than an
+     * ({@code >= 10_000_000_000}) all yield {@code null} (meaning "no ceiling") rather than an
      * exception, so a malformed or nonsensical value fails open instead of locking the user out, and
      * absence is never mistaken for an expired session. The lockout guard (rejecting a valid ceiling
      * already in the past at login) is applied separately by the caller, since it only applies to the
@@ -614,18 +606,14 @@ class RequestProcessor {
         }
         Long sessionExpiresAt = sessionExpiryClaim.asLong();
         if (sessionExpiresAt == null) {
-            // Present but not a numeric value — ignore rather than fail, matching "no ceiling".
+            // Present but not a numeric value, ignore rather than fail, matching "no ceiling".
             return null;
         }
-        // Fail open on non-positive values: 0 or a negative is not a real ceiling, so treat it as
-        // "no ceiling" rather than an already-expired session that would lock the user out. This
-        // keeps every nonsensical value (malformed, out-of-range, non-positive) behaving uniformly.
+        // A zero or negative isn't a real ceiling, so we fail open rather than lock the user out.
         if (sessionExpiresAt <= 0) {
             return null;
         }
-        // Range guard: reject milliseconds-since-epoch (or any absurdly large value). A value
-        // accidentally emitted in milliseconds would read as a date ~thousands of years out and
-        // silently switch off enforcement, so treat anything at/above this bound as "no ceiling".
+        // A milliseconds value reads as a far future date and silently turns enforcement off.
         if (sessionExpiresAt >= MAX_SESSION_EXPIRY_SECONDS) {
             return null;
         }

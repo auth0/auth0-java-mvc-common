@@ -111,7 +111,7 @@ public class RenewAuthRequest {
      * @throws Auth0Exception          if the request to the Auth0 server failed.
      */
     public Tokens execute() throws Auth0Exception, SessionExpiredException {
-        // Gate: never refresh past the IdP session ceiling — the renewed access token must not
+        // Gate: never refresh past the IdP session ceiling, the renewed access token must not
         // outlive the session. Checked before the network call so no token is minted.
         if (Tokens.isSessionExpired(sessionExpiresAt, DEFAULT_SESSION_EXPIRY_LEEWAY)) {
             throw new SessionExpiredException(
@@ -127,12 +127,9 @@ public class RenewAuthRequest {
         }
         TokenHolder holder = request.execute().getBody();
 
-        // Carry-forward: prefer a fresh, valid ceiling from the response (rare — the grant has no
-        // ID token), otherwise re-stamp the supplied ceiling so a refresh never silently drops it.
-        Long freshCeiling = RequestProcessor.parseSessionExpiry(holder.getIdToken());
-        Long ceiling = freshCeiling != null ? freshCeiling : sessionExpiresAt;
 
+        // the ceiling is fixed at login and does not advance on refresh, so the supplied value is always re-stamped unchanged.
         return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(),
-                holder.getTokenType(), holder.getExpiresIn(), holder.getScope(), domain, issuer, ceiling);
+                holder.getTokenType(), holder.getExpiresIn(), holder.getScope(), domain, issuer, sessionExpiresAt);
     }
 }

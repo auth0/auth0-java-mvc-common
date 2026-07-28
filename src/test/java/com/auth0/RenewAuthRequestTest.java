@@ -156,15 +156,17 @@ public class RenewAuthRequestTest {
     }
 
     @Test
-    public void shouldPreferFreshCeilingFromResponseOverSuppliedOne() throws Exception {
-        long freshCeiling = nowSeconds() + 7200;
-        when(mockTokenHolder.getIdToken()).thenReturn(idTokenWithSessionExpiry(freshCeiling));
+    public void shouldKeepSuppliedCeilingEvenWhenResponseCarriesADifferentOne() throws Exception {
+        // The ceiling is fixed at login (write-once): a session_expiry in the refresh response must
+        // not move it. The response token is also unverified here, so its claims must not be trusted.
+        long suppliedCeiling = nowSeconds() + 3600;
+        when(mockTokenHolder.getIdToken()).thenReturn(idTokenWithSessionExpiry(nowSeconds() + 7200));
 
         RenewAuthRequest request = new RenewAuthRequest(mockClient, REFRESH_TOKEN, DOMAIN, ISSUER);
 
-        Tokens tokens = request.withSessionExpiresAt(nowSeconds() + 3600).execute();
+        Tokens tokens = request.withSessionExpiresAt(suppliedCeiling).execute();
 
-        assertThat(tokens.getSessionExpiresAt(), is(freshCeiling));
+        assertThat(tokens.getSessionExpiresAt(), is(suppliedCeiling));
     }
 
     private static long nowSeconds() {
