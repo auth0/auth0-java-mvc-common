@@ -615,4 +615,185 @@ public class AuthenticationController {
         return requestProcessor.buildTokenExchangeRequest(subjectToken, subjectTokenType, true);
     }
 
+    /**
+     * Builds a request to exchange an Auth0 refresh token for an external identity provider's
+     * access token via <a href="https://auth0.com/docs/secure/tokens/token-vault">Token Vault</a>,
+     * using the statically configured domain.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call
+     * {@link #getTokenForConnectionWithRefreshToken(String, String, String)} with the domain.</p>
+     *
+     * @param connection   the federated connection name (e.g. {@code google-oauth2}).
+     * @param refreshToken the Auth0 refresh token to exchange.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public ConnectionTokenRequest getTokenForConnectionWithRefreshToken(String connection, String refreshToken) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, "urn:ietf:params:oauth:token-type:refresh_token");
+    }
+
+    /**
+     * Builds a Token Vault request exchanging an Auth0 refresh token against the given domain.
+     *
+     * <p>A connection exchange is bound to the domain the subject token was issued for at login;
+     * supply the domain stored from {@link Tokens#getDomain()} at login. This overload is required
+     * in Multiple Custom Domains (MCD) setups, and works outside of an HTTP request.</p>
+     *
+     * @param connection   the federated connection name.
+     * @param refreshToken the Auth0 refresh token to exchange.
+     * @param domain       the Auth0 domain to target.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     */
+    public ConnectionTokenRequest getTokenForConnectionWithRefreshToken(String connection, String refreshToken, String domain) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, "urn:ietf:params:oauth:token-type:refresh_token", domain);
+    }
+
+    /**
+     * Builds a Token Vault request exchanging an Auth0 refresh token, resolving the domain from the
+     * given request via the configured domain or {@code DomainResolver}.
+     *
+     * <p><strong>Note:</strong> a connection exchange is bound to the domain the subject token was
+     * issued for at login; if the resolver resolves this request to a different domain, Auth0 will
+     * reject the grant. In MCD setups prefer
+     * {@link #getTokenForConnectionWithRefreshToken(String, String, String)} with the domain stored
+     * from {@link Tokens#getDomain()} at login.</p>
+     *
+     * @param connection   the federated connection name.
+     * @param refreshToken the Auth0 refresh token to exchange.
+     * @param request      the current HTTP request, used to resolve the domain.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     */
+    public ConnectionTokenRequest getTokenForConnectionWithRefreshToken(String connection, String refreshToken, HttpServletRequest request) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(refreshToken, "refreshToken must not be null");
+        Validate.notNull(request, "request must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, "urn:ietf:params:oauth:token-type:refresh_token", request);
+    }
+
+    /**
+     * Builds a request to exchange an Auth0 access token for an external identity provider's access
+     * token via <a href="https://auth0.com/docs/secure/tokens/token-vault">Token Vault</a>, using
+     * the statically configured domain.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call
+     * {@link #getTokenForConnectionWithAccessToken(String, String, String)} with the domain.</p>
+     *
+     * @param connection  the federated connection name (e.g. {@code google-oauth2}).
+     * @param accessToken the Auth0 access token to exchange.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public ConnectionTokenRequest getTokenForConnectionWithAccessToken(String connection, String accessToken) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(accessToken, "accessToken must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, "urn:ietf:params:oauth:token-type:access_token");
+    }
+
+    /**
+     * Builds a Token Vault request exchanging an Auth0 access token against the given domain.
+     *
+     * <p>A connection exchange is bound to the domain the subject token was issued for at login;
+     * supply the domain stored from {@link Tokens#getDomain()} at login. This overload is required
+     * in Multiple Custom Domains (MCD) setups.</p>
+     *
+     * @param connection  the federated connection name.
+     * @param accessToken the Auth0 access token to exchange.
+     * @param domain      the Auth0 domain to target.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     */
+    public ConnectionTokenRequest getTokenForConnectionWithAccessToken(String connection, String accessToken, String domain) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(accessToken, "accessToken must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, "urn:ietf:params:oauth:token-type:access_token", domain);
+    }
+
+    /**
+     * Builds a Token Vault request exchanging an Auth0 access token, resolving the domain from the
+     * given request via the configured domain or {@code DomainResolver}.
+     *
+     * <p><strong>Note:</strong> a connection exchange is bound to the domain the subject token was
+     * issued for at login; if the resolver resolves this request to a different domain, Auth0 will
+     * reject the grant. In MCD setups prefer
+     * {@link #getTokenForConnectionWithAccessToken(String, String, String)} with the domain stored
+     * from {@link Tokens#getDomain()} at login.</p>
+     *
+     * @param connection  the federated connection name.
+     * @param accessToken the Auth0 access token to exchange.
+     * @param request     the current HTTP request, used to resolve the domain.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     */
+    public ConnectionTokenRequest getTokenForConnectionWithAccessToken(String connection, String accessToken, HttpServletRequest request) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(accessToken, "accessToken must not be null");
+        Validate.notNull(request, "request must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, "urn:ietf:params:oauth:token-type:access_token", request);
+    }
+
+    /**
+     * Builds a Token Vault request with a caller-supplied subject-token-type, using the statically
+     * configured domain. This is the generic escape hatch for subject-token-types other than the
+     * refresh-token and access-token variants covered by the typed methods.
+     *
+     * <p>This overload is only valid when the controller was configured with a fixed domain. When a
+     * {@code DomainResolver} is in use, call
+     * {@link #getTokenForConnection(String, String, String, String)} with the domain.</p>
+     *
+     * @param connection       the federated connection name (e.g. {@code google-oauth2}).
+     * @param subjectToken     the Auth0 token to exchange.
+     * @param subjectTokenType the subject-token-type URN describing {@code subjectToken}.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@code DomainResolver}.
+     */
+    public ConnectionTokenRequest getTokenForConnection(String connection, String subjectToken, String subjectTokenType) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, subjectToken, subjectTokenType);
+    }
+
+    /**
+     * Builds a Token Vault request with a caller-supplied subject-token-type against the given
+     * domain. See {@link #getTokenForConnection(String, String, String)} for details.
+     *
+     * @param connection       the federated connection name.
+     * @param subjectToken     the Auth0 token to exchange.
+     * @param subjectTokenType the subject-token-type URN describing {@code subjectToken}.
+     * @param domain           the Auth0 domain to target.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     */
+    public ConnectionTokenRequest getTokenForConnection(String connection, String subjectToken, String subjectTokenType, String domain) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        Validate.notNull(domain, "domain must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, subjectToken, subjectTokenType, domain);
+    }
+
+    /**
+     * Builds a Token Vault request with a caller-supplied subject-token-type, resolving the domain
+     * from the given request. See {@link #getTokenForConnection(String, String, String)} for
+     * details and the domain-binding caveat.
+     *
+     * @param connection       the federated connection name.
+     * @param subjectToken     the Auth0 token to exchange.
+     * @param subjectTokenType the subject-token-type URN describing {@code subjectToken}.
+     * @param request          the current HTTP request, used to resolve the domain.
+     * @return a {@link ConnectionTokenRequest} to configure and execute.
+     */
+    public ConnectionTokenRequest getTokenForConnection(String connection, String subjectToken, String subjectTokenType, HttpServletRequest request) {
+        Validate.notNull(connection, "connection must not be null");
+        Validate.notNull(subjectToken, "subjectToken must not be null");
+        Validate.notNull(subjectTokenType, "subjectTokenType must not be null");
+        Validate.notNull(request, "request must not be null");
+        return requestProcessor.buildConnectionTokenRequest(connection, subjectToken, subjectTokenType, request);
+    }
+
 }

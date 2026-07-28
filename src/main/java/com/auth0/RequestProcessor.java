@@ -218,6 +218,59 @@ class RequestProcessor {
     }
 
     /**
+     * Builds a {@link ConnectionTokenRequest} to exchange an Auth0 subject token for an external
+     * identity provider's access token (Token Vault) against the given domain. The domain is
+     * supplied explicitly because a connection exchange can occur outside of an HTTP request, where
+     * the {@link DomainProvider} cannot resolve it.
+     *
+     * @param connection       the federated connection name (e.g. {@code google-oauth2}).
+     * @param subjectToken     the Auth0 token to exchange.
+     * @param subjectTokenType the subject-token-type URN describing {@code subjectToken}.
+     * @param domain           the Auth0 domain to target.
+     * @return a {@link ConnectionTokenRequest} ready to configure and execute.
+     */
+    ConnectionTokenRequest buildConnectionTokenRequest(
+            String connection, String subjectToken, String subjectTokenType, String domain) {
+        AuthAPI client = createClientForDomain(domain);
+        String issuer = constructIssuer(domain);
+        return new ConnectionTokenRequest(client, connection, subjectToken, subjectTokenType, domain, issuer);
+    }
+
+    /**
+     * Builds a {@link ConnectionTokenRequest} using the statically configured domain. Only valid
+     * when the controller was configured with a fixed domain; when a {@link DomainResolver} is in
+     * use the domain must be supplied explicitly.
+     *
+     * @param connection       the federated connection name.
+     * @param subjectToken     the Auth0 token to exchange.
+     * @param subjectTokenType the subject-token-type URN describing {@code subjectToken}.
+     * @return a {@link ConnectionTokenRequest} ready to configure and execute.
+     * @throws IllegalStateException if the controller was configured with a {@link DomainResolver}.
+     */
+    ConnectionTokenRequest buildConnectionTokenRequest(
+            String connection, String subjectToken, String subjectTokenType) {
+        if (!(domainProvider instanceof StaticDomainProvider)) {
+            throw new IllegalStateException("A domain is required when using a DomainResolver; call the getTokenForConnection overload that accepts a domain.");
+        }
+        return buildConnectionTokenRequest(connection, subjectToken, subjectTokenType, domainProvider.getDomain(null));
+    }
+
+    /**
+     * Builds a {@link ConnectionTokenRequest} resolving the domain from the given request via the
+     * configured {@link DomainProvider}. Works for both a fixed domain and a {@link DomainResolver}.
+     *
+     * @param connection       the federated connection name.
+     * @param subjectToken     the Auth0 token to exchange.
+     * @param subjectTokenType the subject-token-type URN describing {@code subjectToken}.
+     * @param request          the current HTTP request, used to resolve the domain.
+     * @return a {@link ConnectionTokenRequest} ready to configure and execute.
+     */
+    ConnectionTokenRequest buildConnectionTokenRequest(
+            String connection, String subjectToken, String subjectTokenType, HttpServletRequest request) {
+        return buildConnectionTokenRequest(connection, subjectToken, subjectTokenType, domainProvider.getDomain(request));
+    }
+
+    /**
      * Builds a {@link TokenExchangeRequest} to exchange an external {@code subject_token} for Auth0
      * tokens against the given domain. The domain is supplied explicitly because a token exchange
      * can occur outside of an HTTP request, where the {@link DomainProvider} cannot resolve it.

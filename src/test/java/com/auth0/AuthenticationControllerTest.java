@@ -431,6 +431,188 @@ public class AuthenticationControllerTest {
         assertThat(exception.getMessage(), is("subjectToken must not be null"));
     }
 
+    // --- getTokenForConnection (Token Vault) Tests ---
+
+    private static final String REFRESH_SUBJECT_TYPE = "urn:ietf:params:oauth:token-type:refresh_token";
+    private static final String ACCESS_SUBJECT_TYPE = "urn:ietf:params:oauth:token-type:access_token";
+
+    @Test
+    public void shouldGetTokenForConnectionWithRefreshTokenStaticDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "refreshToken", REFRESH_SUBJECT_TYPE))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnectionWithRefreshToken("google-oauth2", "refreshToken");
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "refreshToken", REFRESH_SUBJECT_TYPE);
+    }
+
+    @Test
+    public void shouldGetTokenForConnectionWithRefreshTokenExplicitDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "refreshToken", REFRESH_SUBJECT_TYPE, DOMAIN))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnectionWithRefreshToken("google-oauth2", "refreshToken", DOMAIN);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "refreshToken", REFRESH_SUBJECT_TYPE, DOMAIN);
+    }
+
+    @Test
+    public void shouldGetTokenForConnectionWithRefreshTokenFromRequest() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "refreshToken", REFRESH_SUBJECT_TYPE, request))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnectionWithRefreshToken("google-oauth2", "refreshToken", request);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "refreshToken", REFRESH_SUBJECT_TYPE, request);
+    }
+
+    @Test
+    public void shouldGetTokenForConnectionWithAccessTokenStaticDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "accessToken", ACCESS_SUBJECT_TYPE))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnectionWithAccessToken("google-oauth2", "accessToken");
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "accessToken", ACCESS_SUBJECT_TYPE);
+    }
+
+    @Test
+    public void shouldGetTokenForConnectionWithAccessTokenExplicitDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "accessToken", ACCESS_SUBJECT_TYPE, DOMAIN))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnectionWithAccessToken("google-oauth2", "accessToken", DOMAIN);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "accessToken", ACCESS_SUBJECT_TYPE, DOMAIN);
+    }
+
+    @Test
+    public void shouldGetTokenForConnectionWithAccessTokenFromRequest() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "accessToken", ACCESS_SUBJECT_TYPE, request))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnectionWithAccessToken("google-oauth2", "accessToken", request);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "accessToken", ACCESS_SUBJECT_TYPE, request);
+    }
+
+    @Test
+    public void shouldGetTokenForConnectionGenericStaticDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "subjectToken", "custom:type"))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnection("google-oauth2", "subjectToken", "custom:type");
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "subjectToken", "custom:type");
+    }
+
+    @Test
+    public void shouldGetTokenForConnectionGenericExplicitDomain() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "subjectToken", "custom:type", DOMAIN))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnection("google-oauth2", "subjectToken", "custom:type", DOMAIN);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "subjectToken", "custom:type", DOMAIN);
+    }
+
+    @Test
+    public void shouldGetTokenForConnectionGenericFromRequest() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+        ConnectionTokenRequest mockRequest = mock(ConnectionTokenRequest.class);
+        when(mockRequestProcessor.buildConnectionTokenRequest("google-oauth2", "subjectToken", "custom:type", request))
+                .thenReturn(mockRequest);
+
+        ConnectionTokenRequest result = controller.getTokenForConnection("google-oauth2", "subjectToken", "custom:type", request);
+
+        assertThat(result, is(mockRequest));
+        verify(mockRequestProcessor).buildConnectionTokenRequest("google-oauth2", "subjectToken", "custom:type", request);
+    }
+
+    @Test
+    public void shouldThrowWhenConnectionIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.getTokenForConnectionWithRefreshToken(null, "refreshToken"));
+        assertThat(exception.getMessage(), is("connection must not be null"));
+    }
+
+    @Test
+    public void shouldThrowWhenRefreshTokenIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.getTokenForConnectionWithRefreshToken("google-oauth2", null));
+        assertThat(exception.getMessage(), is("refreshToken must not be null"));
+    }
+
+    @Test
+    public void shouldThrowWhenAccessTokenIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.getTokenForConnectionWithAccessToken("google-oauth2", null));
+        assertThat(exception.getMessage(), is("accessToken must not be null"));
+    }
+
+    @Test
+    public void shouldThrowWhenSubjectTokenTypeIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.getTokenForConnection("google-oauth2", "subjectToken", null));
+        assertThat(exception.getMessage(), is("subjectTokenType must not be null"));
+    }
+
+    @Test
+    public void shouldThrowWhenGetTokenForConnectionDomainIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.getTokenForConnectionWithRefreshToken("google-oauth2", "refreshToken", (String) null));
+        assertThat(exception.getMessage(), is("domain must not be null"));
+    }
+
+    @Test
+    public void shouldThrowWhenGetTokenForConnectionRequestIsNull() {
+        AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> controller.getTokenForConnectionWithRefreshToken("google-oauth2", "refreshToken", (HttpServletRequest) null));
+        assertThat(exception.getMessage(), is("request must not be null"));
+    }
+
     // --- backChannelAuthorize Tests ---
 
     @Test

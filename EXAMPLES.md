@@ -282,6 +282,58 @@ Tokens tokens = controller.loginWithCustomTokenExchange("EXTERNAL-SUBJECT-TOKEN"
         .execute();
 ```
 
+## Token Vault (Federated Connection Access Tokens)
+
+[Token Vault](https://auth0.com/docs/secure/tokens/token-vault) exchanges an Auth0 token for an external identity provider's access token (for example Google, GitHub, or Slack), so your application can call that provider's API on the user's behalf. The returned access token is the external provider's token — opaque to your application — and the grant returns no ID token and no refresh token.
+
+The library remains stateless: your application owns storage of the subject token, caching of the resulting connection access token, and any concurrency control.
+
+The subject token can be an Auth0 refresh token or access token. Use the typed factory method that matches what you hold; a generic overload accepts a caller-supplied subject-token-type for other cases.
+
+```java
+// Exchange a refresh token for the connection's access token.
+Tokens tokens = controller.getTokenForConnectionWithRefreshToken("google-oauth2", "YOUR-REFRESH-TOKEN")
+        .execute();
+
+// Or exchange an access token.
+Tokens tokens = controller.getTokenForConnectionWithAccessToken("google-oauth2", "YOUR-ACCESS-TOKEN")
+        .execute();
+
+// The access token is the external provider's token; the ID and refresh tokens are null.
+String connectionAccessToken = tokens.getAccessToken();
+```
+
+Optionally set a `login_hint` — the user's ID within the identity provider (for example, the Google user ID when the connection is `google-oauth2`):
+
+```java
+Tokens tokens = controller.getTokenForConnectionWithRefreshToken("google-oauth2", "YOUR-REFRESH-TOKEN")
+        .withLoginHint("google-user-id")
+        .execute();
+```
+
+For subject-token-types other than the refresh-token and access-token variants, use the generic overload and pass the subject-token-type URN explicitly:
+
+```java
+Tokens tokens = controller.getTokenForConnection("google-oauth2", "YOUR-SUBJECT-TOKEN", "urn:ietf:params:oauth:token-type:refresh_token")
+        .execute();
+```
+
+### Using Token Vault with Multiple Custom Domains
+
+A connection exchange is bound to the domain the subject token was issued for at login. When using a `DomainResolver`, pass that domain explicitly — supply the value stored from `Tokens.getDomain()` at login. This is required because a connection exchange can occur outside of an HTTP request:
+
+```java
+Tokens tokens = controller.getTokenForConnectionWithRefreshToken("google-oauth2", "YOUR-REFRESH-TOKEN", "acme.auth0.com")
+        .execute();
+```
+
+Alternatively, pass the `HttpServletRequest` to let the resolver derive the domain. Note that if the resolver resolves the request to a different domain than the one the subject token was issued for, Auth0 will reject the grant:
+
+```java
+Tokens tokens = controller.getTokenForConnectionWithRefreshToken("google-oauth2", "YOUR-REFRESH-TOKEN", request)
+        .execute();
+```
+
 ## Client-Initiated Backchannel Authentication (CIBA)
 
 [CIBA](https://auth0.com/docs/get-started/authentication-and-authorization-flow/client-initiated-backchannel-authentication-flow) is a decoupled flow: the application initiates authentication and the user approves it out-of-band on a separate device (e.g., a push notification to their phone). It is a **two-step** flow:
