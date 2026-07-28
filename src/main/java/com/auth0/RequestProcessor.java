@@ -8,6 +8,8 @@ import com.auth0.exception.IdTokenValidationException;
 import com.auth0.exception.PublicKeyProviderException;
 import com.auth0.jwt.JWT;
 import com.auth0.json.auth.BackChannelTokenResponse;
+import com.auth0.jwt.interfaces.Claim;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.net.TokenRequest;
 import com.auth0.jwk.Jwk;
@@ -24,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -49,6 +52,9 @@ class RequestProcessor {
     private static final String KEY_FORM_POST = "form_post";
     private static final String KEY_MAX_AGE = "max_age";
     private static final String CIBA_GRANT_TYPE = "urn:openid:params:grant-type:ciba";
+
+    // Upper bound for a valid session_expiry (Unix seconds)
+    private static final long MAX_SESSION_EXPIRY_SECONDS = 10_000_000_000L;
 
     private final DomainProvider domainProvider;
     private final String responseType;
@@ -532,7 +538,86 @@ class RequestProcessor {
             throw new IdentityVerificationException(API_ERROR, "An error occurred while exchanging the authorization code.", e);
         }
         // Keep the front-channel ID Token and the code-exchange Access Token.
-        return mergeTokens(frontChannelTokens, codeExchangeTokens);
+        Tokens tokens = mergeTokens(frontChannelTokens, codeExchangeTokens);
+        return withSessionExpiry(tokens);
+    }
+
+    /**
+     * Reads the IPSIE {@code session_expiry} claim from the verified ID token and stamps it onto
+     * the returned {@link Tokens} so the application can persist it and enforce the upstream IdP
+     * session ceiling on subsequent reads.
+     * <p>
+     * The claim is an integer Unix timestamp (seconds since epoch). When it is absent the tokens
+     * are returned unchanged (no ceiling). The value is developer-controlled (it may be stamped by a
+     * Post-Login Action), so it is validated rather than trusted: a non-numeric value, or one large
+     * enough to be milliseconds-since-epoch ({@code >= 10_000_000_000}), is treated as "no ceiling"
+     * rather than silently disabling enforcement with a date thousands of years out. As a lockout
+     * guard, if the ceiling is already in the past relative to the token's {@code iat}, the login is
+     * rejected rather than producing an already-expired session.
+     *
+     * @param tokens the merged tokens whose ID token is inspected.
+     * @return the same tokens augmented with {@code sessionExpiresAt}, or {@code tokens} unchanged
+     * when no usable {@code session_expiry} claim is present.
+     * @throws IdentityVerificationException if {@code session_expiry <= iat + leeway}.
+     */
+    private Tokens withSessionExpiry(Tokens tokens) throws IdentityVerificationException {
+        String idToken = tokens.getIdToken();
+        Long sessionExpiresAt = parseSessionExpiry(idToken);
+        if (sessionExpiresAt == null) {
+            return tokens;
+        }
+
+        // Applies the same leeway as Tokens#isSessionExpired so a ceiling that just clears login isn't immediately bounced by the very next read.
+        Date issuedAt = JWT.decode(idToken).getIssuedAt();
+        long referenceSeconds = issuedAt != null
+                ? Math.floorDiv(issuedAt.getTime(), 1000L)
+                : Math.floorDiv(System.currentTimeMillis(), 1000L);
+        if (sessionExpiresAt <= referenceSeconds + Tokens.DEFAULT_SESSION_EXPIRY_LEEWAY) {
+            throw new IdentityVerificationException(SESSION_EXPIRY_IN_PAST_ERROR,
+                    "The session_expiry claim is within the expiry leeway of the token's issued-at time; the session is already expired.");
+        }
+
+        return new Tokens(tokens.getAccessToken(), tokens.getIdToken(), tokens.getRefreshToken(),
+                tokens.getType(), tokens.getExpiresIn(), tokens.getScope(), tokens.getDomain(), tokens.getIssuer(), sessionExpiresAt);
+    }
+
+    /**
+     * Reads and validates the IPSIE {@code session_expiry} claim from an ID token, returning the
+     * ceiling as a Unix timestamp in seconds, or {@code null} when there is no usable ceiling.
+     * <p>
+     * A {@code null} ID token, an absent/null/non-numeric claim, a non-positive value
+     * ({@code <= 0}), or a value large enough to be milliseconds-since-epoch
+     * ({@code >= 10_000_000_000}) all yield {@code null} (meaning "no ceiling") rather than an
+     * exception, so a malformed or nonsensical value fails open instead of locking the user out, and
+     * absence is never mistaken for an expired session. The lockout guard (rejecting a valid ceiling
+     * already in the past at login) is applied separately by the caller, since it only applies to the
+     * login path.
+     *
+     * @param idToken the ID token to inspect, or {@code null}.
+     * @return the validated {@code session_expiry} in seconds since epoch, or {@code null}.
+     */
+    static Long parseSessionExpiry(String idToken) {
+        if (idToken == null) {
+            return null;
+        }
+        Claim sessionExpiryClaim = JWT.decode(idToken).getClaim("session_expiry");
+        if (sessionExpiryClaim.isMissing() || sessionExpiryClaim.isNull()) {
+            return null;
+        }
+        Long sessionExpiresAt = sessionExpiryClaim.asLong();
+        if (sessionExpiresAt == null) {
+            // Present but not a numeric value, ignore rather than fail, matching "no ceiling".
+            return null;
+        }
+        // A zero or negative isn't a real ceiling, so we fail open rather than lock the user out.
+        if (sessionExpiresAt <= 0) {
+            return null;
+        }
+        // A milliseconds value reads as a far future date and silently turns enforcement off.
+        if (sessionExpiresAt >= MAX_SESSION_EXPIRY_SECONDS) {
+            return null;
+        }
+        return sessionExpiresAt;
     }
 
     /**

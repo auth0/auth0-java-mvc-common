@@ -5,6 +5,8 @@ import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
 import com.auth0.net.TokenRequest;
 
+import static com.auth0.Tokens.DEFAULT_SESSION_EXPIRY_LEEWAY;
+
 /**
  * Class to exchange a refresh token for a new set of {@link Tokens}, optionally targeting a
  * specific {@code audience} and/or {@code scope}. This exposes Auth0's refresh-token grant,
@@ -27,6 +29,7 @@ public class RenewAuthRequest {
     private final String issuer;
     private String audience;
     private String scope;
+    private Long sessionExpiresAt;
 
     RenewAuthRequest(AuthAPI client, String refreshToken, String domain, String issuer) {
         this.client = client;
@@ -63,17 +66,58 @@ public class RenewAuthRequest {
     }
 
     /**
+     * Supplies the upstream IdP session ceiling ({@code session_expiry}, see the IPSIE SL1 profile)
+     * that the application persisted at login from {@link Tokens#getSessionExpiresAt()}. The library
+     * is stateless and does not remember it across requests, so it must be handed back here for the
+     * ceiling to be enforced on refresh.
+     * <p>
+     * When set, {@link #execute()} enforces the ceiling in two ways:
+     * <ul>
+     *   <li><strong>Gate:</strong> if the ceiling has already passed, {@link #execute()} throws a
+     *   {@link SessionExpiredException} <em>before</em> contacting the token endpoint, so a renewed
+     *   access token can never outlive the session ceiling.</li>
+     *   <li><strong>Carry-forward:</strong> the refresh-token grant returns no ID token (hence no
+     *   fresh {@code session_expiry}), so the returned {@link Tokens} carries this same ceiling
+     *   forward via {@link Tokens#getSessionExpiresAt()} rather than dropping it to {@code null}
+     *   ("no ceiling"). Only a newly-emitted, valid {@code session_expiry} in the response replaces
+     *   it.</li>
+     * </ul>
+     * Passing {@code null} (the default) means "no known ceiling": no gate is applied and the
+     * returned tokens carry no ceiling unless the response itself provides one.
+     *
+     * @param sessionExpiresAt the persisted {@code session_expiry} ceiling (Unix seconds), or
+     *                         {@code null} for no ceiling.
+     * @return this request instance for fluent chaining.
+     */
+    public RenewAuthRequest withSessionExpiresAt(Long sessionExpiresAt) {
+        this.sessionExpiresAt = sessionExpiresAt;
+        return this;
+    }
+
+    /**
      * Executes the refresh-token grant against Auth0 and returns the resulting tokens.
      * <p>
      * The refresh-token grant does not return an ID token, so {@link Tokens#getIdToken()} is
      * typically null. When refresh-token rotation is enabled, the returned
      * {@link Tokens#getRefreshToken()} is a new refresh token that supersedes the one used here;
      * the application is responsible for persisting it.
+     * <p>
+     * When a session ceiling was supplied via {@link #withSessionExpiresAt(Long)}, it is enforced:
+     * an already-passed ceiling short-circuits with a {@link SessionExpiredException} before any
+     * network call, and the ceiling is carried forward onto the returned tokens (see that method).
      *
      * @return the {@link Tokens} obtained from the grant, including the granted scope.
-     * @throws Auth0Exception if the request to the Auth0 server failed.
+     * @throws SessionExpiredException if the supplied session ceiling has already passed.
+     * @throws Auth0Exception          if the request to the Auth0 server failed.
      */
-    public Tokens execute() throws Auth0Exception {
+    public Tokens execute() throws Auth0Exception, SessionExpiredException {
+        // Gate: never refresh past the IdP session ceiling, the renewed access token must not
+        // outlive the session. Checked before the network call so no token is minted.
+        if (Tokens.isSessionExpired(sessionExpiresAt, DEFAULT_SESSION_EXPIRY_LEEWAY)) {
+            throw new SessionExpiredException(
+                    "The session_expiry ceiling has passed; the refresh token must not be exchanged. Re-authenticate instead.");
+        }
+
         TokenRequest request = client.renewAuth(refreshToken);
         if (audience != null) {
             request.setAudience(audience);
@@ -82,7 +126,10 @@ public class RenewAuthRequest {
             request.setScope(scope);
         }
         TokenHolder holder = request.execute().getBody();
+
+
+        // the ceiling is fixed at login and does not advance on refresh, so the supplied value is always re-stamped unchanged.
         return new Tokens(holder.getAccessToken(), holder.getIdToken(), holder.getRefreshToken(),
-                holder.getTokenType(), holder.getExpiresIn(), holder.getScope(), domain, issuer);
+                holder.getTokenType(), holder.getExpiresIn(), holder.getScope(), domain, issuer, sessionExpiresAt);
     }
 }

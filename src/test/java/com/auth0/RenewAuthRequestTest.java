@@ -3,6 +3,8 @@ package com.auth0;
 import com.auth0.client.auth.AuthAPI;
 import com.auth0.exception.Auth0Exception;
 import com.auth0.json.auth.TokenHolder;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.net.Response;
 import com.auth0.net.TokenRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +14,7 @@ import org.mockito.MockitoAnnotations;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsNull.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -99,5 +102,80 @@ public class RenewAuthRequestTest {
         RenewAuthRequest request = new RenewAuthRequest(mockClient, REFRESH_TOKEN, DOMAIN, ISSUER);
 
         assertThrows(Auth0Exception.class, request::execute);
+    }
+
+    @Test
+    public void shouldGateRefreshWhenSessionCeilingHasPassed() throws Exception {
+        RenewAuthRequest request = new RenewAuthRequest(mockClient, REFRESH_TOKEN, DOMAIN, ISSUER);
+
+        assertThrows(SessionExpiredException.class,
+                () -> request.withSessionExpiresAt(nowSeconds() - 3600).execute());
+
+        verify(mockTokenRequest, never()).execute();
+    }
+
+    @Test
+    public void shouldNotGateRefreshWhenSessionCeilingIsInFuture() throws Exception {
+        RenewAuthRequest request = new RenewAuthRequest(mockClient, REFRESH_TOKEN, DOMAIN, ISSUER);
+
+        request.withSessionExpiresAt(nowSeconds() + 3600).execute();
+
+        verify(mockTokenRequest).execute();
+    }
+
+    @Test
+    public void shouldNotGateRefreshWhenNoSessionCeilingSupplied() throws Exception {
+        RenewAuthRequest request = new RenewAuthRequest(mockClient, REFRESH_TOKEN, DOMAIN, ISSUER);
+
+        request.execute();
+
+        verify(mockTokenRequest).execute();
+    }
+
+    @Test
+    public void shouldCarryForwardSuppliedCeilingWhenResponseHasNone() throws Exception {
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+        long ceiling = nowSeconds() + 3600;
+
+        RenewAuthRequest request = new RenewAuthRequest(mockClient, REFRESH_TOKEN, DOMAIN, ISSUER);
+
+        Tokens tokens = request.withSessionExpiresAt(ceiling).execute();
+
+        assertThat(tokens.getSessionExpiresAt(), is(ceiling));
+    }
+
+    @Test
+    public void shouldLeaveCeilingNullWhenNoneSuppliedAndResponseHasNone() throws Exception {
+        when(mockTokenHolder.getIdToken()).thenReturn(null);
+
+        RenewAuthRequest request = new RenewAuthRequest(mockClient, REFRESH_TOKEN, DOMAIN, ISSUER);
+
+        Tokens tokens = request.execute();
+
+        assertThat(tokens.getSessionExpiresAt(), is(nullValue()));
+    }
+
+    @Test
+    public void shouldKeepSuppliedCeilingEvenWhenResponseCarriesADifferentOne() throws Exception {
+        // The ceiling is fixed at login (write-once): a session_expiry in the refresh response must
+        // not move it. The response token is also unverified here, so its claims must not be trusted.
+        long suppliedCeiling = nowSeconds() + 3600;
+        when(mockTokenHolder.getIdToken()).thenReturn(idTokenWithSessionExpiry(nowSeconds() + 7200));
+
+        RenewAuthRequest request = new RenewAuthRequest(mockClient, REFRESH_TOKEN, DOMAIN, ISSUER);
+
+        Tokens tokens = request.withSessionExpiresAt(suppliedCeiling).execute();
+
+        assertThat(tokens.getSessionExpiresAt(), is(suppliedCeiling));
+    }
+
+    private static long nowSeconds() {
+        return Math.floorDiv(System.currentTimeMillis(), 1000L);
+    }
+
+    private static String idTokenWithSessionExpiry(long sessionExpiry) {
+        return JWT.create()
+                .withClaim("session_expiry", sessionExpiry)
+                .sign(Algorithm.none());
     }
 }
