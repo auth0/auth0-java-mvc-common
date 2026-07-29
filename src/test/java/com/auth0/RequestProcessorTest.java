@@ -216,6 +216,68 @@ public class RequestProcessorTest {
         verify(spy).createClientForDomain(resolvedDomain);
     }
 
+    // --- Connection Token (Token Vault) Tests ---
+
+    @Test
+    public void shouldBuildConnectionTokenRequestForExplicitDomain() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        ConnectionTokenRequest result = spy.buildConnectionTokenRequest(
+                "google-oauth2", "subjectToken", "urn:ietf:params:oauth:token-type:refresh_token", DOMAIN);
+
+        assertThat(result, is(notNullValue()));
+        verify(spy).createClientForDomain(DOMAIN);
+    }
+
+    @Test
+    public void shouldBuildConnectionTokenRequestFromStaticDomain() {
+        RequestProcessor processor = new RequestProcessor.Builder(
+                new StaticDomainProvider(DOMAIN),
+                RESPONSE_TYPE_CODE,
+                CLIENT_ID,
+                CLIENT_SECRET)
+                .withJwkProvider(mockJwkProvider)
+                .build();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        ConnectionTokenRequest result = spy.buildConnectionTokenRequest(
+                "google-oauth2", "subjectToken", "urn:ietf:params:oauth:token-type:refresh_token");
+
+        assertThat(result, is(notNullValue()));
+        verify(spy).createClientForDomain(DOMAIN);
+    }
+
+    @Test
+    public void shouldThrowOnNoArgConnectionTokenWhenUsingResolver() {
+        RequestProcessor processor = createDefaultRequestProcessor();
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> processor.buildConnectionTokenRequest(
+                        "google-oauth2", "subjectToken", "urn:ietf:params:oauth:token-type:refresh_token"));
+        assertThat(exception.getMessage(), containsString("A domain is required when using a DomainResolver"));
+    }
+
+    @Test
+    public void shouldBuildConnectionTokenRequestResolvingDomainFromRequest() {
+        String resolvedDomain = "resolved-domain.auth0.com";
+        when(mockDomainProvider.getDomain(request)).thenReturn(resolvedDomain);
+
+        RequestProcessor processor = createDefaultRequestProcessor();
+        RequestProcessor spy = spy(processor);
+        doReturn(mockAuthAPI).when(spy).createClientForDomain(anyString());
+
+        ConnectionTokenRequest result = spy.buildConnectionTokenRequest(
+                "google-oauth2", "subjectToken", "urn:ietf:params:oauth:token-type:refresh_token", request);
+
+        assertThat(result, is(notNullValue()));
+        verify(mockDomainProvider).getDomain(request);
+        verify(spy).createClientForDomain(resolvedDomain);
+    }
+
     // --- Custom Token Exchange Tests ---
 
     @Test

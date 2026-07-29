@@ -158,6 +158,7 @@ Beyond the interactive login flow above, the `AuthenticationController` supports
 - **Refresh Token Grant (MRRT)** — exchange a refresh token for fresh tokens, including Multi-Resource Refresh Token flows that target multiple APIs. See [EXAMPLES.md](./EXAMPLES.md#refresh-token-grant-mrrt).
 - **Custom Token Exchange (CTE)** — exchange an external `subject_token` for Auth0 tokens (RFC 8693). See [EXAMPLES.md](./EXAMPLES.md#custom-token-exchange-cte).
 - **Client-Initiated Backchannel Authentication (CIBA)** — a decoupled flow where the user approves authentication out-of-band on a separate device. See [EXAMPLES.md](./EXAMPLES.md#client-initiated-backchannel-authentication-ciba).
+- **Token Vault (Federated Connection Access Tokens)** — exchange an Auth0 token for an external identity provider's access token to call that provider's API on the user's behalf. See [EXAMPLES.md](./EXAMPLES.md#token-vault-federated-connection-access-tokens).
 
 ## API Reference
 
