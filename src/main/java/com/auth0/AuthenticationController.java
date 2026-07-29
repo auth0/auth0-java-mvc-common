@@ -16,6 +16,9 @@ import java.util.Map;
 @SuppressWarnings({ "WeakerAccess", "UnusedReturnValue", "SameParameterValue" })
 public class AuthenticationController {
 
+    private static final String SUBJECT_TOKEN_TYPE_REFRESH_TOKEN = "urn:ietf:params:oauth:token-type:refresh_token";
+    private static final String SUBJECT_TOKEN_TYPE_ACCESS_TOKEN = "urn:ietf:params:oauth:token-type:access_token";
+
     private final RequestProcessor requestProcessor;
 
     /**
@@ -632,7 +635,7 @@ public class AuthenticationController {
     public ConnectionTokenRequest getTokenForConnectionWithRefreshToken(String connection, String refreshToken) {
         Validate.notNull(connection, "connection must not be null");
         Validate.notNull(refreshToken, "refreshToken must not be null");
-        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, "urn:ietf:params:oauth:token-type:refresh_token");
+        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, SUBJECT_TOKEN_TYPE_REFRESH_TOKEN);
     }
 
     /**
@@ -651,7 +654,7 @@ public class AuthenticationController {
         Validate.notNull(connection, "connection must not be null");
         Validate.notNull(refreshToken, "refreshToken must not be null");
         Validate.notNull(domain, "domain must not be null");
-        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, "urn:ietf:params:oauth:token-type:refresh_token", domain);
+        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, SUBJECT_TOKEN_TYPE_REFRESH_TOKEN, domain);
     }
 
     /**
@@ -673,7 +676,7 @@ public class AuthenticationController {
         Validate.notNull(connection, "connection must not be null");
         Validate.notNull(refreshToken, "refreshToken must not be null");
         Validate.notNull(request, "request must not be null");
-        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, "urn:ietf:params:oauth:token-type:refresh_token", request);
+        return requestProcessor.buildConnectionTokenRequest(connection, refreshToken, SUBJECT_TOKEN_TYPE_REFRESH_TOKEN, request);
     }
 
     /**
@@ -693,7 +696,7 @@ public class AuthenticationController {
     public ConnectionTokenRequest getTokenForConnectionWithAccessToken(String connection, String accessToken) {
         Validate.notNull(connection, "connection must not be null");
         Validate.notNull(accessToken, "accessToken must not be null");
-        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, "urn:ietf:params:oauth:token-type:access_token");
+        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, SUBJECT_TOKEN_TYPE_ACCESS_TOKEN);
     }
 
     /**
@@ -712,7 +715,7 @@ public class AuthenticationController {
         Validate.notNull(connection, "connection must not be null");
         Validate.notNull(accessToken, "accessToken must not be null");
         Validate.notNull(domain, "domain must not be null");
-        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, "urn:ietf:params:oauth:token-type:access_token", domain);
+        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, SUBJECT_TOKEN_TYPE_ACCESS_TOKEN, domain);
     }
 
     /**
@@ -734,7 +737,7 @@ public class AuthenticationController {
         Validate.notNull(connection, "connection must not be null");
         Validate.notNull(accessToken, "accessToken must not be null");
         Validate.notNull(request, "request must not be null");
-        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, "urn:ietf:params:oauth:token-type:access_token", request);
+        return requestProcessor.buildConnectionTokenRequest(connection, accessToken, SUBJECT_TOKEN_TYPE_ACCESS_TOKEN, request);
     }
 
     /**
