@@ -1,5 +1,18 @@
 # Change Log
 
+## [2.0.0-beta.2](https://github.com/auth0/auth0-java-mvc-common/tree/2.0.0-beta.2) (2026-07-31)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/2.0.0-beta.1...2.0.0-beta.2)
+
+**Added**
+- **Token Vault**: exchange an Auth0 token for an external identity provider's access token via the federated-connection grant, so applications can call a provider's API (Google, GitHub, Slack, …) on the user's behalf.[\#259](https://github.com/auth0/auth0-java-mvc-common/pull/259) ([kailash-b](https://github.com/kailash-b))
+
+- **IPSIE `session_expiry`** (upstream IdP session ceiling): when an enterprise connection has "Use ID Token for Session Expiry" enabled, the `session_expiry` claim is read and validated at login and exposed via `Tokens.getSessionExpiresAt()` ([tanya732](https://github.com/tanya732))
+
+**Changed**
+- Upgraded `com.auth0:auth0` from 3.10.0 to 4.1.0 [\#258](https://github.com/auth0/auth0-java-mvc-common/pull/258) ([kailash-b](https://github.com/kailash-b))
+
+---
+
 ## [2.0.0-beta.1](https://github.com/auth0/auth0-java-mvc-common/tree/2.0.0-beta.1) (2026-07-15)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/2.0.0-beta.0...2.0.0-beta.1)
 
