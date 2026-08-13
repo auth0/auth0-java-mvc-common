@@ -19,19 +19,27 @@
 
 ## Typical mock setup
 
-```java
-@Mock private AuthAPI client;
+`AuthenticationController` has a `@VisibleForTesting` package-private constructor that takes a `RequestProcessor` (and a `getRequestProcessor()` getter). Inject a mock through it to drive the controller in tests:
 
-AuthenticationController.Builder builderSpy =
-    spy(AuthenticationController.newBuilder(domain, clientId, clientSecret));
-doReturn(client).when(builderSpy).createAPIClient(...);
+```java
+@Mock private RequestProcessor mockRequestProcessor;
+
+AuthenticationController controller = new AuthenticationController(mockRequestProcessor);
+when(mockRequestProcessor.process(request, response)).thenReturn(mockTokens);
+// ...
+verify(mockRequestProcessor).process(request, response);
 ```
 
 ## Cookie assertions
 
+Cookie names are transaction-keyed (`com.auth0.state.<state>`, `com.auth0.nonce.<state>`, with a leading `_` on the legacy fallback). Match on substrings rather than the full `Set-Cookie` string:
+
 ```java
 List<String> headers = response.getHeaders("Set-Cookie");
-assertThat(headers, hasItem("com.auth0.state=value; HttpOnly; Max-Age=600; SameSite=Lax"));
+assertThat(headers, hasItem(containsString("com.auth0.state.asdfghjkl=asdfghjkl")));
+assertThat(headers, hasItem(allOf(
+    containsString("com.auth0.state.asdfghjkl=asdfghjkl"),
+    containsString("SameSite=Lax"))));
 ```
 
 ## Coverage
