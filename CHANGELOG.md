@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.12.1](https://github.com/auth0/auth0-java-mvc-common/tree/1.12.1) (2026-09-08)
+[Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.12.0...1.12.1)
+
+**Added**
+- chore: update bouncycastle [\#263](https://github.com/auth0/auth0-java-mvc-common/pull/263) ([tanya732](https://github.com/tanya732))
+- Bump com.auth0:jwks-rsa from 0.24.0 to 0.24.1 [\#226](https://github.com/auth0/auth0-java-mvc-common/pull/226) ([dependabot[bot]](https://github.com/apps/dependabot))
+
 ## [1.12.0](https://github.com/auth0/auth0-java-mvc-common/tree/1.12.0) (2026-04-09)
 [Full Changelog](https://github.com/auth0/auth0-java-mvc-common/compare/1.11.1...1.12.0)
 
